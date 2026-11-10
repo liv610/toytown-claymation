@@ -24,8 +24,8 @@ for (const m of doc.getRoot().listMeshes()) {
   m.setExtras({ ...m.getExtras(), simplified: true });
 }
 for (const m of doc.getRoot().listMeshes()) if (OVERRIDE[m.getName()]) m.setName(m.getName() + '');
-await doc.transform(simplify({ simplifier: MeshoptSimplifier, ratio: +ratioArg, error: +errArg, lockBorder: false }),
-  dedup(), prune(), quantize(), meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
+await doc.transform(simplify({ simplifier: MeshoptSimplifier, ratio: +ratioArg, error: +errArg, lockBorder: process.env.TT_LOCK === '1' }),
+  dedup(), prune({ keepAttributes: true }), quantize(), meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
 let after = 0; const per = [];
 for (const m of doc.getRoot().listMeshes()) for (const p of m.listPrimitives()) {
   const c = p.getIndices().getCount() / 3; after += c; per.push([c, m.getName()]);

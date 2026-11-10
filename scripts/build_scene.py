@@ -161,6 +161,9 @@ def door_angle(f):
 def main():
     o = args()
     build()
+    if "--hq" in sys.argv:
+        from tt import hq
+        hq.enhance()
     from tt import passes
     from tt import buildings as B
     s = bpy.context.scene
@@ -172,6 +175,8 @@ def main():
         res = tuple(int(v) for v in o["res"].split("x")) if o["res"] else ((800, 450) if o["preview"] else (2560, 1440))
         samples = int(o["samples"]) if o["samples"] else (32 if o["preview"] else 384)
         world.render_settings(res, samples, preview=o["preview"])
+        if "--hq" in sys.argv:
+            s.view_settings.exposure = 0.85
         world.compositor()
         if o["save"]:
             p = os.path.join(root, "blender", "toytown_stage1.blend")

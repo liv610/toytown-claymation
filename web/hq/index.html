@@ -1,0 +1,118 @@
+<!doctype html>
+<meta charset=utf-8><meta name=viewport content='width=device-width, initial-scale=1'>
+<title>Toy Town Quality Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Inter:wght@400;500;600&display=swap">
+<style>
+  /* Layout: the set fills the screen; a before/after switch is the one prominent control; camera
+     chips and the measurement drawer stay quiet. */
+  :root {
+    --night: #0f0b12; --bar: rgba(20, 13, 19, 0.74); --ink: #f4e7d2; --muted: #c4b19b; --ember: #f0a54a;
+    --line: rgba(244, 231, 210, 0.16);
+    --display: "Marcellus", "Georgia", serif; --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body { background: var(--night); color: var(--ink); font-family: var(--body); overflow: hidden; }
+  canvas { position: fixed; inset: 0; width: 100% !important; height: 100% !important; display: block; touch-action: none; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; z-index: 9; background: var(--night);
+             font: 400 1.2rem/1.5 var(--display); color: var(--muted); text-align: center; }
+  .label { position: fixed; z-index: 3; top: calc(14px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px));
+           pointer-events: none; text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6); }
+  .label h1 { margin: 0; font: 400 clamp(1.4rem, 3vw, 2.1rem)/1 var(--display); }
+  .label p { margin: 6px 0 0; font: 500 0.7rem/1 var(--body); letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+  .ab { position: fixed; z-index: 3; top: calc(14px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+        display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--bar); }
+  .ab button { border: 0; border-radius: 0; padding: 10px 16px; font-weight: 600; }
+  .bar { position: fixed; z-index: 3; left: 0; right: 0; bottom: 0; display: grid; gap: 8px;
+         padding: 18px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+         background: linear-gradient(to top, var(--bar), rgba(20, 13, 19, 0)); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .grow { flex: 1 1 auto; }
+  button { font: 500 0.8rem/1 var(--body); color: var(--ink); background: rgba(20, 13, 19, 0.55);
+           border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; cursor: pointer; }
+  button:hover { border-color: var(--ember); }
+  button:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
+  button[aria-pressed="true"] { background: var(--ember); border-color: var(--ember); color: #24140a; }
+  .tag { font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  #hud { font-variant-numeric: tabular-nums; font-size: 0.74rem; color: var(--muted); }
+  #drawer { position: fixed; z-index: 4; top: 0; right: 0; bottom: 0; width: min(520px, 100%); overflow: auto;
+            background: rgba(16, 10, 15, 0.93); border-left: 1px solid var(--line); padding: 18px max(16px, env(safe-area-inset-right, 0px)) 18px 16px; }
+  #drawer h2 { margin: 0 0 6px; font: 400 1.4rem/1.2 var(--display); }
+  #drawer p { margin: 0 0 12px; font-size: 0.82rem; line-height: 1.5; color: var(--muted); }
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.76rem; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 4px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+  th { color: var(--muted); font-weight: 500; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 0.78rem; margin: 10px 0; }
+  dt { color: var(--muted); } dd { margin: 0; overflow-wrap: anywhere; }
+</style>
+
+<div id="loading"><div>Toy Town<br><span id="loadmsg" style="font: 400 0.8rem var(--body); letter-spacing: 0.1em">Unpacking the set…</span></div></div>
+<div class="label"><h1>The Toy Shop</h1><p id="ver">After: baked miniature set</p></div>
+<div class="ab" role="group" aria-label="Version">
+  <button id="m-before" type="button" aria-pressed="false">Before</button>
+  <button id="m-after" type="button" aria-pressed="true">After</button>
+</div>
+<div class="bar">
+  <div class="row" id="cams" role="group" aria-label="Cameras"><span class="tag">Camera</span></div>
+  <div class="row">
+    <button id="door" type="button">Toy shop door</button>
+    <button id="twos" type="button" aria-pressed="true">Stop-motion</button>
+    <span class="grow"></span><span id="hud"></span>
+    <button id="measure" type="button">Measure</button>
+  </div>
+</div>
+<aside id="drawer" hidden>
+  <div class="row"><h2 class="grow">Performance on this device</h2><button id="close" type="button">Close</button></div>
+  <p id="mstatus">Both versions, four cameras each, 90 frames per camera with a GPU sync after every frame.</p>
+  <div class="tablewrap"><table><thead><tr><th>Version</th><th>Camera</th><th>FPS</th><th>Avg ms</th><th>95th ms</th><th>Draws</th><th>Triangles</th></tr></thead><tbody id="rows"></tbody></table></div>
+  <dl id="mem"></dl>
+  <div class="row"><button id="copy" type="button">Copy results</button><span id="copied" class="tag"></span></div>
+</aside>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let api = null, last = null, fpsAcc = [];
+  window.TT_ASSETS = './assets/';
+  if (location.search.includes('b64')) window.TT_B64 = Object.fromEntries(['before', 'rest', 'door_live', 'marine', 'baked_shop', 'baked_pink', 'baked_door', 'baked_street', 'baked_props'].map((n) => [n + '.glb', './assets/' + n + '.glb.txt']));
+  const LABELS = { Hero: 'Hero', StreetLevel: 'Eye level', Facade: 'Facade', SnowCobbles: 'Snow + cobbles', DownTheStreet: 'Down the street', Entrance: 'Entrance', Lamp: 'Lamppost', Wide: 'Village', Reverse: 'Reverse' };
+  function setMode(m) { api && api.setMode(m); $('m-before').setAttribute('aria-pressed', m === 'before'); $('m-after').setAttribute('aria-pressed', m === 'after');
+    $('ver').textContent = m === 'after' ? 'After: baked miniature set' : 'Before: current real-time version'; }
+  window.TT_UI = {
+    status(m) { $('loadmsg').textContent = m; },
+    ready(a) {
+      api = a; $('loading').remove();
+      for (const k of Object.keys(LABELS)) {
+        if (!a.cams.includes(k)) continue;
+        const b = document.createElement('button'); b.type = 'button'; b.textContent = LABELS[k]; b.setAttribute('aria-pressed', k === 'Hero');
+        b.onclick = () => { a.goCam(k); document.querySelectorAll('#cams button').forEach((x) => x.setAttribute('aria-pressed', x === b)); };
+        $('cams').appendChild(b);
+      }
+    },
+    tick(dt, info) { fpsAcc.push(dt); if (fpsAcc.length > 60) fpsAcc.shift(); const f = fpsAcc.length / fpsAcc.reduce((s, x) => s + x, 0);
+      $('hud').textContent = `${Math.round(f)} fps · ${info.calls} draws · ${(info.triangles / 1e6).toFixed(1)}M tris`; },
+  };
+  $('m-before').onclick = () => setMode('before'); $('m-after').onclick = () => setMode('after');
+  $('door').onclick = () => api && api.toggleDoor();
+  $('twos').onclick = () => { const on = $('twos').getAttribute('aria-pressed') !== 'true'; $('twos').setAttribute('aria-pressed', on); api && api.stopMotion(on); };
+  $('close').onclick = () => { $('drawer').hidden = true; };
+  $('measure').onclick = async () => {
+    if (!api) return;
+    $('drawer').hidden = false; $('rows').innerHTML = ''; $('mem').innerHTML = ''; $('mstatus').textContent = 'Measuring… keep this tab in front.';
+    last = await api.measure(90, (r) => {
+      const tr = document.createElement('tr');
+      for (const v of [r.version, LABELS[r.camera] || r.camera, r.fps, r.avgMs, r.p95Ms, r.draws, (r.triangles / 1e6).toFixed(2) + 'M']) { const td = document.createElement('td'); td.textContent = v; tr.appendChild(td); }
+      $('rows').appendChild(tr);
+    });
+    const s = last.stats, l = last.load;
+    const rows = [['GPU', last.gpu], ['Canvas', last.canvas], ['Load time (both versions)', (l.totalMs / 1000).toFixed(1) + ' s'],
+      ['Baked textures in GPU memory', s.textureMB + ' MB'], ['Geometry, after', s.geometryAfterMB + ' MB'], ['Geometry, before', s.geometryBeforeMB + ' MB'],
+      ['Baked area triangles', (s.bakedTriangles / 1e6).toFixed(2) + 'M']];
+    for (const [k, v] of rows) { const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; $('mem').append(dt, dd); }
+    $('mstatus').textContent = 'Done.'; setMode('after');
+  };
+  $('copy').onclick = async () => { try { await navigator.clipboard.writeText(JSON.stringify(last, null, 1)); $('copied').textContent = 'Copied'; } catch (e) { $('copied').textContent = 'Copy blocked: select the table instead'; } };
+</script>
+<script type="importmap">{ "imports": { "three": "../vendor/three/build/three.module.js", "three/addons/": "../vendor/three/jsm/" } }</script>
+<script type="module" src="./main.js"></script>

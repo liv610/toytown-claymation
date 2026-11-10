@@ -12,3 +12,7 @@ web/hybrid/assets/_tmp.png
 web/hybrid/assets/base_lossless.png
 web/hybrid/assets/d_*.png
 web/sequence/dist/assets/*.txt
+# visual-quality experiment: big intermediates (rebuild with scripts/bake_hq.py + tools/post_hq.sh)
+renders/hq/*.blend
+renders/hq/bake/
+web/hq/assets/*_raw.glb

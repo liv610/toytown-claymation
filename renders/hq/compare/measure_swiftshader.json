@@ -1,0 +1,166 @@
+{
+ "rows": [
+  {
+   "version": "before",
+   "camera": "Hero",
+   "fps": 0.1,
+   "avgMs": 12283.1,
+   "p95Ms": 40737.4,
+   "draws": 646,
+   "triangles": 9408762
+  },
+  {
+   "version": "before",
+   "camera": "StreetLevel",
+   "fps": 0.1,
+   "avgMs": 11095.7,
+   "p95Ms": 35249.2,
+   "draws": 619,
+   "triangles": 9387570
+  },
+  {
+   "version": "before",
+   "camera": "Facade",
+   "fps": 0.1,
+   "avgMs": 12229.8,
+   "p95Ms": 39219.9,
+   "draws": 598,
+   "triangles": 9290232
+  },
+  {
+   "version": "before",
+   "camera": "DownTheStreet",
+   "fps": 0.1,
+   "avgMs": 9115.2,
+   "p95Ms": 28395.1,
+   "draws": 607,
+   "triangles": 9308046
+  },
+  {
+   "version": "after",
+   "camera": "Hero",
+   "fps": 0.1,
+   "avgMs": 9380.3,
+   "p95Ms": 30587.9,
+   "draws": 339,
+   "triangles": 8251487
+  },
+  {
+   "version": "after",
+   "camera": "StreetLevel",
+   "fps": 0.1,
+   "avgMs": 7484.8,
+   "p95Ms": 24362.4,
+   "draws": 318,
+   "triangles": 8231111
+  },
+  {
+   "version": "after",
+   "camera": "Facade",
+   "fps": 0.1,
+   "avgMs": 8745.4,
+   "p95Ms": 28201.4,
+   "draws": 330,
+   "triangles": 8175503
+  },
+  {
+   "version": "after",
+   "camera": "DownTheStreet",
+   "fps": 0.2,
+   "avgMs": 6054.9,
+   "p95Ms": 19390.1,
+   "draws": 300,
+   "triangles": 8150771
+  }
+ ],
+ "stats": {
+  "textureMB": 86.6,
+  "geometryAfterMB": 27.9,
+  "geometryBeforeMB": 30.8,
+  "bakedTriangles": 595440,
+  "calls": 300,
+  "triangles": 8150771
+ },
+ "load": {
+  "totalMs": 265,
+  "files": [
+   {
+    "name": "door_live.glb",
+    "kb": 3,
+    "ms": 15
+   },
+   {
+    "name": "baked_door.glb",
+    "kb": 45,
+    "ms": 31
+   },
+   {
+    "name": "marine.glb",
+    "kb": 668,
+    "ms": 39
+   },
+   {
+    "name": "baked_pink.glb",
+    "kb": 1162,
+    "ms": 71
+   },
+   {
+    "name": "baked_street.glb",
+    "kb": 891,
+    "ms": 95
+   },
+   {
+    "name": "baked_props.glb",
+    "kb": 777,
+    "ms": 100
+   },
+   {
+    "name": "baked_shop.glb",
+    "kb": 1385,
+    "ms": 104
+   },
+   {
+    "name": "rest.glb",
+    "kb": 2541,
+    "ms": 110
+   },
+   {
+    "name": "before.glb",
+    "kb": 4997,
+    "ms": 144
+   },
+   {
+    "name": "bake_door.webp",
+    "kb": null,
+    "ms": 19,
+    "px": 512
+   },
+   {
+    "name": "bake_shop.webp",
+    "kb": null,
+    "ms": 30,
+    "px": 2048
+   },
+   {
+    "name": "bake_props.webp",
+    "kb": null,
+    "ms": 29,
+    "px": 2048
+   },
+   {
+    "name": "bake_pink.webp",
+    "kb": null,
+    "ms": 29,
+    "px": 2048
+   },
+   {
+    "name": "bake_street.webp",
+    "kb": null,
+    "ms": 29,
+    "px": 2048
+   }
+  ]
+ },
+ "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+ "canvas": "1280x720"
+}
