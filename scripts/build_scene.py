@@ -22,9 +22,9 @@ from tt import palette as P  # noqa: E402
 
 def args():
     a = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-    o = {"job": None, "out": None, "cams": None, "border": None, "preview": "--preview" in a, "render": None, "res": None, "samples": None, "save": "--no-save" not in a,
+    o = {"strip": None, "job": None, "out": None, "cams": None, "border": None, "preview": "--preview" in a, "render": None, "res": None, "samples": None, "save": "--no-save" not in a,
          "cam": "Hero"}
-    for k in ("--render", "--res", "--samples", "--cam", "--border", "--job", "--out", "--cams"):
+    for k in ("--render", "--res", "--samples", "--cam", "--border", "--job", "--out", "--cams", "--strip"):
         if k in a:
             o[k[2:]] = a[a.index(k) + 1]
     return o
@@ -207,7 +207,23 @@ def main():
         door_objs = [c for c in hinge.children_recursive if c.type == 'MESH']
         bb = passes.screen_bbox(door_objs, cam)
         passes.camera_meta(cam, os.path.join(out, "camera.json"), extra={"door_bbox": bb, "groups": passes.GROUPS})
-        if job == "hero":
+        if job == "hero" and o.get("strip"):
+            # resumable: render one horizontal strip, noisy, with denoiser guides
+            i, n = (int(v) for v in o["strip"].split("/"))
+            ov = 24 / res[1]
+            y0 = max(0.0, 1 - (i + 1) / n - ov); y1 = min(1.0, 1 - i / n + ov)
+            s.cycles.use_denoising = False
+            sd = os.path.join(out, "strips", (f"s{i:02d}" if n == 14 else f"h{i:02d}"))
+            passes.setup_outputs(sd, lightgroups=True, denoise_groups=False)
+            s.render.filepath = os.path.join(sd, "beauty_")
+            s.render.use_border = True
+            s.render.use_crop_to_border = False
+            s.render.border_min_x, s.render.border_max_x = 0.0, 1.0
+            s.render.border_min_y, s.render.border_max_y = y0, y1
+            s.frame_set(1)
+            bpy.ops.render.render(write_still=True)
+            open(os.path.join(sd, "DONE"), "w").write(f"{y0} {y1}")
+        elif job == "hero":
             if o["save"]:
                 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(root, "blender", "toytown_stage1.blend"), compress=True)
             s.frame_set(1)

@@ -3,11 +3,11 @@
 //  - 3D snow + chimney smoke projected through the real camera, occluded by the depth pass
 //  - 2.5D parallax pan + zoom from the depth pass
 //  - the door: stop-motion crop frames rendered in Cycles, spliced in on click
-const A = './assets/';
+const A = window.TT_HYBRID || './assets/';
 const meta = await (await fetch(A + 'hybrid.json')).json();
 const cv = document.getElementById('c');
 const gl = cv.getContext('webgl2', { antialias: false, premultipliedAlpha: false });
-const hud = document.getElementById('hud');
+const hud = document.getElementById('stats') || document.getElementById('hud');
 const Q = new URLSearchParams(location.search);
 
 function loadImg(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
@@ -204,7 +204,7 @@ window.__openDoor = () => { doorDir = 1; };
 // ---------- render loop ----------
 function resize() { const d = Math.min(devicePixelRatio, 2); cv.width = innerWidth * d; cv.height = innerHeight * d; }
 addEventListener('resize', resize); resize();
-document.getElementById('loading').remove();
+document.getElementById('loading')?.remove();
 let now = 0, frames = 0, acc = 0, fps = 0, last = performance.now(), hoverAmt = 0;
 const baseCol = meta.flake_color;
 function frame(ms) {
@@ -252,7 +252,7 @@ function frame(ms) {
     gl.drawArrays(gl.POINTS, 0, n);
   }
   frames++; acc += dt; if (acc > 0.5) { fps = frames / acc; frames = 0; acc = 0; }
-  hud.textContent = `HYBRID (Cycles layers)   ${fps.toFixed(0)} fps\ndrag to pan · scroll to zoom · click the green door`;
+  if (hud) hud.textContent = `${fps.toFixed(0)} fps · Cycles render, relit live`;
   window.__fps = fps; window.__ready = true;
   requestAnimationFrame(frame);
 }

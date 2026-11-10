@@ -9,3 +9,5 @@ renders/stage2/stills_*/
 web/realtime/assets/toytown.glb
 web/node_modules/
 web/hybrid/assets/_tmp.png
+web/hybrid/assets/base_lossless.png
+web/hybrid/assets/d_*.png

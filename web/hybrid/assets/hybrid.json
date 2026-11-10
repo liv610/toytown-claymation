@@ -1,7 +1,7 @@
 {
  "res": [
-  320,
-  180
+  2560,
+  1440
  ],
  "base": "base.webp",
  "depth": "depth.png",
@@ -19,16 +19,16 @@
   "bg"
  ],
  "deltas": {
-  "shop": "d_shop.png",
-  "pink": "d_pink.png",
-  "lampW": "d_lampW.png",
-  "lampE": "d_lampE.png",
-  "tree1": "d_tree1.png",
-  "tree2": "d_tree2.png",
-  "tree3": "d_tree3.png",
-  "star": "d_star.png",
-  "garland": "d_garland.png",
-  "bg": "d_bg.png"
+  "shop": "d_shop.webp",
+  "pink": "d_pink.webp",
+  "lampW": "d_lampW.webp",
+  "lampE": "d_lampE.webp",
+  "tree1": "d_tree1.webp",
+  "tree2": "d_tree2.webp",
+  "tree3": "d_tree3.webp",
+  "star": "d_star.webp",
+  "garland": "d_garland.webp",
+  "bg": "d_bg.webp"
  },
  "delta_gain": 0.6,
  "camera": {
@@ -64,9 +64,9 @@
   "focus": 17.473611146211624
  },
  "flake_color": [
-  0.8533701300621033,
-  0.757594645023346,
-  0.6814997792243958
+  0.857807457447052,
+  0.7593571543693542,
+  0.6831750273704529
  ],
  "chimney": [
   -1.15,
@@ -82,10 +82,10 @@
    1
   ],
   "hotspot": [
-   113.34510803222656,
-   118.29799175262451,
-   131.21620178222656,
-   157.13864475488663
+   906.7608642578125,
+   946.3839340209961,
+   1049.7296142578125,
+   1257.109158039093
   ]
  }
 }

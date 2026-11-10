@@ -328,7 +328,10 @@ def run_fixed(o):
     out = o["out"]
     os.makedirs(out, exist_ok=True)
     t0 = time.time()
-    for fi in range(nfr):
+    start = int(o.get("start", 0))
+    for fi in range(start, nfr):
+        if os.path.exists(os.path.join(out, f"frame_{fi:04d}.png")) and o.get("resume"):
+            continue
         t = fi / fps
         comb, lg = S["combined"], S["lg"]
         if door:

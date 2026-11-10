@@ -96,6 +96,9 @@ def setup_outputs(out_dir, lightgroups=True, denoise_groups=True):
         return f
 
     links.new(rl.outputs['Image'], fout("combined").inputs[0])
+    if not denoise_groups:   # strip mode: keep the denoiser's guides, denoise after stitching
+        links.new(rl.outputs['Denoising Normal'], fout("dn_normal").inputs[0])
+        links.new(rl.outputs['Denoising Albedo'], fout("dn_albedo").inputs[0])
     links.new(rl.outputs['Depth'], fout("depth", True).inputs[0])
     links.new(rl.outputs['Mist'], fout("mist", True).inputs[0])
     if lightgroups:
