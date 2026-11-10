@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--PAGE-START-->
+<title>Toy Town Journey Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+  /* Layout: the miniature world fills the screen behind a calm action layer. The ways to help are always
+     one tap away (top bar on desktop, bottom bar on phones); the world adds context, never a gate.
+     Single night-time look, chosen to sit on the lamplit set. */
+  :root {
+    --night: #14132a; --panel: rgba(24, 21, 46, 0.9); --panel-solid: #1c1938; --raise: #27234a;
+    --ink: #f6ecda; --muted: #cdbfa9; --line: rgba(246, 236, 218, 0.17);
+    --gold: #f2b85c; --holly: #c4372c; --holly-hi: #d8473a; --on-holly: #fff8ee; --pine: #7fc4a0;
+    --display: "Fraunces", "Georgia", serif; --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --r: 14px; --bar-h: 64px;
+    color-scheme: dark;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  figure { margin: 0; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--night); color: var(--ink); font: 400 1rem/1.5 var(--body); overflow: hidden; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  h1, h2 { font-family: var(--display); font-weight: 600; text-wrap: balance; margin: 0; letter-spacing: -0.005em; }
+
+  /* ---------- world layers */
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; }
+  .backdrop { position: fixed; inset: 0; background: var(--night) center / cover no-repeat; transition: opacity 0.8s ease; }
+  .backdrop::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(20, 19, 42, 0.78), rgba(20, 19, 42, 0.15) 60%); }
+  .pins { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
+  .pin { position: absolute; left: 0; top: 0; pointer-events: auto; display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 0;
+         translate: -22px -22px; transition: opacity 0.25s; }
+  .pin-dot { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-size: 1.05rem; color: #2a1606;
+             background: radial-gradient(circle at 40% 35%, #ffe7b3, var(--gold)); box-shadow: 0 0 0 6px rgba(242, 184, 92, 0.25), 0 6px 18px rgba(0, 0, 0, 0.45);
+             animation: glow 2.4s ease-in-out infinite; }
+  .pin-label { font-weight: 700; font-size: 0.86rem; background: var(--panel); border: 1px solid var(--line); padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
+  .pin:hover .pin-dot, .pin:focus-visible .pin-dot { box-shadow: 0 0 0 9px rgba(242, 184, 92, 0.35), 0 6px 18px rgba(0, 0, 0, 0.45); }
+  .pin-off { opacity: 0; pointer-events: none; }
+  @keyframes glow { 50% { box-shadow: 0 0 0 11px rgba(242, 184, 92, 0.12), 0 6px 18px rgba(0, 0, 0, 0.45); } }
+  .flatmap-layer { position: fixed; inset: 0; z-index: 1; display: grid; place-items: center; background: #23314a; padding: 90px max(16px, env(safe-area-inset-right, 0px)) 120px max(16px, env(safe-area-inset-left, 0px)); transition: transform 0.9s cubic-bezier(.6, 0, .4, 1), opacity 0.9s; transform-origin: var(--ox, 50%) var(--oy, 50%); }
+  .flatmap-layer.fm-leaving { transform: scale(5); opacity: 0; }
+  .flatmap { position: relative; width: min(900px, 100%); }
+  .flatmap svg { width: 100%; height: auto; display: block; }
+  .fm-board { fill: #e9dcc0; stroke: #8a6a45; stroke-width: 6; } .fm-track { fill: none; stroke-width: 7; stroke-linecap: round; stroke-dasharray: 2 13; }
+  .fm-red { stroke: #b8322a; } .fm-blue { stroke: #2f5f9e; } .fm-green { stroke: #3a7a52; } .fm-town { fill: #8a6a45; }
+  .fm-note { position: absolute; left: 50%; bottom: 14px; translate: -50% 0; margin: 0; color: #5a4634; font-size: 0.85rem; text-align: center; width: 90%; }
+  .fm-toytown { position: absolute; translate: -50% -50%; border: 0; border-radius: 999px; padding: 10px 16px; background: var(--holly); color: var(--on-holly); font-weight: 700; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); }
+
+  /* ---------- action layer: top bar */
+  .topbar { position: fixed; z-index: 5; inset: 0 0 auto; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+            padding: calc(10px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
+            background: linear-gradient(to bottom, rgba(20, 19, 42, 0.92), rgba(20, 19, 42, 0.55)); border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-right: auto; }
+  .brand-name { font: 600 1.25rem/1 var(--display); }
+  .badge { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #2a1606; background: var(--gold); padding: 3px 8px; border-radius: 6px; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .act { border: 1px solid var(--line); background: rgba(246, 236, 218, 0.06); border-radius: 999px; padding: 9px 14px; font-weight: 700; font-size: 0.92rem; min-height: 44px; }
+  .act:hover { background: rgba(246, 236, 218, 0.14); }
+  .act-primary, .btn-primary { background: var(--holly); border-color: var(--holly); color: var(--on-holly); }
+  .act-primary:hover, .btn-primary:hover { background: var(--holly-hi); }
+
+  /* ---------- landing */
+  .landing { position: fixed; z-index: 4; left: max(16px, env(safe-area-inset-left, 0px)); top: 96px; width: min(460px, calc(100% - 32px));
+             max-height: calc(100% - 150px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 20px;
+             padding: 24px; display: grid; gap: 18px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4); backdrop-filter: blur(6px); }
+  .landing h1 { font-size: clamp(1.55rem, 2.4vw, 2rem); line-height: 1.15; }
+  .choices { display: grid; gap: 8px; }
+  .choice { text-align: left; display: grid; gap: 2px; border: 1px solid var(--line); background: var(--raise); border-radius: var(--r); padding: 12px 14px; min-height: 52px; }
+  .choice strong { font-size: 1.02rem; } .choice span { color: var(--muted); font-size: 0.88rem; }
+  .choice:hover { border-color: var(--gold); }
+  .choice-primary { background: var(--holly); border-color: var(--holly); color: var(--on-holly); padding-block: 16px; }
+  .choice-primary span { color: var(--on-holly); opacity: 0.9; }
+  .choice-primary:hover { background: var(--holly-hi); border-color: var(--holly-hi); }
+  .enter { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 16px; }
+  .enter p { margin: 0; color: var(--muted); }
+  .enter-btn { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--gold); color: var(--ink);
+               background: linear-gradient(90deg, rgba(242, 184, 92, 0.22) var(--p, 0%), rgba(242, 184, 92, 0.06) var(--p, 0%)); border-radius: var(--r); padding: 14px 16px; font: 600 1.15rem/1.2 var(--display); min-height: 52px; }
+  .enter-btn small { font: 400 0.82rem var(--body); color: var(--muted); }
+  .linkish { background: none; border: 0; padding: 4px 0; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; justify-self: start; font-size: 0.9rem; }
+
+  /* ---------- in-world controls */
+  .worldui { position: fixed; z-index: 4; left: 0; right: 0; bottom: 0; display: grid; gap: 10px; pointer-events: none;
+             padding: 0 max(16px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+  .worldui > * { pointer-events: auto; }
+  .worldrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .chip { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 10px 16px; font-weight: 700; min-height: 44px; }
+  .chip-story { border-color: var(--gold); background: linear-gradient(180deg, #3a2a20, #2a1f1c); }
+  .chip-story::before { content: "★ "; color: var(--gold); }
+  .hint { color: var(--muted); font-size: 0.88rem; background: rgba(20, 19, 42, 0.6); padding: 6px 10px; border-radius: 999px; }
+  .places { position: relative; }
+  .places summary { list-style: none; display: inline-flex; align-items: center; } .places summary::-webkit-details-marker { display: none; }
+  .places-list { position: absolute; bottom: calc(100% + 8px); left: 0; display: grid; gap: 4px; background: var(--panel-solid); border: 1px solid var(--line); border-radius: var(--r); padding: 8px; min-width: 220px; }
+  .places-list button { text-align: left; border: 0; background: none; padding: 10px 12px; border-radius: 10px; }
+  .places-list button:hover { background: var(--raise); }
+  .whereami { position: fixed; z-index: 4; top: 84px; left: max(16px, env(safe-area-inset-left, 0px)); display: flex; gap: 8px; align-items: center; }
+  .whereami strong { font: 600 1.3rem var(--display); text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7); }
+
+  /* ---------- story caption + discovery card */
+  .caption { position: fixed; z-index: 4; left: 50%; translate: -50% 0; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); width: min(720px, calc(100% - 32px));
+             background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+  .caption p { margin: 0; flex: 1 1 260px; font: 500 1.15rem/1.35 var(--display); min-width: 0; }
+  .caption .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .progress { flex-basis: 100%; height: 3px; background: var(--line); border-radius: 3px; overflow: hidden; }
+  .progress i { display: block; height: 100%; width: 0; background: var(--gold); }
+  .card { position: fixed; z-index: 4; right: max(16px, env(safe-area-inset-right, 0px)); top: 96px; width: min(400px, calc(100% - 32px));
+          background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 22px; display: grid; gap: 12px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45); }
+  .card h2 { font-size: 1.45rem; line-height: 1.2; padding-right: 36px; }
+  .card p { margin: 0; color: var(--muted); }
+  .card .lede { color: var(--ink); }
+  .card-actions { display: grid; gap: 8px; }
+  .btn { border: 1px solid var(--line); background: var(--raise); border-radius: 12px; padding: 12px 16px; font-weight: 700; min-height: 48px; text-align: center; }
+  .btn:hover { border-color: var(--gold); }
+  .btn.btn-primary { background: var(--holly); border-color: var(--holly); color: var(--on-holly); }
+  .btn.btn-primary:hover { background: var(--holly-hi); border-color: var(--gold); }
+  .x { position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: transparent; font-size: 1.2rem; line-height: 1; }
+
+  /* ---------- dialogs */
+  dialog { border: 1px solid var(--line); border-radius: 20px; background: var(--panel-solid); color: var(--ink); padding: 0; width: min(560px, calc(100% - 24px)); max-height: calc(100% - 40px); }
+  dialog::backdrop { background: rgba(8, 7, 20, 0.62); }
+  .dlg { position: relative; padding: 24px; display: grid; gap: 14px; }
+  .dlg h2 { font-size: 1.6rem; padding-right: 40px; }
+  .ph-flag { display: inline-flex; gap: 6px; align-items: center; font-size: 0.8rem; font-weight: 700; color: #2a1606; background: var(--gold); padding: 4px 9px; border-radius: 6px; justify-self: start; letter-spacing: 0.02em; }
+  label { font-weight: 700; }
+  .ziprow { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ziprow input { flex: 1 1 160px; min-width: 0; font: 700 1.25rem var(--body); letter-spacing: 0.08em; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--line); background: var(--night); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .ziprow input:focus { border-color: var(--gold); outline: none; }
+  .err { color: #ffb4a8; margin: 0; }
+  .muted { color: var(--muted); margin: 0; font-size: 0.92rem; }
+  .results { display: grid; gap: 10px; }
+  .site { border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: grid; gap: 6px; background: var(--raise); }
+  .site h3 { margin: 0; font-size: 1.05rem; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .site h3 span { color: var(--gold); font-variant-numeric: tabular-nums; font-size: 0.95rem; }
+  .site p { margin: 0; color: var(--muted); font-size: 0.92rem; }
+  .site .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .thanks { display: grid; gap: 12px; text-align: left; }
+  .thanks .big { font: 600 1.5rem/1.2 var(--display); color: var(--pine); }
+
+  /* ---------- illustrated fallback */
+  .fallback { position: fixed; inset: 0; z-index: 3; overflow: auto; background: var(--night); padding: 96px max(16px, env(safe-area-inset-right, 0px)) 120px max(16px, env(safe-area-inset-left, 0px)); }
+  .fb-inner { width: min(880px, 100%); margin: 0 auto; display: grid; gap: 22px; }
+  .fb-inner h2 { font-size: 1.8rem; }
+  .fb-scene { position: relative; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); }
+  .fb-scene img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; background: var(--raise); }
+  .fb-scene figcaption { padding: 12px 14px; background: var(--panel-solid); display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; }
+  .fb-scene figcaption p { margin: 0; flex: 1 1 260px; min-width: 0; }
+  .fb-places { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  /* ---------- research panel */
+  .research { position: fixed; z-index: 8; inset: 0 0 0 auto; width: min(560px, 100%); background: var(--panel-solid); border-left: 1px solid var(--line); overflow: auto;
+              padding: calc(16px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 24px 16px; display: grid; gap: 14px; align-content: start; }
+  .research h2 { font-size: 1.4rem; }
+  .research .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .research input { font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--night); color: var(--ink); width: 10em; }
+  .research a { color: var(--gold); }
+  .tbl { overflow-x: auto; }
+  .tbl table { border-collapse: collapse; width: 100%; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+  .tbl th, .tbl td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .tbl th { color: var(--muted); font-weight: 700; }
+  .funnel { display: grid; gap: 4px; font-size: 0.85rem; }
+  .funnel div { display: grid; grid-template-columns: 11em 1fr 2.4em; gap: 8px; align-items: center; }
+  .funnel b { display: block; height: 10px; border-radius: 5px; background: var(--gold); }
+  .log { font: 0.78rem/1.5 ui-monospace, Menlo, monospace; background: var(--night); border-radius: 10px; padding: 10px; max-height: 220px; overflow: auto; white-space: pre-wrap; }
+  .foot { position: fixed; z-index: 4; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); font-size: 0.78rem; color: var(--muted);
+          display: flex; gap: 8px; align-items: center; background: rgba(20, 19, 42, 0.65); padding: 4px 10px; border-radius: 999px; }
+  .foot button { background: none; border: 0; color: var(--gold); text-decoration: underline; padding: 6px 2px; font-size: 0.78rem; }
+  .toast { position: fixed; z-index: 9; left: 50%; translate: -50% 0; top: 90px; background: var(--panel-solid); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; max-width: calc(100% - 32px); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ---------- phones: the ways to help move to a bottom bar */
+  @media (max-width: 760px) {
+    .topbar { padding-bottom: 8px; }
+    .brand-name { font-size: 1.1rem; }
+    .actions { position: fixed; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--panel-solid); border-top: 1px solid var(--line);
+               padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
+    .act { border-radius: 12px; padding: 6px 4px; font-size: 0.8rem; line-height: 1.15; }
+    .landing { top: auto; bottom: calc(var(--bar-h) + 10px + env(safe-area-inset-bottom, 0px)); max-height: calc(100% - var(--bar-h) - 90px); padding: 18px; gap: 14px; width: calc(100% - 32px); }
+    .choice { padding: 10px 12px; } .choice span { display: none; } .choice-primary span { display: block; }
+    .worldui { bottom: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)); padding-bottom: 10px; }
+    .caption { bottom: calc(var(--bar-h) + 10px + env(safe-area-inset-bottom, 0px)); }
+    .caption p { font-size: 1.02rem; }
+    .card { top: auto; bottom: calc(var(--bar-h) + 10px + env(safe-area-inset-bottom, 0px)); right: 16px; max-height: 60%; overflow: auto; }
+    .whereami { top: 70px; }
+    .hint { display: none; }
+    .pin-label { display: none; }
+    .foot { bottom: calc(var(--bar-h) + 6px + env(safe-area-inset-bottom, 0px)); left: auto; }
+    .fallback { padding-bottom: 150px; }
+    .foot { top: calc(14px + env(safe-area-inset-top, 0px)); bottom: auto; background: none; padding: 0; }
+    .foot span { display: none; }
+    .brand { margin-right: 0; padding-right: 64px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .pin-dot { animation: none; } .flatmap-layer, .backdrop { transition: none; } }
+</style>
+
+<div id="stage" aria-hidden="true"></div>
+<div id="backdrop" class="backdrop" aria-hidden="true"></div>
+<div id="flatmap" class="flatmap-layer" hidden></div>
+<div id="pins" class="pins" hidden></div>
+
+<header class="topbar">
+  <div class="brand"><span class="brand-name">Railroad of Hope</span><span class="badge">Prototype · placeholder data</span></div>
+  <nav class="actions" aria-label="Ways to help">
+    <button type="button" class="act act-primary" data-action="dropoff" data-source="direct-bar">Give Toys</button>
+    <button type="button" class="act" data-action="donate" data-source="direct-bar">Donate</button>
+    <button type="button" class="act" data-action="request" data-source="direct-bar">Request Toys</button>
+    <button type="button" class="act" data-action="campaign" data-source="direct-bar">Find Local Campaign</button>
+  </nav>
+</header>
+
+<main id="landing" class="landing" aria-labelledby="landingTitle">
+  <h1 id="landingTitle">How would you like to bring joy this holiday season?</h1>
+  <div class="choices">
+    <button type="button" class="choice choice-primary" data-action="dropoff" data-source="direct-landing"><strong>Find a toy drop-off</strong><span>Give a new, unwrapped toy at a location near you</span></button>
+    <button type="button" class="choice" data-action="donate" data-source="direct-landing"><strong>Make a donation</strong><span>Help buy toys for children in your area</span></button>
+    <button type="button" class="choice" data-action="request" data-source="direct-landing"><strong>Request toys for my family</strong><span>Apply through your local campaign</span></button>
+    <button type="button" class="choice" data-action="campaign" data-source="direct-landing"><strong>Find my local campaign</strong><span>Volunteer, run a toy drive or get in touch</span></button>
+  </div>
+  <div class="enter" id="enterBlock">
+    <p>Or step inside the miniature world and see how it works.</p>
+    <button type="button" id="enter" class="enter-btn"><span>Enter Toy Town</span><small id="enterNote">Loading…</small></button>
+    <button type="button" id="simpleView" class="linkish">Use the simple view (no 3D)</button>
+  </div>
+</main>
+
+<div id="whereami" class="whereami" hidden>
+  <button type="button" id="backToMap" class="chip">← Map</button>
+  <strong id="placeName">Toy Town</strong>
+</div>
+<section id="worldui" class="worldui" aria-label="Toy Town controls" hidden>
+  <div class="worldrow">
+    <button type="button" id="follow" class="chip chip-story">Follow the Marine</button>
+    <details class="places" id="places">
+      <summary class="chip">Places</summary>
+      <div class="places-list" id="placesList"></div>
+    </details>
+    <span class="hint" id="hint">Drag to look around · tap a glowing marker</span>
+    <button type="button" id="skipMove" class="chip" hidden>Skip</button>
+  </div>
+</section>
+
+<div id="caption" class="caption" hidden>
+  <p id="captionText" aria-live="polite"></p>
+  <div class="row">
+    <button type="button" class="btn btn-primary" data-action="dropoff" data-source="story-pill">Find a toy drop-off</button>
+    <button type="button" class="btn" id="skipStory">Skip</button>
+  </div>
+  <div class="progress" aria-hidden="true"><i id="storyProg"></i></div>
+</div>
+
+<aside id="card" class="card" hidden aria-labelledby="cardTitle">
+  <button type="button" class="x" id="cardClose" aria-label="Close">×</button>
+  <h2 id="cardTitle"></h2>
+  <div id="cardBody"></div>
+  <div class="card-actions" id="cardActions"></div>
+</aside>
+
+<dialog id="dropoff" aria-labelledby="doTitle">
+  <div class="dlg">
+    <button type="button" class="x" data-close aria-label="Close">×</button>
+    <h2 id="doTitle">Find a toy drop-off</h2>
+    <span class="ph-flag">Placeholder data · not real locations</span>
+    <form id="zipForm" novalidate>
+      <div style="display:grid;gap:8px">
+        <label for="zip">Your ZIP code</label>
+        <div class="ziprow">
+          <input id="zip" name="zip" inputmode="numeric" autocomplete="postal-code" maxlength="5" placeholder="e.g. 10001" aria-describedby="zipHelp zipErr">
+          <button type="submit" class="btn btn-primary">Search</button>
+        </div>
+        <p id="zipHelp" class="muted">Any 5-digit ZIP works in this prototype. Try 00000 to see the “no results” message.</p>
+        <p id="zipErr" class="err" role="alert" hidden></p>
+      </div>
+    </form>
+    <div id="results" class="results" aria-live="polite"></div>
+    <div id="thanks" class="thanks" hidden></div>
+  </div>
+</dialog>
+
+<dialog id="notyet" aria-labelledby="nyTitle">
+  <div class="dlg">
+    <button type="button" class="x" data-close aria-label="Close">×</button>
+    <h2 id="nyTitle"></h2>
+    <span class="ph-flag">Not connected in this prototype</span>
+    <p id="nyText" class="muted" style="font-size:1rem"></p>
+    <div class="card-actions"><button type="button" class="btn btn-primary" data-action="dropoff" data-source="direct-notyet">Find a toy drop-off instead</button><button type="button" class="btn" data-close>Close</button></div>
+  </div>
+</dialog>
+
+<section id="fallback" class="fallback" hidden aria-labelledby="fbTitle"><div class="fb-inner" id="fbInner"></div></section>
+
+<aside id="research" class="research" hidden aria-labelledby="rsTitle"></aside>
+<div id="toast" class="toast" role="status" hidden></div>
+<div class="foot"><span>Concept prototype · not a live service</span><button type="button" id="openResearch">Test log</button></div>
+<!--PAGE-SCRIPTS-->
+<script type="importmap">{ "imports": { "three": "../vendor/three/build/three.module.js", "three/addons/": "../vendor/three/jsm/", "three-mesh-bvh": "../node_modules/three-mesh-bvh/build/index.module.js" } }</script>
+<script type="module" src="./src/main.js"></script>
+<!--PAGE-SCRIPTS-END-->
+<!--PAGE-END-->
+</head>
+</html>
