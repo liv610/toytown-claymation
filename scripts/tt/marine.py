@@ -288,7 +288,7 @@ def build_parts():
                            for t in [k / 8 for k in range(9)]], 0.0075), "hair", ["head"])
         add(sphere_bm(face(0.095 * x, -0.04, -0.012), 0.032, (1, 0.45, 0.75), 2, 0.0), "cheek", ["head"])
         # sideburns / hair under the cap
-        add(sphere_bm(H + Vector((0.14 * x, -0.02, 0.06)), 0.05, (0.5, 0.9, 1.0), 3, 0.15), "hair", ["head"])
+        add(sphere_bm(H + Vector((0.148 * x, -0.005, 0.055)), 0.034, (0.42, 0.85, 0.95), 3, 0.12), "hair", ["head"])
     add(sphere_bm(face(0.0, -0.02, 0.012), 0.032, (1.1, 0.9, 0.95), 3, 0.03), "skin", ["head"])  # nose
     add(curve_tube_bm([face(0.05 * (t - 0.5) * 2, -0.072 - 0.018 * math.sin(t * math.pi), -0.002)
                        for t in [k / 12 for k in range(13)]], 0.0065), "hair", ["head"])  # smile line
@@ -318,11 +318,11 @@ def build_parts():
                 v.co = pivot + (v.co - pivot) * 1.28
 
 
-def build_gift(c):
+def build_gift(c, yaw=0.25):
     """Present carried in the left hand (built at its posed position)."""
     parts = []
     c = Vector(c)
-    rot = Matrix.Rotation(0.25, 3, 'Z')
+    rot = Matrix.Rotation(yaw, 3, 'Z')
     parts.append((smooth_bm(box_bm(c, (0.24, 0.2, 0.2), 0.02, rot), 1), "giftred"))
     parts.append((box_bm(c, (0.245, 0.04, 0.205), 0.004, rot), "giftgold"))
     parts.append((box_bm(c, (0.04, 0.205, 0.205), 0.004, rot), "giftgold"))
@@ -442,6 +442,64 @@ def walk_pose(f):
     bob = -0.028 * math.cos(2 * p) + 0.006
     sway = 0.014 * math.sin(p)
     return P, bob, sway
+
+
+def walk_free_pose(f):
+    """Walk with both arms swinging (no present)."""
+    P, bob, sway = walk_pose(f)
+    p = 2 * math.pi * f / CYCLE
+    P["upper_arm.L"] = (20 * math.sin(p), 0, -4)
+    P["forearm.L"] = (-(12 + 16 * max(0.0, -math.sin(p))), 0, 0)
+    return P, bob, sway
+
+
+IDLE = 48
+
+
+def idle_pose(f, carry=False):
+    """Standing: soft knees, breathing chest, a little weight shift."""
+    p = 2 * math.pi * f / IDLE
+    P = {}
+    for s, x in (("L", 1), ("R", -1)):
+        P[f"thigh.{s}"] = (-1.5, 0, 0)
+        P[f"shin.{s}"] = (3, 0, 0)
+        P[f"foot.{s}"] = (-1.5, 0, 0)
+        P[f"upper_arm.{s}"] = (-3 + 1.0 * math.sin(p), 0, 3 * x * -1)
+        P[f"forearm.{s}"] = (-12 - 2 * math.sin(p), 0, 0)
+    if carry:
+        P["upper_arm.L"] = (-6 + 1.0 * math.sin(p), 0, -4)
+        P["forearm.L"] = (-58 + 1.5 * math.sin(p), 0, 10)
+    P["hand.L"] = (0, 0, 0)
+    P["hips"] = (0, 0, 0.8 * math.sin(p * 0.5 * 2))
+    P["spine"] = (1.0 + 1.2 * math.sin(p), 0, 0)
+    P["chest"] = (0.8 * math.sin(p), 0, 0)
+    P["head"] = (-1 + 1.2 * math.sin(p + 0.6), 1.5 * math.sin(p * 0.5 * 2 + 1), 0)
+    return P, 0.004 * math.sin(p), 0.006 * math.sin(p)
+
+
+def make_clip(ao, name, fn, frames):
+    """Bake a pose function into a named action (kept for the glTF exporter)."""
+    act = bpy.data.actions.new(name)
+    act.use_fake_user = True
+    ao.animation_data_create()
+    ao.animation_data.action = act
+    for f in range(frames + 1):
+        P, bob, sway = fn(f % frames)
+        for bn, (x, y, z) in P.items():
+            pb = ao.pose.bones[bn]
+            pb.rotation_euler = (math.radians(x), math.radians(y), math.radians(z))
+            pb.keyframe_insert("rotation_euler", frame=f + 1)
+        hb = ao.pose.bones["hips"]
+        hb.location = (sway, bob, 0)
+        hb.keyframe_insert("location", frame=f + 1)
+    for fc in act.fcurves:
+        for k in fc.keyframe_points:
+            k.interpolation = 'LINEAR'
+    tr = ao.animation_data.nla_tracks.new()
+    tr.name = name
+    tr.strips.new(name, 1, act)
+    ao.animation_data.action = None
+    return act
 
 
 def make_walk(ao, name="Walk"):
