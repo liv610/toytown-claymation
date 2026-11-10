@@ -425,6 +425,15 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     ray.set(camera.position, d.normalize()); ray.far = L - 0.35;
     return !!ray.intersectObjects(collidables, false)[0];
   }
+  // never park the camera inside the set: if something solid sits between the target and the camera,
+  // bring the camera in front of it (same idea as the explore spring-arm, for scripted shots)
+  function clearPose(p) {
+    const d = p.pos.clone().sub(p.look), L = d.length(); d.normalize();
+    ray.set(p.look, d); ray.far = L;
+    const h = ray.intersectObjects(collidables, false)[0];
+    if (!h || h.distance >= L - 0.05) return p;
+    return { ...p, pos: p.look.clone().addScaledVector(d, Math.max(0.8, h.distance - 0.35)) };
+  }
   function groundAt(x, z, from = 6) {
     ray.set(V(x, from, z), V(0, -1, 0)); ray.far = from + 2;
     const h = ray.intersectObjects(collidables, false)[0];
@@ -486,7 +495,7 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
 
   const host = {
     THREE, scene, camera, renderer, meta, cfg, cur, collidables, villageLights, lamps, treeGlow, trains, door, bytes, load,
-    setPose, tweenTo, fly, cancelMove, explore, controls, pick, project, occluded, groundAt,
+    setPose, tweenTo, fly, cancelMove, explore, controls, pick, project, occluded, groundAt, clearPose,
     onUpdate: (fn) => { updaters.add(fn); return () => updaters.delete(fn); },
     start, frame, resize, setPaused: (v) => { paused = v; },
     get time() { return T; },

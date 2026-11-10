@@ -13,8 +13,8 @@ export const VILLAGE_POSES = {
   sky: { pos: B(12, -48, 30), look: B(3, -6, 2), fov: 50 },          // where a 2D map hands over
   window: { pos: B(2.1, -5.3, 1.45), look: B(3.1, -0.8, 1.15), fov: 50 },
   street: { pos: B(0.5, -8.5, 2.2), look: B(3.5, -1.8, 0.8), fov: 55 },
-  tree: { pos: B(-6.2, -7.2, 2.0), look: B(-3.7, -1.4, 1.5), fov: 50 },
-  lamp: { pos: B(-7.8, -7.8, 2.3), look: B(-5.0, -2.3, 2.2), fov: 50 },
+  tree: { pos: B(0.6, -9.5, 2.6), look: B(-2.6, -1.6, 1.2), fov: 52 },
+  lamp: { pos: B(-1.2, -9.0, 2.4), look: B(-5.0, -2.3, 2.0), fov: 50 },
 };
 export const ANCHORS = {
   dropBox: B(2.45, -1.62, 0), wagon: B(7.6, -2.6, 0), shopWindow: B(1.65, -1.0, 1.15),
@@ -128,7 +128,7 @@ export function createVillage(host, pins, { onHotspot, allowPin = () => true }) 
   function leave() { mounted = false; showPins(false); host.explore(null); }
   async function focus(poseName, { reducedMotion } = {}) {
     host.explore(null);
-    await host.tweenTo(VILLAGE_POSES[poseName], reducedMotion ? 0 : 1.4);
+    await host.tweenTo(host.clearPose(VILLAGE_POSES[poseName]), reducedMotion ? 0 : 1.4);
   }
 
   return { enter, leave, focus, freeLook, showPins, registerPin, refreshPins: () => showPins(pinsOn), celebrate, toggleLamp, addPresent, poses: VILLAGE_POSES, anchors: ANCHORS, dropBox, dropTop, pins, get mounted() { return mounted; } };
