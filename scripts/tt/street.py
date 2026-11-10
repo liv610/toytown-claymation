@@ -90,6 +90,7 @@ def bed():
     links.new(mix.outputs[2], b.inputs['Base Color'])
     b.inputs['Roughness'].default_value = 0.75
     b.inputs['Subsurface Weight'].default_value = 0.2
+    lib.tag(m, "clay", (0.3, 0.3, 0.33), 0.75)
     lib._mats["StreetBed"] = m
     bm = bmesh.new()
     xs = [x * 0.25 for x in range(-56, 101)]
@@ -164,6 +165,7 @@ def stone_mat():
     b.inputs['Subsurface Scale'].default_value = 0.02
     b.inputs['Coat Weight'].default_value = 0.15  # faint wet sheen
     b.inputs['Coat Roughness'].default_value = 0.3
+    lib.tag(m, "cobble", P.srgb('#857467'), 0.55)
     lib._mats["Cobble"] = m
     return m
 

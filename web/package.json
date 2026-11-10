@@ -1,0 +1,15 @@
+{
+  "name": "toytown-web",
+  "private": true,
+  "description": "Toy Town browser prototypes (real-time Three.js and hybrid pre-rendered)",
+  "devDependencies": {
+    "@gltf-transform/cli": "4.1.1"
+  },
+  "dependencies": {
+    "@gltf-transform/core": "^4.1.1",
+    "@gltf-transform/extensions": "^4.1.1",
+    "@gltf-transform/functions": "^4.1.1",
+    "meshoptimizer": "^0.22.0",
+    "three": "^0.170.0"
+  }
+}

@@ -279,6 +279,19 @@ def text_obj(name, body, loc, size, mat, extrude=0.015, rot=(math.pi / 2, 0, 0),
 # --------------------------------------------------------------------------
 # materials
 # --------------------------------------------------------------------------
+def tag(mat, kind, color, rough, metallic=0.0, emit=None, emit_strength=0.0, color2=None):
+    """Real-time metadata: what a browser material should approximate."""
+    mat["rt_kind"] = kind
+    mat["rt_color"] = list(color)[:3]
+    mat["rt_rough"] = float(rough)
+    mat["rt_metal"] = float(metallic)
+    if emit:
+        mat["rt_emit"] = list(emit)[:3]
+        mat["rt_emit_strength"] = float(emit_strength)
+    if color2:
+        mat["rt_color2"] = list(color2)[:3]
+
+
 def _nodes(mat):
     mat.use_nodes = True
     nt = mat.node_tree
@@ -471,6 +484,7 @@ def clay(name, color, rough=0.62, sss=0.12, dimple=1.0, grain=0.4,
     if emission:
         b.inputs['Emission Color'].default_value = (*emission[0], 1)
         b.inputs['Emission Strength'].default_value = emission[1]
+    tag(mat, "clay", color, rough, metallic=metallic)
     _mats[key] = mat
     return mat
 
@@ -570,6 +584,7 @@ def snow(name="Snow", tint=(0.93, 0.91, 0.88), sss=0.55, packed=False):
     b.inputs['Subsurface Scale'].default_value = 0.06
     b.inputs['Sheen Weight'].default_value = 0.4
     b.inputs['Sheen Tint'].default_value = (0.8, 0.9, 1.0, 1)
+    tag(mat, "snow", tint, 0.6)
     _mats[name] = mat
     return mat
 
@@ -643,6 +658,7 @@ def window_glow(name="WindowGlow", color=(1.0, 0.58, 0.24), strength=5.0,
     links.new(em_col, b.inputs['Emission Color'])
     b.inputs['Coat Weight'].default_value = 0.6
     b.inputs['Coat Roughness'].default_value = 0.05
+    tag(mat, "glow", (1.0, 0.55, 0.16), 0.2, emit=(1.0, 0.55, 0.16), emit_strength=strength)
     _mats[name] = mat
     return mat
 
@@ -658,6 +674,7 @@ def emissive(name, color, strength):
     b.inputs['Emission Strength'].default_value = strength
     b.inputs['Roughness'].default_value = 0.3
     b.inputs['Coat Weight'].default_value = 0.5
+    tag(mat, "emissive", color, 0.3, emit=color, emit_strength=strength)
     _mats[name] = mat
     return mat
 
@@ -714,6 +731,7 @@ def awning_fabric(name="Awning", c1=(0.07, 0.30, 0.16), c2=(0.92, 0.88, 0.78),
     b.inputs['Roughness'].default_value = 0.85
     b.inputs['Sheen Weight'].default_value = 0.6
     b.inputs['Subsurface Weight'].default_value = 0.05
+    tag(mat, "fabric", c1, 0.85, color2=c2)
     _mats[name] = mat
     return mat
 
@@ -756,6 +774,7 @@ def wood(name, color=(0.36, 0.2, 0.1), painted=False, rough=0.6):
     links.new(bn.outputs[0], b.inputs['Normal'])
     b.inputs['Roughness'].default_value = rough
     b.inputs['Sheen Weight'].default_value = 0.15
+    tag(mat, "wood", color, rough)
     _mats[name] = mat
     return mat
 

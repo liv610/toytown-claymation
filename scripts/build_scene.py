@@ -4,6 +4,8 @@ Usage (from the project root):
   blender -b --factory-startup --python scripts/build_scene.py -- [--preview] [--render OUT.png]
         [--res 2560x1440] [--samples 384] [--no-save] [--cam NAME]
 """
+import json
+import math
 import os
 import sys
 import time
@@ -20,9 +22,9 @@ from tt import palette as P  # noqa: E402
 
 def args():
     a = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-    o = {"border": None, "preview": "--preview" in a, "render": None, "res": None, "samples": None, "save": "--no-save" not in a,
+    o = {"job": None, "out": None, "cams": None, "border": None, "preview": "--preview" in a, "render": None, "res": None, "samples": None, "save": "--no-save" not in a,
          "cam": "Hero"}
-    for k in ("--render", "--res", "--samples", "--cam", "--border"):
+    for k in ("--render", "--res", "--samples", "--cam", "--border", "--job", "--out", "--cams"):
         if k in a:
             o[k[2:]] = a[a.index(k) + 1]
     return o
@@ -90,7 +92,7 @@ def build():
                   color=P.PINE_DARK if i % 2 else P.PINE, snow_amt=0.9, rings=5, rad_segs=48, trunk=False)
     props.hills()
 
-    world.falling_snow()
+    # falling snow is now added per-frame in post (scripts/post/), so it can move
     world.lighting()
     print(f"build: {time.time() - t0:.1f}s, objects={len(bpy.data.objects)}")
 
@@ -98,35 +100,156 @@ def build():
 CAMS = {
     # name: (location, target, lens, fstop, focus)
     "Hero": ((-7.6, -16.4, 5.2), (2.4, 0.0, 4.15), 36, 0.13, (0.3, -0.9, 2.4)),
+    "Wide": ((-12.5, -26.0, 10.5), (2.8, 2.0, 3.2), 30, 0.12, (0.5, -0.8, 2.4)),
+    "Lamp": ((-6.6, -7.6, 2.5), (0.6, -0.2, 2.1), 30, 0.22, (-4.95, -2.4, 2.7)),
+    "Entrance": ((-1.9, -5.4, 1.65), (0.9, 0.0, 1.85), 30, 0.3, (0.0, -0.3, 1.6)),
+    "Reverse": ((13.6, -8.6, 3.0), (1.0, 0.2, 2.6), 32, 0.2, (6.0, -0.4, 2.0)),
 }
+
+# camera move: wide village -> toward the shop -> past the lamppost -> entrance reveal
+MOVE_KEYS = [  # (frame, location, target, fstop)
+    (1, (-12.5, -26.0, 10.5), (2.8, 2.0, 3.2), 0.12),
+    (26, (-8.6, -16.5, 5.6), (2.2, 0.5, 3.6), 0.13),
+    (50, (-6.2, -8.6, 2.7), (0.8, 0.0, 2.3), 0.2),
+    (72, (-1.9, -5.4, 1.65), (0.9, 0.0, 1.85), 0.3),
+]
+
+
+def make_cam(name):
+    loc, tgt, lens, fs, foc = CAMS[name]
+    return world.camera(name, loc, tgt, lens, fs, foc)
+
+
+def animate_move(cam):
+    """Keyframe a smooth eased dolly; target and focus are separate empties."""
+    tgt = bpy.data.objects.new("MoveTarget", None)
+    lib.link(tgt, "Cameras")
+    cam.constraints.clear()
+    c = cam.constraints.new('TRACK_TO')
+    c.target = tgt
+    c.track_axis = 'TRACK_NEGATIVE_Z'
+    c.up_axis = 'UP_Y'
+    for f, loc, t, fs in MOVE_KEYS:
+        cam.location = loc
+        cam.keyframe_insert("location", frame=f)
+        tgt.location = t
+        tgt.keyframe_insert("location", frame=f)
+        cam.data.dof.aperture_fstop = fs
+        cam.data.dof.keyframe_insert("aperture_fstop", frame=f)
+    # focus: keep the shop door sharp as we approach
+    foc = cam.data.dof.focus_object
+    foc.location = (0.1, -0.6, 1.9)
+    for fc in list(cam.animation_data.action.fcurves) + list(tgt.animation_data.action.fcurves):
+        for k in fc.keyframe_points:
+            k.interpolation = 'BEZIER'
+            k.handle_left_type = k.handle_right_type = 'AUTO_CLAMPED'
+    s = bpy.context.scene
+    s.frame_start, s.frame_end = MOVE_KEYS[0][0], MOVE_KEYS[-1][0]
+
+
+DOOR_FRAMES = 18          # rendered "on twos" -> 1.5 s at 24 fps
+DOOR_ANGLE = 104.0
+
+
+def door_angle(f):
+    t = max(0.0, min(1.0, (f - 1) / (DOOR_FRAMES - 1)))
+    e = t * t * (3 - 2 * t)                       # ease in/out
+    settle = 0.035 * math.sin(t * math.pi * 2.0) * t   # tiny overshoot, like a hand-pushed door
+    return math.radians(DOOR_ANGLE * (e + settle))
 
 
 def main():
     o = args()
     build()
-    loc, tgt, lens, fs, foc = CAMS["Hero"]
-    world.camera("Hero", loc, tgt, lens, fs, foc)
-    res = tuple(int(v) for v in o["res"].split("x")) if o["res"] else ((800, 450) if o["preview"] else (2560, 1440))
-    samples = int(o["samples"]) if o["samples"] else (32 if o["preview"] else 384)
-    world.render_settings(res, samples, preview=o["preview"])
-    world.compositor()
+    from tt import passes
+    from tt import buildings as B
+    s = bpy.context.scene
     root = os.path.dirname(HERE)
-    if o["save"]:
-        p = os.path.join(root, "blender", "toytown_stage1.blend")
-        bpy.ops.wm.save_as_mainfile(filepath=p, compress=True)
-        print("saved", p)
-    if o["render"]:
-        s = bpy.context.scene
-        s.render.filepath = os.path.abspath(o["render"])
-        if o["border"]:
-            x0, x1, y0, y1 = (float(v) for v in o["border"].split(","))
+    passes.assign_lightgroups()
+    job = o.get("job")
+    if job is None:
+        cam = make_cam(o["cam"])
+        res = tuple(int(v) for v in o["res"].split("x")) if o["res"] else ((800, 450) if o["preview"] else (2560, 1440))
+        samples = int(o["samples"]) if o["samples"] else (32 if o["preview"] else 384)
+        world.render_settings(res, samples, preview=o["preview"])
+        world.compositor()
+        if o["save"]:
+            p = os.path.join(root, "blender", "toytown_stage1.blend")
+            bpy.ops.wm.save_as_mainfile(filepath=p, compress=True)
+            print("saved", p)
+        if o["render"]:
+            s.render.filepath = os.path.abspath(o["render"])
+            if o["border"]:
+                x0, x1, y0, y1 = (float(v) for v in o["border"].split(","))
+                s.render.use_border = True
+                s.render.use_crop_to_border = True
+                s.render.border_min_x, s.render.border_max_x = x0, x1
+                s.render.border_min_y, s.render.border_max_y = y0, y1
+            t0 = time.time()
+            bpy.ops.render.render(write_still=True)
+            print(f"render: {time.time() - t0:.1f}s -> {s.render.filepath}")
+        return
+
+    out = os.path.abspath(o["out"]) if o.get("out") else os.path.join(root, "renders", "passes", job)
+    os.makedirs(out, exist_ok=True)
+    res = tuple(int(v) for v in o["res"].split("x"))
+    samples = int(o["samples"])
+    world.render_settings(res, samples)
+    s.render.use_persistent_data = True
+    s.render.filepath = os.path.join(out, "beauty_")
+    s.render.image_settings.file_format = 'PNG'
+    s.render.image_settings.color_depth = '8'
+    t0 = time.time()
+    hinge = B.DOOR_HINGE
+    if job in ("hero", "door"):
+        cam = make_cam("Hero")
+        passes.setup_outputs(out, lightgroups=True)
+        door_objs = [c for c in hinge.children_recursive if c.type == 'MESH']
+        bb = passes.screen_bbox(door_objs, cam)
+        passes.camera_meta(cam, os.path.join(out, "camera.json"), extra={"door_bbox": bb, "groups": passes.GROUPS})
+        if job == "hero":
+            if o["save"]:
+                bpy.ops.wm.save_as_mainfile(filepath=os.path.join(root, "blender", "toytown_stage1.blend"), compress=True)
+            s.frame_set(1)
+            bpy.ops.render.render(write_still=True)
+        else:
+            # crop region: the doorway, its frame and the ground the light will spill onto
+            W, H = res
+            x0, y0, x1, y1 = bb
+            pad = 0.06 * W
+            bx0, bx1 = max(0, x0 - pad * 1.2), min(W, x1 + pad * 1.6)
+            by0, by1 = max(0, y0 - pad), H            # down to the bottom of frame
             s.render.use_border = True
-            s.render.use_crop_to_border = True
-            s.render.border_min_x, s.render.border_max_x = x0, x1
-            s.render.border_min_y, s.render.border_max_y = y0, y1
-        t0 = time.time()
-        bpy.ops.render.render(write_still=True)
-        print(f"render: {time.time() - t0:.1f}s -> {s.render.filepath}")
+            s.render.use_crop_to_border = False
+            s.render.border_min_x, s.render.border_max_x = bx0 / W, bx1 / W
+            s.render.border_min_y, s.render.border_max_y = 1 - by1 / H, 1 - by0 / H
+            with open(os.path.join(out, "crop.json"), "w") as fh:
+                json.dump({"crop": [bx0, by0, bx1, by1], "frames": DOOR_FRAMES}, fh)
+            for f in range(1, DOOR_FRAMES + 1):
+                hinge.rotation_euler = (0, 0, door_angle(f))
+                hinge.keyframe_insert("rotation_euler", frame=f)
+            s.frame_start, s.frame_end = 1, DOOR_FRAMES
+            bpy.ops.render.render(animation=True)
+    elif job == "stills":
+        for name in [n for n in ("Wide", "Lamp", "Entrance", "Reverse") if not o.get("cams") or n in o["cams"]]:
+            cam = make_cam(name)
+            d = os.path.join(out, name)
+            os.makedirs(d, exist_ok=True)
+            passes.setup_outputs(d, lightgroups=False)
+            s.render.filepath = os.path.join(d, "beauty_")
+            passes.camera_meta(cam, os.path.join(d, "camera.json"))
+            s.frame_set(1)
+            t1 = time.time()
+            bpy.ops.render.render(write_still=True)
+            print(f"still {name}: {time.time() - t1:.0f}s", flush=True)
+    elif job == "move":
+        cam = make_cam("Wide")
+        animate_move(cam)
+        passes.setup_outputs(out, lightgroups=False)
+        passes.camera_meta(cam, os.path.join(out, "camera.json"), frames=list(range(s.frame_start, s.frame_end + 1)))
+        bpy.ops.render.render(animation=True)
+    print(f"job {job}: {time.time() - t0:.0f}s", flush=True)
 
 
-main()
+if __name__ == "__main__" and not globals().get("TT_IMPORT_ONLY"):
+    main()

@@ -289,6 +289,7 @@ def ice_mat():
     b.inputs['Roughness'].default_value = 0.12
     b.inputs['IOR'].default_value = 1.31
     b.inputs['Subsurface Weight'].default_value = 0.2
+    lib.tag(m, "ice", (0.85, 0.93, 1.0), 0.12)
     lib._mats["Ice"] = m
     return m
 
@@ -324,19 +325,67 @@ def blue_shop(O=Vector((0, 0, 0))):
         objs += window(R, sx * 1.65, 0.85, 1.35, 1.45, recess=0.42, rows=2, cols=3,
                        frame_mat=trim, glow_mat=glow, cutters=cuts, sill=True,
                        lintel=False, name="display")
-    # door recess
+    # door recess + a real shop interior behind the door (seen when it opens)
     cuts.append(cutter(O + Vector((0, -0.1, 0.45 + 1.1)), (1.15, 0.5, 2.2)))
-    door = box("door", (1.05, 0.08, 2.1), (0, 0.2, 0.45 + 1.05), door_m, bevel=0.03, subd=2,
-               wobble=0.01)
-    objs.append(door)
-    # door panels + glass
+    cuts.append(cutter(O + Vector((0, 1.75, 0.42 + 1.22)), (1.8, 3.3, 2.44)))
+    hinge = bpy.data.objects.new("DoorHinge", None)
+    hinge.location = (-0.525, 0.12, 0.0)
+    hinge.parent = R
+    lib.link(hinge)
+    hx = 0.525
+    dparts = [box("door", (1.05, 0.08, 2.1), (hx, 0.04, 0.45 + 1.05), door_m, bevel=0.03, subd=2,
+                  wobble=0.01)]
     for pz in (0.95, 1.55):
         for px in (-0.24, 0.24):
-            objs.append(box("doorpanel", (0.36, 0.04, 0.45), (px, 0.15, 0.45 + pz - 0.2),
-                            door_m, bevel=0.02, subd=1, wobble=0.004))
-    objs.append(box("doorglass", (0.75, 0.03, 0.55), (0, 0.15, 0.45 + 1.68), glow,
-                    bevel=0.01, subd=1, wobble=0.003))
-    objs.append(lib.blob("knob", (0.38, 0.1, 1.45), 0.045, gold, subd=2, lump=0.05))
+            dparts.append(box("doorpanel", (0.36, 0.04, 0.45), (hx + px, -0.01, 0.45 + pz - 0.2),
+                              door_m, bevel=0.02, subd=1, wobble=0.004))
+            dparts.append(box("doorpanelB", (0.36, 0.04, 0.45), (hx + px, 0.09, 0.45 + pz - 0.2),
+                              door_m, bevel=0.02, subd=1, wobble=0.004))
+    dparts.append(box("doorglass", (0.75, 0.1, 0.55), (hx, 0.04, 0.45 + 1.68), glow,
+                      bevel=0.01, subd=1, wobble=0.003))
+    dparts.append(lib.blob("knob", (hx + 0.38, -0.04, 1.45), 0.045, gold, subd=2, lump=0.05))
+    dparts.append(lib.blob("knobB", (hx + 0.38, 0.12, 1.45), 0.045, gold, subd=2, lump=0.05))
+    for o in dparts:
+        o.parent = hinge
+    globals()["DOOR_HINGE"] = hinge
+    wreath(hinge, (hx, -0.07, 1.98), 0.28)
+    # interior: plank floor, cream walls, toy shelves, warm hanging lamp
+    floorw = wood("FloorWood", P.WOOD, painted=False, rough=0.6)
+    inner = clay("InnerWall", P.CREAM_WARM, rough=0.7, stucco=0.6, bump=0.6)
+    for k in range(7):
+        objs.append(box("plank", (0.25, 3.25, 0.06), (-0.78 + k * 0.26, 1.75, 0.44), floorw, bevel=0.01,
+                        subd=1, wobble=0.004))
+    objs.append(box("backwall", (1.78, 0.06, 2.4), (0, 3.36, 1.64), inner, bevel=0.02, subd=2, wobble=0.01))
+    for sx in (-1, 1):
+        objs.append(box("sidewall", (0.06, 3.2, 2.4), (sx * 0.87, 1.75, 1.64), inner, bevel=0.02, subd=2,
+                        wobble=0.01))
+    shelfw = wood("ShelfWood", P.WOOD_DARK, painted=False, rough=0.6)
+    toycols = [lib.glossy_paint("ToyRed", P.MUTED_RED, rough=0.35), lib.glossy_paint("ToyTeal", P.TEAL, rough=0.35),
+               lib.glossy_paint("Gold", P.GOLD, rough=0.3, metallic=0.6), lib.glossy_paint("ToyBlue", P.SHOP_BLUE_DARK, 0.35)]
+    for zz in (1.0, 1.55, 2.1):
+        objs.append(box("shelf", (1.7, 0.32, 0.05), (0, 3.18, zz), shelfw, bevel=0.01, subd=1, wobble=0.004))
+        x = -0.75
+        while x < 0.75:
+            kind = RNG.random()
+            c = RNG.choice(toycols)
+            if kind < 0.4:
+                sz = RNG.uniform(0.12, 0.22)
+                objs.append(box("tbox", (sz, 0.16, sz * RNG.uniform(0.8, 1.5)), (x, 3.15, zz + 0.03 + sz * 0.6), c,
+                                bevel=0.02, subd=1, wobble=0.004))
+            elif kind < 0.7:
+                objs.append(lib.blob("tball", (x, 3.12, zz + 0.12), 0.1, c, subd=2, lump=0.02))
+            else:
+                objs.append(lib.blob("tbear", (x, 3.12, zz + 0.13), 0.1,
+                                     clay("Bear", P.WOOD, rough=0.85, dimple=1.5, dimple_scale=14, var=0.2, sheen=0.8),
+                                     squash=(1, 1, 1.25), subd=2, lump=0.1))
+            x += RNG.uniform(0.2, 0.3)
+    lampsh = lib.emissive("InteriorShade", (1.0, 0.65, 0.3), 6)
+    objs.append(lib.lathe("hanglamp", [(0.0, 0.0), (0.2, 0.0), (0.12, 0.16), (0.0, 0.18)], (0, 1.6, 2.35), lampsh,
+                          segs=16))
+    L = bpy.data.lights.new("Interior", 'POINT'); L.energy = 70; L.color = (1.0, 0.6, 0.3)
+    L.shadow_soft_size = 0.25
+    lo = bpy.data.objects.new("Interior", L); lo.location = (0, 1.6, 2.2); lo.parent = R
+    lib.link(lo, "Lights")
     # door frame
     for (sx, sz, px, pz) in [(1.45, 0.14, 0, 2.62), (0.14, 2.2, -0.65, 1.55), (0.14, 2.2, 0.65, 1.55)]:
         objs.append(box("doorframe", (sx, 0.14, sz), (px, -0.04, pz), trim, bevel=0.03, subd=1,
@@ -446,7 +495,6 @@ def blue_shop(O=Vector((0, 0, 0))):
             o.parent = R
     awning(R, x0=-2.45, x1=2.45, z_top=3.0, depth=1.15, drop=0.55)
     garland(R, -2.3, 2.3, 3.02, -0.25, swags=3)
-    wreath(R, (0, -0.05, 2.15 - 0.15 + 0.45 - 0.5 + 0.35), 0.28)
     display_toys(R)
     return R
 
