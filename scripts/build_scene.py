@@ -62,8 +62,8 @@ def build():
     trees.fir("FirFG", (-7.4, -6.8, 0.0), 6.5, 2.0, tiers=9, color=P.PINE_DARK, snow_amt=0.9, lean=0.03)
     # foreground crusty drifts (close to camera, they fall out of focus and frame the shot)
     sn = lib.snow("GroundSnow")
-    for (x, y, r) in [(3.5, -9.6, 0.9), (4.6, -9.2, 0.7), (5.8, -9.5, 1.0), (7.2, -9.0, 0.8), (8.4, -8.7, 1.1),
-                      (-3.5, -9.5, 0.7), (-2.3, -9.9, 0.8)]:
+    for (x, y, r) in ([] if street.REGION else  [(3.5, -9.6, 0.9), (4.6, -9.2, 0.7), (5.8, -9.5, 1.0), (7.2, -9.0, 0.8), (8.4, -8.7, 1.1),
+                      (-3.5, -9.5, 0.7), (-2.3, -9.9, 0.8)]):
         lib.blob("fgdrift", (x, y, 0.0), r, sn, squash=(1.5, 1.0, 0.55), subd=4, lump=0.3)
     trees.fir("FirGap", (3.35, 2.2, 0.0), 1.6, 0.55, tiers=6, color=P.PINE, snow_amt=0.8)
     trees.fir("FirR1", (12.4, 1.0, 0.0), 4.6, 1.6, tiers=8, color=P.PINE_DARK, snow_amt=0.85)
@@ -90,7 +90,8 @@ def build():
     for i, (x, y, h) in enumerate(fir_spots):
         trees.fir(f"FirBg{i}", (x, y, street.ground_height(x, y) - 0.1), h, h * 0.34, tiers=7 if h < 6 else 8,
                   color=P.PINE_DARK if i % 2 else P.PINE, snow_amt=0.9, rings=5, rad_segs=48, trunk=False)
-    props.hills()
+    if not street.REGION:
+        props.hills()
 
     # falling snow is now added per-frame in post (scripts/post/), so it can move
     world.lighting()

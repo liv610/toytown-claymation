@@ -12,3 +12,5 @@ web/hybrid/assets/_tmp.png
 web/hybrid/assets/base_lossless.png
 web/hybrid/assets/d_*.png
 web/sequence/dist/assets/*.txt
+web/region/assets/*_raw.glb
+web/region/dist/assets/*.txt

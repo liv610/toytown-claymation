@@ -1,0 +1,203 @@
+{
+ "rows": [
+  {
+   "view": "map",
+   "config": "full",
+   "avgMs": 7219.7,
+   "fps": 0.1,
+   "p95Ms": 11993.6,
+   "drawCalls": 1615,
+   "triangles": 5272703
+  },
+  {
+   "view": "map",
+   "config": "no snow",
+   "avgMs": 5927.3,
+   "fps": 0.2,
+   "p95Ms": 9462.7,
+   "drawCalls": 1615,
+   "triangles": 5272703
+  },
+  {
+   "view": "map",
+   "config": "no shadows",
+   "avgMs": 4476,
+   "fps": 0.2,
+   "p95Ms": 7589.7,
+   "drawCalls": 862,
+   "triangles": 2741798
+  },
+  {
+   "view": "map",
+   "config": "no effects",
+   "avgMs": 4309.7,
+   "fps": 0.2,
+   "p95Ms": 7404.7,
+   "drawCalls": 533,
+   "triangles": 1757848
+  },
+  {
+   "view": "map",
+   "config": "no LOD",
+   "avgMs": 14326,
+   "fps": 0.1,
+   "p95Ms": 23021,
+   "drawCalls": 1582,
+   "triangles": 19149752
+  },
+  {
+   "view": "map",
+   "config": "village lights always on",
+   "avgMs": 8388.8,
+   "fps": 0.1,
+   "p95Ms": 14098.4,
+   "drawCalls": 1615,
+   "triangles": 5272703
+  },
+  {
+   "view": "map",
+   "config": "lamp shadows on",
+   "avgMs": 5886.1,
+   "fps": 0.2,
+   "p95Ms": 9399.7,
+   "drawCalls": 1615,
+   "triangles": 5272703
+  },
+  {
+   "view": "approach",
+   "config": "full",
+   "avgMs": 10644.4,
+   "fps": 0.1,
+   "p95Ms": 17020.9,
+   "drawCalls": 1414,
+   "triangles": 11087396
+  },
+  {
+   "view": "approach",
+   "config": "no snow",
+   "avgMs": 10898,
+   "fps": 0.1,
+   "p95Ms": 17513.8,
+   "drawCalls": 1414,
+   "triangles": 11087396
+  },
+  {
+   "view": "approach",
+   "config": "no shadows",
+   "avgMs": 8840.6,
+   "fps": 0.1,
+   "p95Ms": 14815.8,
+   "drawCalls": 748,
+   "triangles": 5817431
+  },
+  {
+   "view": "approach",
+   "config": "no effects",
+   "avgMs": 8225.8,
+   "fps": 0.1,
+   "p95Ms": 13839.3,
+   "drawCalls": 466,
+   "triangles": 3696747
+  },
+  {
+   "view": "approach",
+   "config": "no LOD",
+   "avgMs": 14200.5,
+   "fps": 0.1,
+   "p95Ms": 22743.9,
+   "drawCalls": 1315,
+   "triangles": 18883484
+  },
+  {
+   "view": "approach",
+   "config": "village lights always on",
+   "avgMs": 11021.6,
+   "fps": 0.1,
+   "p95Ms": 17703.3,
+   "drawCalls": 1414,
+   "triangles": 11087396
+  },
+  {
+   "view": "approach",
+   "config": "lamp shadows on",
+   "avgMs": 11056.1,
+   "fps": 0.1,
+   "p95Ms": 17746.6,
+   "drawCalls": 1414,
+   "triangles": 11087396
+  },
+  {
+   "view": "village",
+   "config": "full",
+   "avgMs": 11643.8,
+   "fps": 0.1,
+   "p95Ms": 18713.3,
+   "drawCalls": 1245,
+   "triangles": 10879466
+  },
+  {
+   "view": "village",
+   "config": "no snow",
+   "avgMs": 11679.5,
+   "fps": 0.1,
+   "p95Ms": 18644.1,
+   "drawCalls": 1243,
+   "triangles": 10879466
+  },
+  {
+   "view": "village",
+   "config": "no shadows",
+   "avgMs": 7935.8,
+   "fps": 0.1,
+   "p95Ms": 12624.2,
+   "drawCalls": 660,
+   "triangles": 5728523
+  },
+  {
+   "view": "village",
+   "config": "no effects",
+   "avgMs": 7341.1,
+   "fps": 0.1,
+   "p95Ms": 11836.7,
+   "drawCalls": 410,
+   "triangles": 3627437
+  },
+  {
+   "view": "village",
+   "config": "no LOD",
+   "avgMs": 15347.9,
+   "fps": 0.1,
+   "p95Ms": 24515.3,
+   "drawCalls": 1170,
+   "triangles": 18649352
+  },
+  {
+   "view": "village",
+   "config": "village lights always on",
+   "avgMs": 11504.6,
+   "fps": 0.1,
+   "p95Ms": 18455.5,
+   "drawCalls": 1245,
+   "triangles": 10879466
+  },
+  {
+   "view": "village",
+   "config": "lamp shadows on",
+   "avgMs": 31428.5,
+   "fps": 0,
+   "p95Ms": 50823.9,
+   "drawCalls": 5916,
+   "triangles": 69123014
+  }
+ ],
+ "memory": {
+  "geometryMB": 28.217031478881836,
+  "instancesMB": 0.45821380615234375,
+  "renderTargetsMB": 3.955078125,
+  "shadowMapsMB": 28,
+  "jsHeapMB": 69.75601100921631,
+  "programs": 196
+ },
+ "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+ "canvas": "480x270"
+}

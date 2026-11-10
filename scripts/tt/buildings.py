@@ -240,14 +240,14 @@ def window_box(R, x, ztop, w, face_y=0.0):
     return objs
 
 
-def snow_slab(name, size, loc, rot, lump=0.12, smooth=3, parent=None, mat=None):
+def snow_slab(name, size, loc, rot, lump=0.12, smooth=3, parent=None, mat=None, dice=None):
     """Pillowy snow cap that keeps its footprint: diced box, fat rounded
     bevel, one smoothing pass, then big lumps + a crusty mid-frequency layer."""
     o = box(name, size, loc, mat or snow(), rot=rot, bevel=0, subd=0, wobble=0)
     o.modifiers.clear()
     m = o.modifiers.new("dice", 'SUBSURF'); m.subdivision_type = 'SIMPLE'
     big = max(size)
-    m.levels = m.render_levels = max(2, min(5, math.ceil(math.log2(max(big, 0.3) / 0.16))))
+    m.levels = m.render_levels = dice if dice is not None else max(2, min(5, math.ceil(math.log2(max(big, 0.3) / 0.16))))
     m = o.modifiers.new("round", 'BEVEL')
     m.width = min(size) * 0.42
     m.segments = 4

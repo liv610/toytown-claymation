@@ -37,7 +37,21 @@ def street_dist(x, y):
     return max(a - y, y - b)
 
 
+REGION = False   # map-scale experiment: the snow south of the street becomes the town square
+
+
 def ground_height(x, y):
+    h = _ground_height(x, y)
+    if REGION:
+        # flatten toward square level south of the street (square + forecourt), feathered
+        wx = smooth01(-19.0, -14.0, x) * (1 - smooth01(25.0, 30.0, x))
+        wy = 1 - smooth01(e_far(x) - 1.2, e_far(x) - 0.2, y)
+        w = wx * wy
+        h = h * (1 - w) + (-0.03) * w
+    return h
+
+
+def _ground_height(x, y):
     d = street_dist(x, y)
     n1 = noise.noise(Vector((x * 0.35, y * 0.35, 1.3)))
     n2 = noise.noise(Vector((x * 1.4, y * 1.4, 5.1)))
