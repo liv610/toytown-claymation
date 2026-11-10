@@ -327,7 +327,7 @@ _mats = {}
 
 def clay(name, color, rough=0.62, sss=0.12, dimple=1.0, grain=0.4,
          dimple_scale=3.5, var=0.16, sheen=0.25, bump=0.35, coords='Object',
-         hue_var=0.015, emission=None, metallic=0.0, coat=0.0, stucco=0.0):
+         hue_var=0.015, emission=None, metallic=0.0, coat=0.0, stucco=0.0, wear=0.35):
     """Painted / raw clay. Hand-pressed: large soft dimples (thumb presses),
     slow colour drift, faint smears and very fine grain. Not uniform noise."""
     key = name
@@ -455,7 +455,7 @@ def clay(name, color, rough=0.62, sss=0.12, dimple=1.0, grain=0.4,
     links.new(geo.outputs['Pointiness'], pe.inputs['Value'])
     pe.inputs['From Min'].default_value = 0.52
     pe.inputs['From Max'].default_value = 0.62
-    pe.inputs['To Max'].default_value = 0.35
+    pe.inputs['To Max'].default_value = wear
     wear = nodes.new("ShaderNodeMix"); wear.data_type = 'RGBA'; wear.blend_type = 'SCREEN'
     links.new(pe.outputs[0], wear.inputs['Factor'])
     links.new(dark.outputs[2], wear.inputs[6])

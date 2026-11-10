@@ -13,9 +13,10 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 const Q = new URLSearchParams(location.search);
+const ASSETS = window.TT_ASSETS || './assets/';
 const POST = Q.get('post') !== '0';
 const SHADOWS = Q.get('shadows') !== '0';
-const hud = document.getElementById('hud');
+const hud = document.getElementById('stats') || document.getElementById('hud');
 
 const STILL = Q.get('still');
 const renderer = new THREE.WebGLRenderer({ antialias: !POST, powerPreference: 'high-performance', preserveDrawingBuffer: !!STILL });
@@ -37,7 +38,7 @@ const scene = new THREE.Scene();
 }
 scene.fog = new THREE.FogExp2(0x2a2030, 0.018);
 
-const meta = await (await fetch('./assets/scene.json')).json();
+const meta = await (await fetch(ASSETS + 'scene.json')).json();
 const cams = meta.cameras;
 const startCam = cams[Q.get('cam') || 'Hero'];
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.3, 300);
@@ -52,9 +53,14 @@ controls.target.fromArray(startCam.target);
 controls.enableDamping = true; controls.dampingFactor = 0.06;
 controls.minDistance = 4; controls.maxDistance = 32;
 controls.maxPolarAngle = THREE.MathUtils.degToRad(86);
-const az0 = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z);
-controls.minAzimuthAngle = az0 - 0.9; controls.maxAzimuthAngle = az0 + 0.9;
 controls.update();
+let tween = null, fovH = startCam.fov_h;
+window.__goCam = (name) => {
+  const c = cams[name]; if (!c) return;
+  tween = { t: 0, p0: camera.position.clone(), t0: controls.target.clone(), f0: fovH,
+            p1: new THREE.Vector3().fromArray(c.pos), t1: new THREE.Vector3().fromArray(c.target), f1: c.fov_h };
+};
+window.__cams = Object.keys(cams);
 
 // ---------- handcrafted-look shader patch (world-space, no UVs needed) ----------
 const NOISE = /* glsl */`
@@ -99,7 +105,12 @@ function patch(mat, kind, extras) {
 
 // ---------- scene ----------
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-const gltf = await loader.loadAsync('./assets/toytown_web.glb');
+let gltf;
+if (window.TT_GLB_B64) {   // hosts that cannot serve .glb: the model ships as base64 text
+  const b64 = await (await fetch(window.TT_GLB_B64)).text();
+  const bin = Uint8Array.from(atob(b64.trim()), (c) => c.charCodeAt(0));
+  gltf = await loader.parseAsync(bin.buffer, '');
+} else gltf = await loader.loadAsync(ASSETS + 'toytown_web.glb');
 const root = gltf.scene;
 const shopGlow = []; let tris = 0;
 const doorParts = [];
@@ -121,7 +132,12 @@ scene.add(root);
 // the door swings on a pivot at its hinge (world-space parts re-parented, transforms preserved)
 const door = new THREE.Object3D(); door.position.fromArray(meta.door_hinge); scene.add(door);
 scene.updateMatrixWorld(true);
-for (const m of doorParts) door.attach(m);
+for (const m of doorParts) {
+  if (meta.door_space === 'world') { door.attach(m); continue; }
+  // older export: vertices are already hinge-relative, so the mesh's current world
+  // transform is really its transform relative to the hinge
+  const M = m.matrixWorld.clone(); door.add(m); M.decompose(m.position, m.quaternion, m.scale);
+}
 
 // ---------- lights (from the Blender scene) ----------
 const Y = (a) => new THREE.Vector3().fromArray(a);
@@ -149,6 +165,67 @@ for (const L of meta.lights) {
     p.userData = L; scene.add(p);
     if (L.lightgroup === 'shop') interiorLights.push(p);
   }
+}
+
+// ---------- the Marine: skinned clay puppet + walk clip, steered along a path (game-style) ----------
+async function loadGLB(b64url, url) {
+  if (b64url) {
+    const b64 = await (await fetch(b64url)).text();
+    return loader.parseAsync(Uint8Array.from(atob(b64.trim()), (c) => c.charCodeAt(0)).buffer, '');
+  }
+  return loader.loadAsync(url);
+}
+const mg = await loadGLB(window.TT_MARINE_B64, ASSETS + 'marine.glb');
+const marine = mg.scene;
+marine.traverse((o) => {
+  if (!o.isMesh) return;
+  o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
+  const k = o.material.userData.kind || 'clay';
+  if (k === 'felt' || k === 'clay') patch(o.material, 'clay', {});
+});
+scene.add(marine);
+const mixer = new THREE.AnimationMixer(marine);
+const walk = mixer.clipAction(mg.animations.find((a) => a.name === 'Walk') || mg.animations[0]);
+walk.play();
+// a loop along the cobbles: past the lamppost, in front of the shop, round the wagon, back on the far side
+const B2T = ([x, y]) => new THREE.Vector3(x, 0.06, -y);      // Blender (x, y) ground -> three.js
+const path = new THREE.CatmullRomCurve3([
+  [-8.5, -3.4], [-5.6, -3.3], [-2.6, -2.0], [0.4, -1.75], [3.4, -1.9], [5.8, -2.1], [7.4, -3.7], [9.6, -3.4],
+  [11.8, -3.6], [10.2, -5.2], [6.0, -5.3], [1.5, -5.1], [-3.0, -4.9], [-7.4, -4.6], [-9.6, -4.0],
+].map(B2T), true, 'centripetal');
+const PATH_LEN = path.getLength();
+const STRIDE = 1.3;                         // metres travelled per walk cycle (two steps), matched to the leg swing
+const SPEED = 1.0;                          // m/s
+walk.timeScale = SPEED / STRIDE;
+let along = 0.12, stopMotion = Q.get('twos') === '1', animClock = 0;
+window.__setStopMotion = (v) => { stopMotion = v; };
+function updateMarine(dt) {
+  along = (along + dt * SPEED / PATH_LEN) % 1;
+  const p = path.getPointAt(along), ahead = path.getPointAt((along + 0.004) % 1);
+  animClock += dt;
+  // stop-motion: the puppet is re-posed and moved only 12 times a second ("on twos")
+  const tPose = stopMotion ? Math.floor(animClock * 12) / 12 : animClock;
+  const pPose = stopMotion ? path.getPointAt(((Math.floor(along * PATH_LEN / SPEED * 12) / 12) * SPEED / PATH_LEN) % 1) : p;
+  walk.time = (tPose * walk.timeScale) % walk.getClip().duration; mixer.update(0);
+  marine.position.copy(pPose);
+  marine.lookAt(ahead.x, pPose.y, ahead.z);
+}
+// third-person follow camera, low and to the side like the reference shot
+let follow = false;
+const followPos = new THREE.Vector3(), followLook = new THREE.Vector3();
+window.__follow = () => { follow = true; tween = null; };
+const _goCam = window.__goCam;
+window.__goCam = (n) => { follow = false; _goCam(n); };
+function updateFollow(dt) {
+  const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(marine.quaternion);
+  const side = new THREE.Vector3(1, 0, 0).applyQuaternion(marine.quaternion);
+  const want = marine.position.clone().addScaledVector(fwd, 3.1).addScaledVector(side, -1.8).add(new THREE.Vector3(0, 0.8, 0));
+  const look = marine.position.clone().add(new THREE.Vector3(0, 0.95, 0)).addScaledVector(fwd, 0.4);
+  const k = 1 - Math.exp(-dt * 2.5);
+  if (followPos.lengthSq() === 0) { followPos.copy(camera.position); followLook.copy(controls.target); }
+  followPos.lerp(want, k); followLook.lerp(look, k);
+  camera.position.copy(followPos); controls.target.copy(followLook);
+  fovH += (40 - fovH) * k; setFovFromHorizontal(fovH);
 }
 
 // ---------- falling snow: real 3D points, depth-tested against the scene ----------
@@ -215,15 +292,19 @@ renderer.domElement.addEventListener('click', (e) => {
 window.__openDoor = () => { doorTarget = 1; };
 
 addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight; setFovFromHorizontal(startCam.fov_h);
+  camera.aspect = innerWidth / innerHeight; setFovFromHorizontal(fovH);
   renderer.setSize(innerWidth, innerHeight); composer && composer.setSize(innerWidth, innerHeight);
 });
 
-document.getElementById('loading').remove();
+document.getElementById('loading')?.remove();
+window.__toggleDoor = () => { doorTarget = doorTarget ? 0 : 1; };
 const clock = new THREE.Clock(); let frames = 0, acc = 0, fps = 0;
 if (STILL) {  // headless capture: render a few frames, time them honestly (gl.finish via readPixels), stop
   const n = +STILL, px = new Uint8Array(4), gl = renderer.getContext(); const times = [];
   if (Q.get('door')) doorTarget = doorOpen = 1;
+  if (Q.get('along')) along = +Q.get('along');
+  updateMarine(0.25);
+  if (Q.get('follow')) { follow = true; for (let k = 0; k < 60; k++) updateFollow(0.5); }
   for (let i = 0; i < n; i++) {
     const t0 = performance.now();
     controls.update(); snowMat.uniforms.uT.value = 3 + i / 24; smokeMat.uniforms.uT.value = 3 + i / 24;
@@ -243,6 +324,14 @@ const baseEmissive = shopGlow.map((m) => m.emissiveIntensity);
 const baseInterior = interiorLights.map((l) => l.intensity);
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.1), t = clock.elapsedTime;
+  if (tween) {
+    tween.t = Math.min(1, tween.t + dt / 2.8); const e = tween.t * tween.t * (3 - 2 * tween.t);
+    camera.position.lerpVectors(tween.p0, tween.p1, e); controls.target.lerpVectors(tween.t0, tween.t1, e);
+    fovH = tween.f0 + (tween.f1 - tween.f0) * e; setFovFromHorizontal(fovH);
+    if (tween.t >= 1) tween = null;
+  }
+  updateMarine(dt);
+  if (follow) updateFollow(dt);
   controls.update();
   doorOpen += (doorTarget - doorOpen) * Math.min(1, dt * 2.2);
   if (door) door.rotation.y = THREE.MathUtils.degToRad(104) * doorOpen * doorOpen * (3 - 2 * doorOpen);
@@ -251,13 +340,12 @@ renderer.setAnimationLoop(() => {
   interiorLights.forEach((l, i) => { l.intensity = baseInterior[i] * flick * (1 + 0.45 * doorOpen); });
   const px = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
   snowMat.uniforms.uT.value = t; snowMat.uniforms.uPx.value = px; smokeMat.uniforms.uT.value = t; smokeMat.uniforms.uPx.value = px;
-  const focusD = camera.position.distanceTo(controls.target) * 0.92;
+  const focusD = follow ? camera.position.distanceTo(marine.position) + 0.2 : camera.position.distanceTo(controls.target) * 0.92;
   snowMat.uniforms.uFocus.value = focusD;
   if (bokeh) bokeh.uniforms.focus.value = focusD;
   composer ? composer.render(dt) : renderer.render(scene, camera);
   frames++; acc += dt;
   if (acc > 0.5) { fps = frames / acc; frames = 0; acc = 0; }
-  hud.textContent = `REAL-TIME TEST   ${fps.toFixed(0)} fps   ${(tris / 1e6).toFixed(2)}M tris   ` +
-    `${renderer.info.render.calls} draws\ndrag to orbit · scroll to zoom · click the green door`;
+  if (hud) hud.textContent = `${fps.toFixed(0)} fps · ${(tris / 1e6).toFixed(2)}M triangles`;
   window.__fps = fps; window.__ready = true;
 });

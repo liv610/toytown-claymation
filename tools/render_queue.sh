@@ -2,7 +2,7 @@
 # Renders everything the hybrid pipeline needs, in order of dependency.
 set -u
 cd "$(dirname "$0")/.."
-B="blender -b --factory-startup --python scripts/build_scene.py --"
+B="nice -n 15 blender -b --factory-startup --python scripts/build_scene.py --"
 mkdir -p renders/logs
 run() { echo "=== $1 start $(date +%T)"; shift; "$@" > "renders/logs/$JOB.log" 2>&1; echo "=== $JOB exit $? $(date +%T)"; }
 JOB=hero;   run hero   $B --job hero   --res 2560x1440 --samples 96
