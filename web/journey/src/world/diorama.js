@@ -200,6 +200,7 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
   // ---------------- the textile corner (comparison only): built in the browser from corner.json, same positions
   let textile = null;
   const lookListeners = new Set();
+  let baseHidden = null;          // the felt look's own world is showing: the clay village is hidden, the light is its own
   if (look) {
     onStatus('Sewing the textile corner…', 0.92);
     const [TX, FX] = await Promise.all([import('../../../textile/src/corner.js'), import('../../../textile/src/felt_corner.js')]);
@@ -291,7 +292,7 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
         g.position.copy(tr.curve.getPointAt(Math.min(sk, 1)));
         const tg = tr.curve.getTangentAt(Math.min(sk, 0.999));
         g.rotation.set(0, Math.atan2(tg.x, tg.z) + (dir > 0 ? 0 : Math.PI) - Math.PI / 2, 0);
-        g.visible = si < tr.L + 1.5;
+        g.visible = !baseHidden && si < tr.L + 1.5;
       });
     }
   }
@@ -440,9 +441,10 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     const vd = camera.position.distanceTo(VC);
     for (const l of villageLights) l.visible = vd < 130;
     const lo = vd > 150;
-    stat.scene.visible = !lo; statLo.scene.visible = lo;
+    stat.scene.visible = !lo && !baseHidden; statLo.scene.visible = lo && !baseHidden;
+    if (baseHidden) { const L = baseHidden.light; scene.fog.color.setHex(L.fog); scene.fog.density = L.fogDensity; hemi.intensity = L.hemi[2]; smoke.visible = false; }
     if (textile) { for (const [l, c] of Object.entries(textile.corners)) c.group.visible = !lo && host.look === l; if (cornerClay) cornerClay.scene.visible = !lo && host.look === 'clay'; }
-    snowPts.visible = alt < 22 && dist < 45;
+    snowPts.visible = !baseHidden && alt < 22 && dist < 45;
     if (bokeh) {
       bokeh.uniforms.focus.value = dist;
       bokeh.uniforms.aperture.value = lerp(0.0006, 0.00009, far) * (host.dofBoost || 1);
@@ -544,8 +546,8 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     // rooms (the toy shop interior) switch the outdoor lighting off and their own lamps on
     setInterior(room) {
       interior = room;
-      keyLight.intensity = room ? 0 : 2.6; hemi.intensity = room ? 0.32 : 0.4;
-      if (room) hemi.color.setRGB(1.0, 0.82, 0.66); else hemi.color.set(0x8a90c8);
+      keyLight.intensity = room ? 0 : (baseHidden ? baseHidden.light.key[1] : 2.6); hemi.intensity = room ? 0.32 : 0.4;
+      if (room) hemi.color.setRGB(1.0, 0.82, 0.66); else hemi.color.set(baseHidden ? baseHidden.light.hemi[0] : 0x8a90c8);
       for (const d of outdoor) d.intensity = room ? 0 : d.userData.base;
       for (const l of host.roomLights) l.visible = !!room;
       lodOrigin.set(1e9, 0, 0);
@@ -576,6 +578,15 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
       const handmade = l !== 'clay', wasHandmade = prev && prev !== 'clay';
       if (handmade && !wasHandmade) textile.unclothe = textile.ground.map((m) => textile.module.clothe(m, 'batt', 0xf7f4ee));
       if (!handmade && wasHandmade) { textile.unclothe.forEach((f) => f()); textile.unclothe = []; }
+      // the felt look brings its own world (sky, hills, felt base) and its own night light; the others use the town's
+      const st = on && on.stage;
+      if (!host._light) host._light = { hemiSky: hemi.color.clone(), hemiGround: hemi.groundColor.clone(), key: keyLight.color.clone(), keyI: keyLight.intensity, exposure: renderer.toneMappingExposure, bg: scene.background };
+      baseHidden = st || null;
+      terr.scene.visible = !st;
+      for (const gI of instGroups) for (const im of gI.hi.concat(gI.lo)) im.visible = !st;
+      const L0 = host._light;
+      if (st) { hemi.color.setHex(st.light.hemi[0]); hemi.groundColor.setHex(st.light.hemi[1]); keyLight.color.setHex(st.light.key[0]); keyLight.intensity = st.light.key[1]; renderer.toneMappingExposure = st.light.exposure; scene.background = new THREE.Color(st.light.background); }
+      else { hemi.color.copy(L0.hemiSky); hemi.groundColor.copy(L0.hemiGround); keyLight.color.copy(L0.key); keyLight.intensity = L0.keyI; renderer.toneMappingExposure = L0.exposure; scene.background = L0.bg; }
       for (const fn of lookListeners) fn(l);
     },
   };

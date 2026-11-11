@@ -24,12 +24,12 @@ page = s[s.index('<!--PAGE-START-->') + 17:s.index('<!--PAGE-END-->')]
 names = (['terrain', 'protos', 'protos_lo', 'marine', 'gift', 'static_base', 'static_base_lo', 'corner_clay'] if textile
          else ['static', 'static_lo', 'terrain', 'protos', 'protos_lo', 'marine', 'gift'])
 b64 = ', '.join(f"'{n}.glb': './assets/{n}.glb.txt'" for n in names)
-extra = " window.TT_TEXTILE_ASSETS = './assets/'; window.TT_LOOK = 'textile';" if textile else ''
+extra = " window.TT_TEXTILE_ASSETS = './assets/'; window.TT_LOOK = 'felt';" if textile else ''
 boot = ("<script>window.TT_ASSETS = './assets/'; window.TT_GIFT = 'gift.glb'; window.TT_STILLS = './assets/stills/';" + extra + "\n"
         f"  window.TT_B64 = {{ {b64} }};</script>\n<script type=\"module\" src=\"./journey.js\"></script>\n")
 if textile:
-    page = page.replace('<title>Toy Town Journey Prototype</title>', '<title>Textile Toy Town</title>')
-    page = page.replace('<span class="badge">Prototype · placeholder data</span>', '<span class="badge">Prototype · textile look test</span>')
+    page = page.replace('<title>Toy Town Journey Prototype</title>', '<title>Felt Toy Town</title>')
+    page = page.replace('<span class="badge">Prototype · placeholder data</span>', '<span class="badge">Prototype · felt look test</span>')
 page = re.sub(r'<!--PAGE-SCRIPTS-->.*?<!--PAGE-SCRIPTS-END-->', boot, page, flags=re.S)
 open(f'{out}/journey.html', 'w').write(page.strip() + '\n')
 PY

@@ -22,7 +22,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await p.fill('#zip', '10001'); await p.click('#zipForm button[type=submit]'); await wait(500);
   await shot('05_results');
   await p.click('[data-choose="0"]'); await wait(500); await shot('06_thanks');
-  await p.click('#dropoff [data-close].btn'); await p.click('#cardClose');
+  await p.click('#dropoff [data-close].btn'); if (await p.isVisible('#cardClose')) await p.click('#cardClose');   // (the drop-off action already closes the card)
   await wait(1000);
   await p.evaluate(() => window.__journey.startStory('test'));
   for (const [n, at] of [['07_story_a', 2.5], ['08_story_b', 8.5], ['09_story_c', 13.5]]) {
