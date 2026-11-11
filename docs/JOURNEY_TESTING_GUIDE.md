@@ -54,6 +54,18 @@ Let them go for up to 4 minutes. Don't help. If they're stuck for over a minute,
 
 > "Say you've bought a new toy and want to donate it. Find somewhere you could drop it off."
 
+**Task D (online gifting; a separate round, or after Task A):**
+
+> "Say you'd like to give a toy to a child somewhere else in the country, without leaving home. Show me how you'd do it here."
+
+Watch for:
+- Do they find "Send a toy online" or step into the toy shop?
+- Do they play with the toys?
+- Do they understand that the toy goes to a local campaign, not to a named child?
+- Do they watch the departure or skip it?
+
+Afterwards, ask: "Where do you think your toy went?"
+
 **Task C (optional; a different person, or at the end):**
 
 > "Now imagine your own family needs help getting toys this year. What would you do?"
@@ -103,6 +115,7 @@ Key columns:
 | `storyFinished`, `storySkipped`, `storyWatchedS` | How the story went |
 | `hotspots` | What they explored |
 | `otherActions` | Other actions they tried |
+| `giftPath`, `giftOrdered`, `toysViewed`, `departureWatched` | The online-gift journey (Task D) |
 
 With a handful of people this is qualitative. Look for patterns, not percentages.
 

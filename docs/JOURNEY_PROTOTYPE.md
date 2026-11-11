@@ -52,6 +52,47 @@ It ends on "Toys given here stay close to home", followed by the drop-off button
 
 **Draft copy.** The story and card copy are drafts and need review by the organisation before any real use.
 
+## Second journey: send a toy online
+
+This journey uses placeholder toys, prices and checkout. No retail partner is connected or implied.
+
+**Ways in:**
+- **Direct:** "Send a toy online" on the landing (`direct-landing`). It opens a catalogue in a dialog with no 3D.
+- **Exploration:** in Toy Town, the toy shop window card → "Step inside the toy shop" (`shop_enter`). Then tap a toy
+  (pin, direct tap or the Places list) → it comes alive → "Give this toy to a child" (`explore-shop-interior`).
+- **Simple view:** "Visit the toy shop" opens the same catalogue (`explore-shop-lite`).
+
+**The steps:**
+1. Toy.
+2. Wrapping paper.
+3. The community it should help (ZIP; the drop-off search's ZIP is reused).
+4. Placeholder "partner checkout", where "Complete order (simulated)" is the conversion (`order_simulated`).
+5. Thank-you.
+
+**After the thank-you:**
+- **With the 3D world loaded:** the visitor can choose **Watch it leave Toy Town** or skip straight to the map.
+- **The departure scene (about 13 s, skippable):**
+  1. The wrapped present waits on the station platform.
+  2. It hops into a car and the train pulls out of the shed, watched from beside the line.
+  3. The full-screen **line map** follows: the train runs from Toy Town to the visitor's ZIP area (first digit of the ZIP)
+     and that station lights up.
+- **Without 3D:** the same map animates inside the dialog.
+- **After the map:** "Back to Toy Town" (a present has appeared under the tree), "Send another toy" or
+  "Find a toy drop-off".
+
+**Copy that keeps the symbolism honest:**
+- Toys go to the local campaign for the chosen ZIP, which gives them to a child.
+- No child, address or real delivery is ever shown.
+- The prototype states that nothing was ordered.
+
+**Pieces and prototype limits:**
+
+| Piece | Prototype limit |
+|---|---|
+| `world/toyshop.js`: the interior room (built from simple shapes, placed off the board at x = 600 so it never touches the village) | Six toys with tap animations, but simple shapes, not art-directed models |
+| `world/departure.js`: drives one of the existing trains through `override` | The platform shot can have a roof column in the frame |
+| `actions/gift.js`, `actions/catalog.js` (placeholder catalogue and ZIP areas), `actions/delivery_map.js` (schematic line map, a stand-in for the national map) | No real catalogue or checkout. The map is a transit-style diagram, not geography. |
+
 ## Conditions
 
 | Address | Condition |
@@ -138,6 +179,11 @@ Events are kept in `localStorage` in this browser only (key `rh_journey_sessions
 | `site_chosen` | "I’ll drop off here" (the conversion) | rank, miles, source, path |
 | `directions_click`, `dropoff_close` | after results | stage at close |
 | `fallback_shown`, `simple_view_choose`, `perf` | device handling | reason, fps |
+| `shop_enter` / `shop_leave` / `toy_select` / `toy_play` | the toy shop interior | source, id, via (pin / places / catalogue) |
+| `gift_open` / `gift_wrap` / `checkout_open` | the gift steps | source, path, toy, wrap, zip3 |
+| `order_simulated` | "Complete order (simulated)": the gift conversion | toy, wrap, zip3, area, source, **path** |
+| `departure_choose` / `departure_start` / `departure_beat` / `departure_skip` / `departure_complete` | the station scene | route, at |
+| `map_choose` / `delivery_map` / `mapview_back` / `gift_again` / `gift_close` | after the order | area, where (dialog / full), stage |
 | `session_end` | tab closed or left | last milestone |
 
 **Funnel milestones** (the panel shows where each session stopped):

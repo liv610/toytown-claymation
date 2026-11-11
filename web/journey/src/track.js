@@ -78,6 +78,10 @@ export function summarize(s) {
     storyWatchedS: storyEnd && has('story_start') ? +((storyEnd.t - has('story_start').t) / 1000).toFixed(1) : null,
     hotspots: [...new Set(s.events.filter((e) => e.name === 'hotspot_open').map((e) => e.id))].join(' '),
     otherActions: [...new Set(s.events.filter((e) => e.name === 'action_click' && e.action !== 'dropoff').map((e) => e.action))].join(' '),
+    giftPath: has('gift_open') ? pathOf((has('order_simulated') || has('gift_open')).source) : '',
+    giftOrdered: !!has('order_simulated'),
+    toysViewed: [...new Set(s.events.filter((e) => e.name === 'toy_select').map((e) => e.id))].join(' '),
+    departureWatched: !!has('departure_complete') && has('departure_complete').reason === 'complete',
     usedFallback: !!has('fallback_shown'), events: s.events.length, durationS: +(dur / 1000).toFixed(1),
     touch: s.device.touch, screen: `${s.device.w}x${s.device.h}`,
   };

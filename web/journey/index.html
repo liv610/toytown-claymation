@@ -39,11 +39,14 @@
          translate: -22px -22px; transition: opacity 0.25s; }
   .pin-dot { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-size: 1.05rem; color: #2a1606;
              background: radial-gradient(circle at 40% 35%, #ffe7b3, var(--gold)); box-shadow: 0 0 0 6px rgba(242, 184, 92, 0.25), 0 6px 18px rgba(0, 0, 0, 0.45);
-             animation: glow 2.4s ease-in-out infinite; }
+             position: relative; }
+  .pin-dot::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 3px solid rgba(242, 184, 92, 0.55);
+                    animation: glow 2.4s ease-out infinite; will-change: transform, opacity; }
   .pin-label { font-weight: 700; font-size: 0.86rem; background: var(--panel); border: 1px solid var(--line); padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
   .pin:hover .pin-dot, .pin:focus-visible .pin-dot { box-shadow: 0 0 0 9px rgba(242, 184, 92, 0.35), 0 6px 18px rgba(0, 0, 0, 0.45); }
   .pin-off { opacity: 0; pointer-events: none; }
-  @keyframes glow { 50% { box-shadow: 0 0 0 11px rgba(242, 184, 92, 0.12), 0 6px 18px rgba(0, 0, 0, 0.45); } }
+  @keyframes glow { from { transform: scale(0.9); opacity: 0.9; } to { transform: scale(1.5); opacity: 0; } }
+  .capture *, .capture *::after { animation: none !important; transition: none !important; }
   .flatmap-layer { position: fixed; inset: 0; z-index: 1; display: grid; place-items: center; background: #23314a; padding: 90px max(16px, env(safe-area-inset-right, 0px)) 120px max(16px, env(safe-area-inset-left, 0px)); transition: transform 0.9s cubic-bezier(.6, 0, .4, 1), opacity 0.9s; transform-origin: var(--ox, 50%) var(--oy, 50%); }
   .flatmap-layer.fm-leaving { transform: scale(5); opacity: 0; }
   .flatmap { position: relative; width: min(900px, 100%); }
@@ -107,6 +110,7 @@
              background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
   .caption p { margin: 0; flex: 1 1 260px; font: 500 1.15rem/1.35 var(--display); min-width: 0; }
   .caption .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .caption[data-mode="departure"] .btn-primary { display: none; }
   .progress { flex-basis: 100%; height: 3px; background: var(--line); border-radius: 3px; overflow: hidden; }
   .progress i { display: block; height: 100%; width: 0; background: var(--gold); }
   .card { position: fixed; z-index: 4; right: max(16px, env(safe-area-inset-right, 0px)); top: 96px; width: min(400px, calc(100% - 32px));
@@ -141,6 +145,49 @@
   .site .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
   .thanks { display: grid; gap: 12px; text-align: left; }
   .thanks .big { font: 600 1.5rem/1.2 var(--display); color: var(--pine); }
+
+
+  /* ---------- send a toy online */
+  .choice-gift { border-color: rgba(242, 184, 92, 0.55); }
+  .toygrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .toycard { display: grid; gap: 4px; text-align: left; border: 1px solid var(--line); background: var(--raise); border-radius: var(--r); padding: 8px; }
+  .toycard:hover { border-color: var(--gold); }
+  .toycard img, .gf-toy img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; background: var(--night); display: block; }
+  .toycard strong { font-size: 0.98rem; } .toycard span { color: var(--muted); font-size: 0.84rem; }
+  .gf-step { display: grid; gap: 14px; }
+  .gf-toy { display: grid; grid-template-columns: 140px 1fr; gap: 14px; align-items: center; }
+  .gf-toy h3 { margin: 0 0 4px; font: 600 1.25rem var(--display); }
+  .gf-toy p { margin: 0; color: var(--muted); }
+  .wraps { border: 0; padding: 0; margin: 0; } .wraps legend { font-weight: 700; margin-bottom: 8px; padding: 0; }
+  .wraps .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .swatch { display: inline-flex; align-items: center; gap: 8px; border: 2px solid var(--line); border-radius: 999px; padding: 6px 12px 6px 6px; background: var(--night); }
+  .swatch i { width: 26px; height: 26px; border-radius: 50%; background: var(--sw); box-shadow: inset 0 0 0 3px rgba(242, 210, 122, 0.85); }
+  .swatch[aria-pressed="true"] { border-color: var(--gold); }
+  .checkout { border: 1px dashed var(--gold); border-radius: var(--r); padding: 14px; display: grid; gap: 8px; }
+  .co-head { margin: 0; font-weight: 700; } .co-head span { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: #2a1606; background: var(--gold); border-radius: 6px; padding: 2px 6px; margin-left: 6px; }
+  .checkout p { margin: 0; }
+  .big-thanks { margin: 0; font: 600 1.45rem/1.2 var(--display); color: var(--pine); }
+  .dmap-wrap { display: grid; gap: 4px; }
+  .dmap { width: 100%; height: auto; display: block; }
+  .dm-board { fill: #ecdfc4; stroke: #8a6a45; stroke-width: 5; }
+  .dm-line { fill: none; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; transition: opacity 0.4s; }
+  .dm-line.dm-dim { opacity: 0.22; } .dm-line.dm-active { stroke-width: 9; }
+  .dm-st circle { fill: #f8f1e2; stroke: #5a4634; stroke-width: 4; transition: fill 0.4s; }
+  .dm-st text { fill: #3a2a1e; font: 700 15px var(--body); } .dm-st .dm-zip { fill: #7a6450; font: 400 11.5px var(--body); }
+  .dm-st.dm-lit circle { fill: #f2b85c; stroke: #8a4a10; filter: drop-shadow(0 0 8px #ffb84a); }
+  .dm-hub circle { fill: #c4372c; stroke: #f8f1e2; stroke-width: 4; } .dm-hub text { fill: #fff8ee; font: 700 15px var(--body); }
+  .dm-hub .dm-hublabel { fill: #3a2a1e; font: 600 17px var(--display); }
+  .dm-train rect { fill: #c4372c; stroke: #3a2a1e; stroke-width: 2; } .dm-train circle { fill: #3a2a1e; }
+  .dm-note { margin: 0; color: var(--muted); font-size: 0.8rem; text-align: center; }
+  .fade { position: fixed; inset: 0; z-index: 6; background: #1a1008; opacity: 0; pointer-events: none; transition: opacity 0.35s ease; }
+  .fade.on { opacity: 1; }
+  .mapview { position: fixed; inset: 0; z-index: 4; background: var(--night); display: grid; place-items: center; overflow: auto;
+             padding: 84px max(16px, env(safe-area-inset-right, 0px)) 40px max(16px, env(safe-area-inset-left, 0px)); }
+  .mv-inner { width: min(860px, 100%); display: grid; gap: 14px; }
+  .mv-inner h2 { font-size: 1.8rem; }
+  .mv-text { margin: 0; font: 500 1.15rem/1.4 var(--display); min-height: 1.4em; }
+  .mv-actions { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  @media (max-width: 760px) { .toygrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gf-toy { grid-template-columns: 96px 1fr; } .mapview { padding-bottom: calc(var(--bar-h) + 30px); } .choice-gift span { display: block; } }
 
   /* ---------- illustrated fallback */
   .fallback { position: fixed; inset: 0; z-index: 3; overflow: auto; background: var(--night); padding: 96px max(16px, env(safe-area-inset-right, 0px)) 120px max(16px, env(safe-area-inset-left, 0px)); }
@@ -195,7 +242,7 @@
     .foot span { display: none; }
     .brand { margin-right: 0; padding-right: 64px; }
   }
-  @media (prefers-reduced-motion: reduce) { .pin-dot { animation: none; } .flatmap-layer, .backdrop { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .pin-dot::after { animation: none; } .flatmap-layer, .backdrop { transition: none; } }
 </style>
 
 <div id="stage" aria-hidden="true"></div>
@@ -217,6 +264,7 @@
   <h1 id="landingTitle">How would you like to bring joy this holiday season?</h1>
   <div class="choices">
     <button type="button" class="choice choice-primary" data-action="dropoff" data-source="direct-landing"><strong>Find a toy drop-off</strong><span>Give a new, unwrapped toy at a location near you</span></button>
+    <button type="button" class="choice choice-gift" data-action="gift" data-source="direct-landing"><strong>Send a toy online</strong><span>Pick a toy for a child in a community you choose</span></button>
     <button type="button" class="choice" data-action="donate" data-source="direct-landing"><strong>Make a donation</strong><span>Help buy toys for children in your area</span></button>
     <button type="button" class="choice" data-action="request" data-source="direct-landing"><strong>Request toys for my family</strong><span>Apply through your local campaign</span></button>
     <button type="button" class="choice" data-action="campaign" data-source="direct-landing"><strong>Find my local campaign</strong><span>Volunteer, run a toy drive or get in touch</span></button>
@@ -230,6 +278,7 @@
 
 <div id="whereami" class="whereami" hidden>
   <button type="button" id="backToMap" class="chip">← Map</button>
+  <button type="button" id="backToStreet" class="chip" hidden>← Street</button>
   <strong id="placeName">Toy Town</strong>
 </div>
 <section id="worldui" class="worldui" aria-label="Toy Town controls" hidden>
@@ -290,6 +339,51 @@
     <div class="card-actions"><button type="button" class="btn btn-primary" data-action="dropoff" data-source="direct-notyet">Find a toy drop-off instead</button><button type="button" class="btn" data-close>Close</button></div>
   </div>
 </dialog>
+
+<dialog id="gift" aria-labelledby="gfTitle">
+  <div class="dlg">
+    <button type="button" class="x" data-close aria-label="Close">×</button>
+    <h2 id="gfTitle">Send a toy online</h2>
+    <span class="ph-flag">Prototype · placeholder toys, prices and checkout</span>
+    <div id="gfPick" class="gf-step">
+      <p class="muted">Choose a toy. It goes to the local campaign for the community you pick, who give it to a child there.</p>
+      <div class="toygrid" id="toyGrid"></div>
+    </div>
+    <form id="gfDetail" class="gf-step" novalidate hidden>
+      <div class="gf-toy" id="gfToy"></div>
+      <fieldset class="wraps"><legend>Wrapping paper</legend><div class="row" id="wrapRow"></div></fieldset>
+      <div style="display:grid;gap:8px">
+        <label for="gfZip">Which community should it help? (ZIP code)</label>
+        <div class="ziprow"><input id="gfZip" inputmode="numeric" autocomplete="postal-code" maxlength="5" placeholder="e.g. 60601" aria-describedby="gfZipErr"></div>
+        <p id="gfZipErr" class="err" role="alert" hidden></p>
+      </div>
+      <div class="card-actions"><button type="submit" class="btn btn-primary">Continue to checkout</button><button type="button" class="btn" id="gfBack">Choose a different toy</button></div>
+    </form>
+    <div id="gfCheckout" class="gf-step" hidden>
+      <div class="checkout">
+        <p class="co-head">Partner checkout <span>placeholder</span></p>
+        <p id="coSummary"></p>
+        <p class="muted">In the live version you would finish your order on the organisation’s chosen retail partner’s site, shipped to the local campaign. In this prototype nothing is ordered or charged.</p>
+      </div>
+      <div class="card-actions"><button type="button" class="btn btn-primary" id="coDone">Complete order (simulated)</button><button type="button" class="btn" id="coBack">Back</button></div>
+    </div>
+    <div id="gfDone" class="gf-step" hidden>
+      <p class="big-thanks">Thank you. Your toy is on its way.</p>
+      <p id="doneText"></p>
+      <div class="dmap-wrap" id="dmapInline"></div>
+      <div class="card-actions" id="doneActions"></div>
+    </div>
+  </div>
+</dialog>
+<div id="fade" class="fade" aria-hidden="true"></div>
+<section id="mapview" class="mapview" hidden aria-labelledby="mvTitle">
+  <div class="mv-inner">
+    <h2 id="mvTitle">On its way</h2>
+    <div class="dmap-wrap" id="dmapFull"></div>
+    <p id="mvText" class="mv-text" aria-live="polite"></p>
+    <div class="card-actions mv-actions" id="mvActions"></div>
+  </div>
+</section>
 
 <section id="fallback" class="fallback" hidden aria-labelledby="fbTitle"><div class="fb-inner" id="fbInner"></div></section>
 

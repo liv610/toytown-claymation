@@ -23,7 +23,7 @@ export function createFallback(root, { stills, variant, log, onUse3D }) {
   const img = root.querySelector('#fbImg'), cap = root.querySelector('#fbCap'), btns = root.querySelector('#fbBtns');
   const home = () => {
     img.src = stills + 'village.jpg'; cap.textContent = 'Toy Town’s main street. Where would you like to look?';
-    btns.innerHTML = (shopOK ? '<button type="button" class="btn" data-fb="shop">See the toy shop window</button>' : '')
+    btns.innerHTML = (shopOK ? '<button type="button" class="btn" data-fb="shop">See the toy shop window</button><button type="button" class="btn" data-action="gift" data-source="explore-shop-lite">Visit the toy shop</button>' : '')
       + (storyOK ? '<button type="button" class="btn" data-fb="story">Follow the Marine</button>' : '');
   };
   let k = 0;

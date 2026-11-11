@@ -28,7 +28,7 @@ export function createResearch(el, tracker) {
       const c = rows.filter((r) => FUNNEL.findIndex((f) => f[0] === r.stoppedAt) >= FUNNEL.findIndex((f) => f[0] === k)).length;
       return `<div><span>${label}</span><b style="width:${(100 * c / n).toFixed(0)}%"></b><span>${c}</span></div>`;
     }).join('');
-    const cols = ['participant', 'variant', 'path', 'timeToDropoffS', 'chosen', 'stoppedAt', 'storyFinished', 'storySkipped', 'hotspots', 'durationS'];
+    const cols = ['participant', 'variant', 'path', 'timeToDropoffS', 'chosen', 'stoppedAt', 'storyFinished', 'storySkipped', 'giftPath', 'giftOrdered', 'toysViewed', 'hotspots', 'durationS'];
     $('rsTable').innerHTML = `<thead><tr>${cols.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.slice(0, 40).map((r) => `<tr>${cols.map((c) => `<td>${r[c] === true ? 'yes' : r[c] === false ? '' : r[c] ?? ''}</td>`).join('')}</tr>`).join('')}</tbody>`;
     $('rsLog').textContent = S.events.map((e) => `${(e.t / 1000).toFixed(1).padStart(6)}s  ${e.name}${Object.keys(e).filter((k) => !['t', 'name'].includes(k)).map((k) => ` ${k}=${e[k]}`).join('')}`).join('\n');
     $('rsLog').scrollTop = 1e6;

@@ -252,7 +252,8 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
       const run = tr.L / 7.0, wait = 9, inTunnel = 5, period = 2 * run + wait + inTunnel;
       let u = ((t / period + tr.phase) % 1) * period, s, dir;
       const s0 = 9, s1 = tr.L + 14;
-      if (u < wait) { s = s0; dir = 1; } else if ((u -= wait) < run) { s = lerp(s0, s1, smooth(u / run)); dir = 1; }
+      if (tr.override != null) { s = tr.override; dir = 1; }
+      else if (u < wait) { s = s0; dir = 1; } else if ((u -= wait) < run) { s = lerp(s0, s1, smooth(u / run)); dir = 1; }
       else if ((u -= run) < inTunnel) { s = s1; dir = -1; } else { u -= inTunnel; s = lerp(s1, s0, smooth(u / run)); dir = -1; }
       tr.parts.forEach((g, i) => {
         const si = s + (dir > 0 ? -i * 6.3 : i * 6.3), sk = clamp(si / tr.L, 0, 1);
@@ -268,7 +269,8 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
   const W2I = 1 / (4 * Math.PI);
   const hemi = new THREE.HemisphereLight(0x8a90c8, 0x5a4038, 0.4); scene.add(hemi);
   let keyLight;
-  const villageLights = [], lamps = {};
+  const villageLights = [], lamps = {}, outdoor = [];
+  let interior = null;     // { lights: [...] } while the camera is inside a room set
   for (const Lg of meta.lights) {
     const col = new THREE.Color().fromArray(Lg.color), P = V(...Lg.pos);
     if (Lg.name === 'Key') {
@@ -277,8 +279,8 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
       keyLight.castShadow = cfg.shadows; keyLight.shadow.mapSize.set(cfg.shadowMap, cfg.shadowMap);
       keyLight.shadow.radius = 5; keyLight.shadow.bias = -0.0004; keyLight.shadow.normalBias = 0.04;
       scene.add(keyLight, keyLight.target);
-    } else if (Lg.name === 'Rim') { const d = new THREE.DirectionalLight(col, 1.4); d.position.copy(P); scene.add(d); }
-    else if (Lg.name === 'Fill') { const d = new THREE.DirectionalLight(col, 0.35); d.position.copy(P); scene.add(d); }
+    } else if (Lg.name === 'Rim') { const d = new THREE.DirectionalLight(col, 1.4); d.position.copy(P); d.userData.base = 1.4; scene.add(d); outdoor.push(d); }
+    else if (Lg.name === 'Fill') { const d = new THREE.DirectionalLight(col, 0.35); d.position.copy(P); d.userData.base = 0.35; scene.add(d); outdoor.push(d); }
     else if (Lg.type === 'POINT' || (Lg.type === 'AREA' && Lg.energy < 1000)) {
       const p = new THREE.PointLight(col, Lg.energy * W2I * (Lg.type === 'AREA' ? 0.22 : 0.45), Lg.type === 'AREA' ? 5 : 8, 2);
       p.position.copy(P);
@@ -388,6 +390,14 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
   // ---------------- scale-dependent atmosphere
   const VC = B(5, -12, 0);
   function atmosphere(alt, dist) {
+    if (interior) {           // inside a room: no weather, no sky light, the room's own lamps
+      scene.fog.density = 0.0; snowPts.visible = false; smoke.visible = false;
+      for (const l of villageLights) l.visible = false;
+      stat.scene.visible = false; statLo.scene.visible = true;
+      if (bokeh) { bokeh.uniforms.focus.value = dist; bokeh.uniforms.aperture.value = 0.0009 * (host.dofBoost || 1); bokeh.uniforms.maxblur.value = 0.006; }
+      return;
+    }
+    smoke.visible = true;
     const far = smooth((alt - 15) / 160);
     scene.fog.density = clamp(0.36 / Math.max(dist, 1), 0.0009, 0.018);
     scene.fog.color.copy(fogNear).lerp(fogFar, far);
@@ -495,10 +505,21 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
 
   const host = {
     THREE, scene, camera, renderer, meta, cfg, cur, collidables, villageLights, lamps, treeGlow, trains, door, bytes, load,
-    setPose, tweenTo, fly, cancelMove, explore, controls, pick, project, occluded, groundAt, clearPose,
+    setPose, tweenTo, fly, cancelMove, explore, controls, pick, project, occluded, groundAt, clearPose, ray,
     onUpdate: (fn) => { updaters.add(fn); return () => updaters.delete(fn); },
     start, frame, resize, setPaused: (v) => { paused = v; },
     get time() { return T; },
+    // rooms (the toy shop interior) switch the outdoor lighting off and their own lamps on
+    setInterior(room) {
+      interior = room;
+      keyLight.intensity = room ? 0 : 2.6; hemi.intensity = room ? 0.32 : 0.4;
+      if (room) hemi.color.setRGB(1.0, 0.82, 0.66); else hemi.color.set(0x8a90c8);
+      for (const d of outdoor) d.intensity = room ? 0 : d.userData.base;
+      for (const l of host.roomLights) l.visible = !!room;
+      lodOrigin.set(1e9, 0, 0);
+    },
+    get interior() { return interior; },
+    roomLights: [],
     get moving() { return !!move; },
     fps: () => perf.ms.length ? 1000 / (perf.ms.reduce((s, x) => s + x, 0) / perf.ms.length) : 0,
     stats: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, tier: cfg.tier }),

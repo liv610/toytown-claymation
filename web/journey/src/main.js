@@ -12,6 +12,9 @@ import { createTracker, pathOf } from './track.js';
 import { createResearch } from './research.js';
 import { validZip, findDropoffs } from './actions/dropoff_data.js';
 import { createFallback } from './fallback.js';
+import { createGiftFlow } from './actions/gift.js';
+import { renderDeliveryMap, animateDelivery } from './actions/delivery_map.js';
+import { TOYS, WRAPS, areaOf, routeOf } from './actions/catalog.js';
 
 const Q = new URLSearchParams(location.search);
 // test conditions come from ?variant=… locally, or from a plain #name in an artifact link
@@ -34,9 +37,10 @@ const tierGuess = (Q.get('q') && ['high', 'medium', 'low'].includes(Q.get('q')))
 const tracker = createTracker({ variant: VARIANT, tier: tierGuess, mapId: MAP_ID });
 const log = tracker.log;
 const research = createResearch($('research'), tracker);
-let state = 'landing';           // landing | entering | village | story | fallback
+let state = 'landing';           // landing | entering | village | story | shop | departure | mapview | fallback
 const setState = (s) => { state = s; document.body.dataset.state = s; };
 setState('landing');
+if (Q.get('capture') === '1') document.body.classList.add('capture');
 
 // ------------------------------------------------------------------ toasts
 let toastTimer = 0;
@@ -57,7 +61,9 @@ document.addEventListener('click', (e) => {
   if (b) {
     const action = b.dataset.action, source = b.dataset.source || 'direct-other';
     log('action_click', { action, source, context: state });
-    if (action === 'dropoff') openDropoff(source); else openNotYet(action);
+    if (action === 'dropoff') openDropoff(source);
+    else if (action === 'gift') gift.open(source, b.dataset.toy);
+    else openNotYet(action);
     return;
   }
   if (e.target.closest('[data-close]')) e.target.closest('dialog')?.close();
@@ -87,7 +93,7 @@ $('zipForm').addEventListener('submit', (e) => {
     $('zipErr').textContent = 'Enter a 5-digit ZIP code, like 10001.'; $('zipErr').hidden = false;
     log('zip_invalid', { length: zip.length }); $('zip').focus(); return;
   }
-  log('zip_submit', { zip3: zip.slice(0, 3) });
+  log('zip_submit', { zip3: zip.slice(0, 3) }); window.__lastZip = zip;
   const sites = findDropoffs(zip);
   dropStage = 'results';
   log('results_shown', { count: sites.length });
@@ -158,6 +164,11 @@ async function bootWorld() {
     world.map.onSelect((place) => { log('map_select', { place }); enterTown('map-pin'); });
     const load = (n) => host.load(n === 'gift.glb' ? GIFT : n);
     world.story = await createMarineStory(host, world.village, { load, onBeat: onStoryBeat, onEnd: onStoryEnd });
+    const { createToyShop } = await import('./world/toyshop.js');
+    const { createDeparture } = await import('./world/departure.js');
+    world.shop = createToyShop(host, pins, { windowImage: STILLS + 'village.jpg', onToy: (id) => onToy(id, 'pin') });
+    world.departure = createDeparture(host, { onBeat: (i, text) => { $('captionText').textContent = text; log('departure_beat', { i }); }, onEnd: onDepartureEnd });
+    world.shop.enter(); host.frame(1 / 60); world.shop.leave();           // compile the room's lighting once, up front
     if (storyAllowed) {
       pins.add({ id: 'marine', label: 'Follow the Marine', hint: 'watch a donated toy’s journey', icon: '★', getPos: world.story.headPos, onSelect: () => startStory('story-pin') });
       world.village.registerPin('marine', () => state === 'village');
@@ -226,6 +237,11 @@ $('follow').addEventListener('click', () => startStory('story-chip'));
 $('simpleView').addEventListener('click', () => { log('simple_view_choose'); try { sessionStorage.setItem('rh_lite', '1'); } catch (e) {} showFallback('chosen'); });
 
 function renderPlaces() {
+  if (state === 'shop') {
+    $('placesList').innerHTML = TOYS.map((t) => `<button type="button" data-toyplace="${t.id}">${t.name}</button>`).join('');
+    $('placesList').querySelectorAll('[data-toyplace]').forEach((b) => b.addEventListener('click', () => { $('places').open = false; onToy(b.dataset.toyplace, 'places'); }));
+    return;
+  }
   const list = [['shop', 'Toy shop window', shopAllowedNow()], ['marine', 'Follow the Marine', storyAllowed], ['tree', 'Christmas tree', true], ['lamp', 'Lamppost', true]];
   $('placesList').innerHTML = list.filter((x) => x[2]).map(([id, label]) => `<button type="button" data-place="${id}">${label}</button>`).join('');
   $('placesList').querySelectorAll('[data-place]').forEach((b) => b.addEventListener('click', () => {
@@ -242,7 +258,7 @@ async function onHotspot(id, via = 'pin') {
     world.village.showPins(false);
     showCard({ id: 'shop', title: 'The toy shop window',
       body: '<p class="lede">Every toy in this window is on its way to a child in Toy Town.</p><p>When you drop off a new, unwrapped toy near you, it’s given to a child in your own community.</p>',
-      actions: [['Find a toy drop-off near you', null, true, 'explore-shop'], ['Keep exploring', () => { hideCard(); world.village.freeLook(); }]] });
+      actions: [['Step inside the toy shop', () => enterShop('explore-shop-card'), true], ['Find a toy drop-off near you', null, false, 'explore-shop'], ['Keep exploring', () => { hideCard(); world.village.freeLook(); }]] });
     await world.village.focus('window', { reducedMotion: REDUCED });
   } else if (id === 'tree') {
     world.village.celebrate(1);
@@ -280,7 +296,7 @@ function onStoryEnd(reason) {
     body: '<p class="lede">A new, unwrapped toy left at a drop-off near you goes to a child in your own community.</p>',
     actions: [['Find a toy drop-off near you', null, true, 'story-end'], ['Watch again', () => startStory('story-replay')], ['Look around', () => { hideCard(); world.village.freeLook(); }]] });
 }
-$('skipStory').addEventListener('click', () => { log('story_skip', { at: +world.story.time.toFixed(1) }); world.story.skip(); });
+$('skipStory').addEventListener('click', () => { if (state !== 'story') return; log('story_skip', { at: +world.story.time.toFixed(1) }); world.story.skip(); });
 function stopStory() { if (world.story && world.story.running) { log('story_abandon', { at: +world.story.time.toFixed(1) }); world.story.stop(); world.story.reset(); } $('caption').hidden = true; }
 
 async function showThanksInTown() {
@@ -295,9 +311,9 @@ async function showThanksInTown() {
 function showCard({ id, title, body, actions }) {
   $('cardTitle').textContent = title; $('cardBody').innerHTML = body; $('card').dataset.card = id;
   $('cardActions').innerHTML = '';
-  for (const [label, fn, primary, source] of actions) {
+  for (const [label, fn, primary, source, action = 'dropoff', toy] of actions) {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'btn' + (primary ? ' btn-primary' : ''); b.textContent = label;
-    if (source) { b.dataset.action = 'dropoff'; b.dataset.source = source; } else b.addEventListener('click', fn);
+    if (source) { b.dataset.action = action; b.dataset.source = source; if (toy) b.dataset.toy = toy; } else b.addEventListener('click', fn);
     $('cardActions').appendChild(b);
   }
   $('card').hidden = false;
@@ -318,6 +334,106 @@ function samplePerf() {
     }
   }, 4000);
 }
+
+// ------------------------------------------------------------------ the toy shop interior (send a toy online)
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+async function fadeThrough(fn) {
+  const f = $('fade');
+  if (REDUCED) { await fn(); return; }
+  f.classList.add('on'); await wait(380); await fn(); await wait(80); f.classList.remove('on');
+}
+function worldChrome(where) {
+  const inShop = where === 'shop';
+  $('placeName').textContent = inShop ? 'The Toy Shop' : 'Toy Town';
+  $('backToMap').hidden = inShop; $('backToStreet').hidden = !inShop;
+  $('follow').hidden = inShop || !storyAllowed;
+  $('hint').textContent = inShop ? 'Tap a toy to see it come alive' : 'Drag to look around · tap a glowing marker';
+  renderPlaces();
+}
+async function enterShop(source) {
+  if (!world.shop || state !== 'village') return;
+  log('shop_enter', { source });
+  hideCard();
+  await fadeThrough(() => { world.village.leave(); world.shop.enter(); });
+  setState('shop'); worldChrome('shop');
+  $('worldui').hidden = false; $('whereami').hidden = false;
+}
+async function leaveShop() {
+  log('shop_leave');
+  hideCard();
+  await fadeThrough(() => { world.shop.leave(); world.host.setPose(world.village.poses.window); });
+  setState('village'); worldChrome('village');
+  world.village.freeLook();
+}
+$('backToStreet').addEventListener('click', leaveShop);
+async function onToy(id, via) {
+  if (state !== 'shop') return;
+  const t = TOYS.find((x) => x.id === id);
+  log('toy_select', { id, via });
+  showCard({ id: 'toy-' + id, title: t.name, body: `<p class="lede">${t.blurb}</p><p>Ages ${t.ages} · placeholder price ${t.price}</p>`,
+    actions: [['Give this toy to a child', null, true, 'explore-shop-interior', 'gift', id],
+      ['Play again', () => { log('toy_play', { id }); world.shop.play(id); }],
+      ['Back to the shelves', () => { hideCard(); world.shop.overview({ reducedMotion: REDUCED }); }]] });
+  await world.shop.focus(id, { reducedMotion: REDUCED });
+}
+
+// ---- the gift flow itself (plain HTML; the 3D parts are optional extras)
+const gift = createGiftFlow({ $, log, pathOf, stills: STILLS, reducedMotion: REDUCED,
+  canWatch: () => !!(world.departure && world.host && state !== 'fallback'),
+  onWatch: (order) => startDeparture(order),
+  onDone: () => { if (world.village) { world.village.addPresent(); } } });
+
+// ---- the station departure, then the line map
+let lastOrder = null;
+async function startDeparture(order) {
+  lastOrder = order;
+  if (!world.departure) { showMapView(order); return; }
+  log('departure_start', { route: routeOf(order.zip), from: state });
+  hideCard(); stopStory();
+  $('landing').hidden = true;
+  await fadeThrough(() => {
+    if (world.shop.mounted) world.shop.leave();
+    if (world.map && world.map.unmount) world.map.unmount();
+    world.village.leave();
+    world.departure.start(routeOf(order.zip), WRAPS.find((w) => w.id === order.wrap).color);
+  });
+  setState('departure');
+  $('worldui').hidden = true; $('whereami').hidden = true; $('backdrop').style.opacity = '0';
+  $('caption').hidden = false; $('caption').dataset.mode = 'departure'; $('captionText').textContent = '';
+  storyProgStop && storyProgStop();
+  storyProgStop = world.host.onUpdate(() => { $('storyProg').style.width = `${(100 * Math.max(0, world.departure.time) / world.departure.duration).toFixed(1)}%`; });
+}
+function onDepartureEnd(reason) {
+  log('departure_complete', { reason });
+  storyProgStop && storyProgStop(); storyProgStop = null;
+  $('caption').hidden = true; delete $('caption').dataset.mode;
+  showMapView(lastOrder);
+}
+async function showMapView(order) {
+  setState('mapview');
+  if (world.host) world.host.setPaused(true);
+  const el = $('dmapFull'); renderDeliveryMap(el);
+  $('mapview').hidden = false; $('mvText').textContent = '';
+  const a = areaOf(order.zip);
+  $('mvActions').innerHTML = '';
+  log('delivery_map', { area: +order.zip[0], where: 'full' });
+  await animateDelivery(el, order.zip, { reducedMotion: REDUCED });
+  $('mvText').textContent = `Your toy has reached ${a.name}. The local campaign there gives it to a child. (Prototype: symbolic only, no real delivery.)`;
+  const add = (label, fn, primary) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn' + (primary ? ' btn-primary' : ''); b.textContent = label; b.addEventListener('click', fn); $('mvActions').appendChild(b); };
+  if (world.village) add('Back to Toy Town', backFromMapView, true);
+  add('Send another toy', () => { log('gift_again'); gift.open(order.source); }, !world.village);
+  add('Find a toy drop-off', () => openDropoff('direct-mapview'), false);
+}
+async function backFromMapView() {
+  log('mapview_back');
+  $('mapview').hidden = true;
+  world.host.setPaused(false);
+  await fadeThrough(() => { world.host.setPose(world.village.poses.tree); });
+  setState('village'); worldChrome('village');
+  $('worldui').hidden = false; $('whereami').hidden = false;
+  world.village.celebrate(1); world.village.freeLook();
+}
+$('skipStory').addEventListener('click', () => { if (state === 'departure') { log('departure_skip', { at: +world.departure.time.toFixed(1) }); world.departure.skip(); } }, true);
 
 // ------------------------------------------------------------------ illustrated fallback
 let fallback = null;
@@ -342,4 +458,4 @@ if (VARIANT !== 'direct') {
   else setTimeout(() => bootWorld().catch(() => {}), 200);
 }
 // test hooks for the automated walkthrough (no effect for visitors)
-window.__journey = { world, enterTown, startStory, onHotspot, openDropoff, state: () => state, tracker };
+window.__journey = { world, enterTown, startStory, onHotspot, openDropoff, enterShop, onToy, gift, startDeparture, state: () => state, tracker };
