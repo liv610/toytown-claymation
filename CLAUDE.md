@@ -43,7 +43,7 @@ Read `docs/PROJECT_STATE.md` first. It has:
   the prototypes' event logs) before reporting, then commit and **push** (`origin` = github.com/liv610/toytown-claymation).
   Commit messages explain the why.
 - **Running and packaging:**
-  - Web prototypes: `cd web && npm install && npm run dev` → http://localhost:8765/journey/ or /storybook/.
+  - Web prototypes: `cd web && npm install && npm run dev` → http://localhost:8765/journey/, /storybook/ or /national/ (build bundles first: `npm run build:national`).
   - `npm run build` builds the storybook bundle (not committed).
   - Artifacts are packaged with `tools/build_journey.sh` / `tools/build_storybook.sh`. Artifacts can't serve `.glb`, so models
     ship base64-encoded as `.txt` and the pages decode them (`window.TT_B64`).

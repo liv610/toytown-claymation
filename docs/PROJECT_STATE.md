@@ -13,7 +13,17 @@ handcrafted miniature world:
 The goal is understanding and participation, not a game. Every scene offers a relevant real-world action, and the
 actions are always available without the world.
 
-## Where we are now
+## Where we are now (updated)
+
+**Current line of work: `experiment/national`.**
+- **The national story in this project is now a 3D claymation map of the US.**
+- **The owner explores alternative art styles (paper, felt) in a separate project.**
+- **Step 1 is built and awaiting review:** the clay national map and the descent into Maple Hollow. Prototype:
+  [Railroad of Hope National Map](https://claude.ai/artifact/Ljs6JaGJYW1kMGijHRKaZ1). Architecture and plan:
+  `docs/NATIONAL_MAP.md`.
+- **Next, after approval:** the chapter engine plus Chapters 1–2, then Chapters 3–5 and the ZIP ending.
+
+## Earlier status (storybook branch)
 
 **Waiting on the owner:** the owner is evaluating the **storybook pop-up transition** (branch `experiment/storybook`):
 - the illustrated national map;
@@ -48,9 +58,10 @@ Toy*, exactly in this order:
 | `experiment/map-scale` | 320 × 260 m regional diorama around the village, validated railway layout (`scripts/tt/layout.py`, `region.py`), trains, continuous descent (`web/region`), `docs/MAP_SCALE_ASSESSMENT.md` | — |
 | `experiment/visual-quality` | Cycles texture-bake experiment on the blue shop and pink house (`scripts/tt/hq.py`, `bake_hq.py`, `export_hq.py`, `web/hq`), before/after images, `docs/VISUAL_QUALITY_EXPERIMENT.md` | [Toy Town Quality Test](https://claude.ai/artifact/3bqaJDnGMco4e3kR83cfXf) |
 | `experiment/journey` (from map-scale) | Journey prototype: drop-off reached three ways (direct / explore / Marine story), the toy shop interior and "send a toy online" with the station departure and ZIP line map, illustrated fallback, local event log + research panel (`web/journey`), `docs/JOURNEY_PROTOTYPE.md`, `docs/JOURNEY_TESTING_GUIDE.md` | [Toy Town Journey Prototype](https://claude.ai/artifact/68VGT1ZJfx3HdZF8vPkQNw) |
-| `experiment/storybook` (from journey) | **Current line of work.** Pop-up transition test (`web/storybook`): placeholder illustrated US map (`mapart.js`), pop-up community (`popup_town.js`), timeline + scrubber (`main.js`); plus `tools/tests/`, this doc and `CLAUDE.md` | [Storybook Pop-up Test](https://claude.ai/artifact/4V1Ax45MgzCV2UVdy5a928) |
+| `experiment/national` (from storybook) | **Current line of work.** Clay national relief + descent into Maple Hollow (`web/national`), `docs/NATIONAL_MAP.md` | [Railroad of Hope National Map](https://claude.ai/artifact/Ljs6JaGJYW1kMGijHRKaZ1) |
+| `experiment/storybook` (from journey) | Earlier line of work. Pop-up transition test (`web/storybook`): placeholder illustrated US map (`mapart.js`), pop-up community (`popup_town.js`), timeline + scrubber (`main.js`); plus `tools/tests/`, this doc and `CLAUDE.md` | [Storybook Pop-up Test](https://claude.ai/artifact/4V1Ax45MgzCV2UVdy5a928) |
 
-New work should branch from `experiment/storybook` (it contains master + map-scale + journey + storybook).
+New work should branch from `experiment/national` (it contains everything except visual-quality); previously `experiment/storybook` (it contains master + map-scale + journey + storybook).
 `experiment/visual-quality` is a side branch.
 
 ## Decisions log
@@ -65,6 +76,7 @@ New work should branch from `experiment/storybook` (it contains master + map-sca
 | Online gifting | Placeholder catalogue/checkout; no retailer named; gifts go to the local campaign for a ZIP; delivery shown as a region lighting up | partner and logistics are the organisation's decision; privacy |
 | National layer | **Use the existing folk-art national map** (placeholder for now); no second 3D national map | brand consistency; avoid a large build |
 | Signature transition | Illustrated map → **pop-up book** → clay diorama, and back | distinctive visual language |
+| National story (later) | **A lightweight 3D claymation relief of the US** with nested story dioramas and one continuous camera; folk-art and other styles explored in a separate project | owner's direction for this project |
 | Toy Town | Stays the imaginative hub; national-story communities are separate small dioramas | clarity of roles |
 | Symbolism | Train and red toy are metaphors, not literal logistics | accuracy; organisation to review the narrative |
 
