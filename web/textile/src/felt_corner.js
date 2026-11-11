@@ -155,6 +155,16 @@ function feltStage(spec, { felt, wool, glow, thread }) {
     group: g, ground,
     // the style test's night: used by the host while this stage shows
     light: { hemi: [0x6670b0, 0x3a2a30, 0.7], key: [0xffd6a6, 2.3], exposure: 1.1, fog: 0x121124, fogDensity: 0.004, background: 0x0e1024 },
+    // a storybook camera: low, close, three-quarter views among the buildings, the hills always behind; free look stays
+    // near street level (no high overhead view) and a little stronger depth of field makes it read as a miniature
+    poses: (() => { const B = (x, y, z) => new THREE.Vector3(x, z, -y); return {
+      overview: { pos: B(-6.6, -13.6, 2.7), look: B(1.6, -2.6, 1.9), fov: 50 },
+      street: { pos: B(0.6, -7.6, 1.35), look: B(3.6, -1.4, 1.45), fov: 54 },
+      tree: { pos: B(0.4, -8.6, 1.9), look: B(-3.0, -1.4, 1.5), fov: 50 },
+      lamp: { pos: B(-1.4, -8.2, 1.9), look: B(-5.0, -2.3, 2.1), fov: 50 },
+    }; })(),
+    explore: { maxDistance: 14, minPolar: 58, maxPolar: 86 },
+    dofBoost: 1.8,
     update(t) { snowU.uT.value = t; snowU.uPx.value = innerHeight * Math.min(devicePixelRatio, 1.5) / (2 * Math.tan(THREE.MathUtils.degToRad(40) / 2)); },
   };
 }

@@ -400,7 +400,10 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enabled = false; controls.enableDamping = true; controls.dampingFactor = 0.08; controls.enablePan = false;
   let exploreOpts = null;
+  let exploreAsked = null;
   function explore(opts) {   // opts: { minDistance, maxDistance, maxPolar, box:[x0,x1,z0,z1] } or null to stop
+    exploreAsked = opts;
+    if (opts && baseHidden && baseHidden.explore) opts = { ...opts, ...baseHidden.explore };   // the felt look's storybook limits
     exploreOpts = opts;
     controls.enabled = !!opts;
     if (opts) {
@@ -587,6 +590,9 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
       const L0 = host._light;
       if (st) { hemi.color.setHex(st.light.hemi[0]); hemi.groundColor.setHex(st.light.hemi[1]); keyLight.color.setHex(st.light.key[0]); keyLight.intensity = st.light.key[1]; renderer.toneMappingExposure = st.light.exposure; scene.background = new THREE.Color(st.light.background); }
       else { hemi.color.copy(L0.hemiSky); hemi.groundColor.copy(L0.hemiGround); keyLight.color.copy(L0.key); keyLight.intensity = L0.keyI; renderer.toneMappingExposure = L0.exposure; scene.background = L0.bg; }
+      host.dofBoost = st ? st.dofBoost || 1 : 1;
+      host.poses = st ? st.poses : null;          // the village uses these instead of its own while the felt world shows
+      if (exploreAsked) explore(exploreAsked);
       for (const fn of lookListeners) fn(l);
     },
   };

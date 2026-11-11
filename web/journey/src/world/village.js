@@ -126,14 +126,16 @@ export function createVillage(host, pins, { onHotspot, allowPin = () => true }) 
       if (handoff.pose !== VILLAGE_POSES.arrival) await host.tweenTo(VILLAGE_POSES.arrival, reducedMotion ? 0 : 1.2);
     } else host.setPose(VILLAGE_POSES.arrival);
     if (!mounted) return;
-    await host.tweenTo(VILLAGE_POSES.overview, reducedMotion ? 0 : 1.6);
+    await host.tweenTo(pose('overview'), reducedMotion ? 0 : 1.6);
     freeLook();
   }
+  // a look can bring its own camera (the felt world's storybook poses); otherwise the village's own
+  const pose = (name) => (host.poses && host.poses[name]) || VILLAGE_POSES[name];
   function freeLook() { showPins(true); host.explore(EXPLORE); }
   function leave() { mounted = false; showPins(false); host.explore(null); }
   async function focus(poseName, { reducedMotion } = {}) {
     host.explore(null);
-    await host.tweenTo(host.clearPose(VILLAGE_POSES[poseName]), reducedMotion ? 0 : 1.4);
+    await host.tweenTo(host.clearPose(pose(poseName)), reducedMotion ? 0 : 1.4);
   }
 
   return { enter, leave, focus, freeLook, showPins, registerPin, refreshPins: () => showPins(pinsOn), celebrate, toggleLamp, addPresent, poses: VILLAGE_POSES, anchors: ANCHORS, dropBox, dropTop, pins, get mounted() { return mounted; } };
