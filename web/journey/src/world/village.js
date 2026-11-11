@@ -48,12 +48,17 @@ export function createVillage(host, pins, { onHotspot, allowPin = () => true }) 
     g.fillStyle = '#7a1e18'; g.textAlign = 'center'; g.font = 'bold 82px Georgia, serif'; g.fillText('TOY', 256, 108);
     g.font = 'bold 64px Georgia, serif'; g.fillText('DROP-OFF', 256, 186);
     g.fillStyle = '#c9952e'; g.font = '40px Georgia, serif'; g.fillText('★  new, unwrapped  ★', 256, 232);
-    const tex = new T.CanvasTexture(c); tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4;
+    const tex = new T.CanvasTexture(c); tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4; dropBox.userData.signCanvas = c;
     const sign = add(new T.PlaneGeometry(0.56, 0.28), new T.MeshStandardMaterial({ map: tex, roughness: 0.8 }), 0, 0.74, -D / 2 - 0.012);
     sign.rotation.y = Math.PI;
     add(new T.CylinderGeometry(0.018, 0.018, 0.66), trim, 0, 0.33 + 0.05, -D / 2 - 0.03);
     const snowCap = new T.MeshStandardMaterial({ color: 0xf4efe6, roughness: 0.8 }); patch(snowCap, 'snow', {}, true);
     add(new T.BoxGeometry(0.6, 0.025, 0.05), snowCap, 0, 0.885, -D / 2 - 0.012);
+  }
+  // textile comparison: the same box in painted wood with a sewn sign, swapped with the look
+  if (host.textile) {
+    const clay = [...dropBox.children], tb = host.textile.module.dropOffBox(dropBox.userData.signCanvas); dropBox.add(tb);
+    host.onLook((l) => { const tx = l === 'textile'; tb.visible = tx; for (const m of clay) m.visible = !tx; });
   }
   const gy = host.groundAt(ANCHORS.dropBox.x, ANCHORS.dropBox.z, 1.0);
   dropBox.position.set(ANCHORS.dropBox.x, gy, ANCHORS.dropBox.z);

@@ -18,7 +18,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await p.evaluate(() => window.__journey.onHotspot('shop'));
   await p.waitForFunction(() => !window.__journey.world.host.moving, null, { timeout: 200000, polling: 500 }); await wait(1500);
   await shot('04_shop_card');
-  await p.click('#cardActions .btn-primary');
+  await p.click('#cardActions button:has-text("Find a toy drop-off")');   // (the card's primary action became "Step inside the toy shop")
   await p.fill('#zip', '10001'); await p.click('#zipForm button[type=submit]'); await wait(500);
   await shot('05_results');
   await p.click('[data-choose="0"]'); await wait(500); await shot('06_thanks');

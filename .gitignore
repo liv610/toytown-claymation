@@ -18,3 +18,4 @@ web/storybook/dist/
 dist/
 web/national/dist/
 web/national/assets/*_raw.glb
+web/textile/assets/*_raw.glb

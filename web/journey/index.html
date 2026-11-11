@@ -243,6 +243,11 @@
     .brand { margin-right: 0; padding-right: 64px; }
   }
   @media (prefers-reduced-motion: reduce) { .pin-dot::after { animation: none; } .flatmap-layer, .backdrop { transition: none; } }
+  .looktoggle { position: fixed; z-index: 6; right: max(16px, env(safe-area-inset-right, 0px)); top: 84px; display: flex; gap: 4px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 4px 4px 4px 12px; font-size: 0.85rem; }
+  .looktoggle span { color: var(--muted); margin-right: 4px; }
+  .looktoggle button { border: 0; border-radius: 999px; padding: 8px 14px; min-height: 40px; background: transparent; font-weight: 700; }
+  .looktoggle button[aria-pressed="true"] { background: var(--gold); color: #2a1606; }
+  @media (max-width: 760px) { .looktoggle { top: 64px; } }
 </style>
 
 <div id="stage" aria-hidden="true"></div>
@@ -391,7 +396,7 @@
 <div id="toast" class="toast" role="status" hidden></div>
 <div class="foot"><span>Concept prototype · not a live service</span><button type="button" id="openResearch">Test log</button></div>
 <!--PAGE-SCRIPTS-->
-<script type="importmap">{ "imports": { "three": "../vendor/three/build/three.module.js", "three/addons/": "../vendor/three/jsm/", "three-mesh-bvh": "../node_modules/three-mesh-bvh/build/index.module.js" } }</script>
+<script type="importmap">{ "imports": { "three": "../vendor/three/build/three.module.js", "three/addons/": "../vendor/three/jsm/", "three-mesh-bvh": "../node_modules/three-mesh-bvh/build/index.module.js", "delaunator": "../node_modules/delaunator/index.js", "robust-predicates": "../node_modules/robust-predicates/esm/orient2d.js" } }</script>
 <script type="module" src="./src/main.js"></script>
 <!--PAGE-SCRIPTS-END-->
 <!--PAGE-END-->

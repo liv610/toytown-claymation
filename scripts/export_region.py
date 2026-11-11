@@ -2,6 +2,12 @@
 
   blender -b --factory-startup --python scripts/export_region.py -- web/region/assets
 
+With --split-corner (the textile test, experiment/textile-toytown) it writes instead:
+  static_base_raw.glb   the village WITHOUT the test corner (shop, pink house, tree, lamps, ... see tt/corner.py)
+  corner_clay_raw.glb   the test corner in clay (so the clay look can be shown side by side)
+  corner.json           what the corner contains: roots with positions, background-house and fir parameters
+and leaves static/terrain/protos/region outputs untouched.
+
 Outputs:
   static.glb    village + station + square + bridges + farms, merged by material
   terrain.glb   the painted heightfield (vertex colours) and board edge
@@ -23,8 +29,21 @@ import bpy  # noqa: E402
 import numpy as np  # noqa: E402
 from mathutils import Vector  # noqa: E402
 from tt import street, region, layout as L, buildings as Bld  # noqa: E402
+from tt import corner as CR, trees as TR  # noqa: E402
 
 out = os.path.abspath(sys.argv[sys.argv.index("--") + 1])
+SPLIT = "--split-corner" in sys.argv
+RECORD = {"bg_house": {}, "fir": {}}
+if SPLIT:   # remember how the corner's background houses and firs were made, so the textile versions match
+    _bh, _fir = Bld.bg_house, TR.fir
+    def _rec_bh(name, O, W, D, H, pitch_deg, color, rot_z=0.0, gable_front=True, windows_lit=0.7, **kw):
+        RECORD["bg_house"][name] = {"pos": [O[0], O[1], O[2]], "W": W, "D": D, "H": H, "pitch": pitch_deg, "color": list(color),
+                                    "rot_z": rot_z, "gable_front": gable_front}
+        return _bh(name, O, W, D, H, pitch_deg, color, rot_z=rot_z, gable_front=gable_front, windows_lit=windows_lit, **kw)
+    def _rec_fir(name, loc, h, r, *a, **kw):
+        RECORD["fir"][name] = {"pos": list(loc), "h": h, "r": r, "color": list(kw.get("color", (0.1, 0.3, 0.2)))}
+        return _fir(name, loc, h, r, *a, **kw)
+    Bld.bg_house, TR.fir = _rec_bh, _rec_fir
 os.makedirs(out, exist_ok=True)
 t0 = time.time()
 street.REGION = True
@@ -68,8 +87,10 @@ def simple_mat(src, cache={}):
     return m
 
 
-def merge(objs, zone_split=False):
-    """Bake modifiers, merge by material (numpy, low memory). Returns {(mat, is_door): (V, N, T)}."""
+def merge(objs, zone_split=False, corner=None):
+    """Bake modifiers, merge by material (numpy, low memory). Returns {(mat, is_door): (V, N, T)}.
+    corner: a dict that receives the test corner's geometry instead (whole corner objects, and the triangles of
+    split objects whose centre lies in the corner's street rectangle)."""
     dg = bpy.context.evaluated_depsgraph_get()
     groups = {}
     for o in objs:
@@ -99,12 +120,20 @@ def merge(objs, zone_split=False):
         Nn = ln @ R3.T
         Nn /= np.linalg.norm(Nn, axis=1, keepdims=True) + 1e-9
         mats = list(me.materials) or [None]
+        whole = corner is not None and CR.is_corner_object(o)
+        split = corner is not None and not whole and CR.is_split_object(o)
+        if split:   # per triangle: centre inside the corner's street rectangle → corner
+            cen = Pp[tl].mean(axis=1)
+            x0, x1, y0, y1 = CR.STREET_RECT
+            in_c = (cen[:, 0] >= x0) & (cen[:, 0] <= x1) & (cen[:, 1] >= y0) & (cen[:, 1] <= y1)
         for mi, m in enumerate(mats):
-            sel = tl[tm == mi]
-            if not len(sel):
-                continue
-            used, inv = np.unique(sel.ravel(), return_inverse=True)
-            groups.setdefault(((zone + m.name) if m else "none", is_door), []).append((Pp[used], Nn[used], inv.reshape(-1, 3).astype(np.int32)))
+            for dest, mask in (((corner if whole else groups), None),) if not split else ((groups, ~in_c), (corner, in_c)):
+                sel = tl[(tm == mi) & (mask if mask is not None else True)]
+                if not len(sel):
+                    continue
+                used, inv = np.unique(sel.ravel(), return_inverse=True)
+                dz = "" if dest is corner else zone
+                dest.setdefault(((dz + m.name) if m else "none", is_door), []).append((Pp[used], Nn[used], inv.reshape(-1, 3).astype(np.int32)))
         oe.to_mesh_clear()
     return groups
 
@@ -144,6 +173,28 @@ all_objs = [o for o in src_scene.objects if o.type in ('MESH', 'FONT', 'CURVE') 
             and not any(c.name == "Cutters" or c.name.endswith("_cut") for c in o.users_collection)]
 terrain_objs = [o for o in all_objs if o.name in ("Terrain",)]
 static_objs = [o for o in all_objs if o.name not in protos and o not in terrain_objs]
+
+# ---- the textile test: base village + clay corner, then stop (nothing else is rewritten)
+if SPLIT:
+    cg = {}
+    g = merge(static_objs, zone_split=True, corner=cg)
+    doors_base = [k for k in g if k[1]]
+    assert not doors_base, f"door geometry left in the base village: {doors_base}"
+    exp = bpy.data.scenes.new("ExportBase"); stats = write_groups(g, exp)
+    export_scene(exp, os.path.join(out, "static_base_raw.glb"))
+    expc = bpy.data.scenes.new("ExportCorner"); cstats = write_groups(cg, expc)
+    export_scene(expc, os.path.join(out, "corner_clay_raw.glb"))
+    roots = {}
+    for o in src_scene.objects:
+        if o.parent is None and CR.is_corner_object(o):
+            roots[o.name] = {"pos": yup(o.matrix_world.translation), "rot_z": o.matrix_world.to_euler().z}
+    json.dump({"rect": CR.STREET_RECT, "roots": roots, "bg_house": {k: v for k, v in RECORD["bg_house"].items() if k in roots},
+               "fir": {k: v for k, v in RECORD["fir"].items() if k in roots}, "builders": CR.BUILDERS,
+               "triangles": {"base": int(sum(s_[0] for s_ in stats)), "corner": int(sum(s_[0] for s_ in cstats))},
+               "door_meshes": sum(1 for k in cg if k[1])}, open(os.path.join(out, "corner.json"), "w"), indent=1)
+    print("base triangles:", sum(s_[0] for s_ in stats), "corner triangles:", sum(s_[0] for s_ in cstats), flush=True)
+    print(f"done {time.time() - t0:.0f}s")
+    sys.exit(0)
 
 # ---- static scene
 g = merge(static_objs, zone_split=True)

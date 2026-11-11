@@ -26,6 +26,7 @@ which is how every change in this project has been checked.
 | `artifact_smoke.js` | A packaged artifact folder loads with no errors (serve it on :8767) | `node artifact_smoke.js` |
 | `national_frames.js` | National map: frames along the descent (u = 0 map … 1 street) | `node national_frames.js OUTDIR "0,0.7,1" medium` (`VIEWPORT=390x844` for a phone) |
 | `national_chapter1.js` | Chapter 1: posed stills at story times, or a real-time run (waits at the box, taps "Give the toy", end card, actions open during the story) | `node national_chapter1.js OUTDIR stills "0.5,7.9,12.5"` · `node national_chapter1.js OUTDIR play` (`VIEWPORT=390x844`, `REDUCED=1`) |
+| `textile_compare.js` | Clay vs textile corner from identical cameras (elevated, street, close-up, side, Marine), draw calls, triangles, build time | `node textile_compare.js OUTDIR [views]` |
 | `storybook_frames.js` | Pop-up transition frames at chosen times | `node storybook_frames.js OUTDIR "0,2.6,4.6,8.2"` |
 | `hq_capture.js` / `hq_measure.js` | Visual-quality before/after captures and measurements (`experiment/visual-quality` branch) | see the script headers |
 | `region_capture.js` / `region_measure.js` / `region_flight_audit.js` | Map-scale diorama captures, measurements, camera-clearance audit | see the script headers |

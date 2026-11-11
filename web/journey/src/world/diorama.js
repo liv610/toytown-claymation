@@ -116,7 +116,10 @@ export function makeLoader(base, b64map) {
  * createDiorama({ container, base, b64, quality, onStatus }) -> host
  * Throws if WebGL is unavailable; the caller falls back to the illustrated view.
  */
-export async function createDiorama({ container, base, b64, quality = 'high', onStatus = () => {}, preserve = false }) {
+export async function createDiorama({ container, base, b64, quality = 'high', onStatus = () => {}, preserve = false, look = null }) {
+  // look: null = the original village exactly as before. 'clay' / 'textile' = the textile comparison
+  // (experiment/textile-toytown): the village is loaded without its hero corner, and both versions of the corner
+  // (clay and textile) are added, with host.setLook() switching between them.
   const cfg = { ...TIERS[quality], tier: quality, lampShadows: false };
   const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: preserve });
   renderer.setPixelRatio(Math.min(devicePixelRatio, cfg.dpr));
@@ -156,7 +159,11 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
   const meta = await (await fetch(base + 'region.json')).json();
   let done = 0;
   const names = ['static.glb', 'static_lo.glb', 'terrain.glb', 'protos.glb', 'protos_lo.glb'];
-  const [stat, statLo, terr, prot, protLo] = await Promise.all(names.map((n) => load(n, (k, b) => { bytes[k] = b; onStatus('Unpacking the miniature world…', 0.1 + 0.8 * (++done / names.length)); })));
+  const textileBase = window.TT_TEXTILE_ASSETS || '../textile/assets/', loadT = makeLoader(textileBase, b64);
+  const tick = (k, b) => { bytes[k] = b; onStatus('Unpacking the miniature world…', 0.1 + 0.8 * (++done / (names.length + (look ? 1 : 0)))); };
+  const [stat, statLo, terr, prot, protLo, cornerClay] = await Promise.all(look
+    ? [loadT('static_base.glb', tick), loadT('static_base_lo.glb', tick), load('terrain.glb', tick), load('protos.glb', tick), load('protos_lo.glb', tick), loadT('corner_clay.glb', tick)]
+    : names.map((n) => load(n, tick)));
 
   // ---------------- static set
   const collidables = [], shopGlow = [], doorParts = [];
@@ -177,6 +184,8 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
   }
   prepStatic(stat.scene, false); prepStatic(statLo.scene, true);
   scene.add(stat.scene, statLo.scene); statLo.scene.visible = false;
+  const clayCornerMeshes = [];
+  if (cornerClay) { const n0 = collidables.length; prepStatic(cornerClay.scene, false); clayCornerMeshes.push(...collidables.slice(n0)); scene.add(cornerClay.scene); }
   terr.scene.traverse((o) => {
     if (!o.isMesh) return;
     o.geometry.computeVertexNormals();
@@ -188,7 +197,22 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
   const door = new THREE.Object3D(); door.position.fromArray(meta.door_hinge); scene.add(door);
   scene.updateMatrixWorld(true);
   for (const m of doorParts) door.attach(m);
+  // ---------------- the textile corner (comparison only): built in the browser from corner.json, same positions
+  let textile = null;
+  const lookListeners = new Set();
+  if (look) {
+    onStatus('Sewing the textile corner…', 0.92);
+    const TX = await import('../../../textile/src/corner.js');
+    const spec = await (await fetch(textileBase + 'corner.json')).json();
+    const c = TX.buildCorner(spec);
+    scene.add(c.group);
+    c.door.position.copy(c.doorPivot).sub(door.position); door.add(c.door);
+    // the clay village's ground snow is re-clothed as cotton batting while the textile look is on
+    const ground = []; stat.scene.traverse((o) => { if (o.isMesh && /GroundSnow/.test(o.name)) ground.push(o); });
+    textile = { module: TX, corner: c, ground, unclothe: [] };
+  }
   for (const m of collidables) m.geometry.computeBoundsTree();
+  if (textile) for (const m of textile.corner.collide) m.geometry.computeBoundsTree();
 
   // ---------------- instanced prototypes with per-instance LOD
   const PH = {}, PL = {};
@@ -410,6 +434,7 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     for (const l of villageLights) l.visible = vd < 130;
     const lo = vd > 150;
     stat.scene.visible = !lo; statLo.scene.visible = lo;
+    if (textile) { textile.corner.group.visible = !lo && host.look === 'textile'; if (cornerClay) cornerClay.scene.visible = !lo && host.look === 'clay'; }
     snowPts.visible = alt < 22 && dist < 45;
     if (bokeh) {
       bokeh.uniforms.focus.value = dist;
@@ -522,10 +547,31 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     roomLights: [],
     get moving() { return !!move; },
     fps: () => perf.ms.length ? 1000 / (perf.ms.reduce((s, x) => s + x, 0) / perf.ms.length) : 0,
+    get composer() { return composer; },
     stats: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, tier: cfg.tier }),
     warm(poses) { for (const p of poses) { setPose(p); frame(1 / 60); } },
     dofBoost: 1,
+    // ---- textile comparison (look !== null): which corner is showing, and a switch that keeps every interaction
+    look: null,
+    textile,
+    onLook(fn) { lookListeners.add(fn); if (host.look) fn(host.look); return () => lookListeners.delete(fn); },
+    setLook(l) {
+      if (!textile || (l !== 'clay' && l !== 'textile') || l === host.look) return;
+      host.look = l;
+      const tx = l === 'textile', c = textile.corner;
+      c.group.visible = tx; c.door.visible = tx; cornerClay.scene.visible = !tx;
+      for (const m of doorParts) m.visible = !tx;
+      // camera collision and ground probes follow whichever corner is showing
+      const out = tx ? clayCornerMeshes : c.collide, inn = tx ? c.collide : clayCornerMeshes;
+      for (const m of out) { const i = collidables.indexOf(m); if (i >= 0) collidables.splice(i, 1); }
+      for (const m of inn) if (!collidables.includes(m)) collidables.push(m);
+      if (tx) textile.unclothe = textile.ground.map((m) => textile.module.clothe(m, 'batt', 0xf7f4ee));
+      else { textile.unclothe.forEach((f) => f()); textile.unclothe = []; }
+      for (const fn of lookListeners) fn(l);
+    },
   };
+  if (textile) host.setLook(look === 'clay' ? 'clay' : 'textile');
+  if (textile) host.onUpdate(() => textile.corner.update(T));
   onStatus('Ready', 1);
   return host;
 }

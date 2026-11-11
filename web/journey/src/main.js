@@ -21,6 +21,8 @@ const Q = new URLSearchParams(location.search);
 // (#direct #explore #story #all #flat #simple #research); changing the hash reloads into that condition
 const HASH = location.hash.slice(1);
 const VARIANT = ['direct', 'explore', 'story', 'all'].includes(Q.get('variant')) ? Q.get('variant') : ['direct', 'explore', 'story'].includes(HASH) ? HASH : 'all';
+// textile comparison (experiment/textile-toytown): ?look=textile|clay or #textile / #clay. Without it, nothing changes.
+const LOOK = ['textile', 'clay'].includes(Q.get('look')) ? Q.get('look') : ['textile', 'clay'].includes(HASH) ? HASH : (window.TT_LOOK || null);
 const MAP_ID = Q.get('map') === 'flat' || HASH === 'flat' ? 'flat' : 'diorama';
 addEventListener('hashchange', () => location.reload());
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -154,7 +156,7 @@ async function bootWorld() {
     const { createVillage } = await import('./world/village.js');
     const { createDioramaMap, createFlatMap } = await import('./world/map_diorama.js');
     const { createMarineStory } = await import('./world/marine_story.js');
-    const host = await createDiorama({ container: $('stage'), base: ASSETS, b64: window.TT_B64, quality: pickQuality(Q.get('q')), preserve: Q.get('capture') === '1',
+    const host = await createDiorama({ container: $('stage'), base: ASSETS, b64: window.TT_B64, quality: pickQuality(Q.get('q')), preserve: Q.get('capture') === '1', look: LOOK,
       onStatus: (msg, p) => { world.progress = p; if (state === 'landing') setEnterNote(p < 1 ? `Loading ${Math.round(p * 100)}%` : 'About 5 seconds to get there', p); } });
     world.host = host;
     const pins = createPins(host, $('pins')); world.pins = pins;
@@ -164,6 +166,7 @@ async function bootWorld() {
     world.map.onSelect((place) => { log('map_select', { place }); enterTown('map-pin'); });
     const load = (n) => host.load(n === 'gift.glb' ? GIFT : n);
     world.story = await createMarineStory(host, world.village, { load, onBeat: onStoryBeat, onEnd: onStoryEnd });
+    if (LOOK) lookToggle(host);
     const { createToyShop } = await import('./world/toyshop.js');
     const { createDeparture } = await import('./world/departure.js');
     world.shop = createToyShop(host, pins, { windowImage: STILLS + 'village.jpg', onToy: (id) => onToy(id, 'pin') });
@@ -459,3 +462,14 @@ if (VARIANT !== 'direct') {
 }
 // test hooks for the automated walkthrough (no effect for visitors)
 window.__journey = { world, enterTown, startStory, onHotspot, openDropoff, enterShop, onToy, gift, startDeparture, state: () => state, tracker };
+
+// a small Clay / Textile switch for the comparison (only when ?look= is set); same camera, same story, instant swap
+function lookToggle(host) {
+  const bar = document.createElement('div'); bar.className = 'looktoggle'; bar.setAttribute('role', 'group'); bar.setAttribute('aria-label', 'Compare looks');
+  bar.innerHTML = '<span>Compare</span><button type="button" data-look="clay">Clay</button><button type="button" data-look="textile">Textile</button>';
+  document.body.appendChild(bar);
+  const sync = () => bar.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.look === host.look)));
+  bar.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; host.setLook(b.dataset.look); sync(); log('look_switch', { look: b.dataset.look }); });
+  addEventListener('keydown', (e) => { if (e.key === 't' && !/input|textarea/i.test(e.target.tagName)) { host.setLook(host.look === 'clay' ? 'textile' : 'clay'); sync(); } });
+  sync();
+}

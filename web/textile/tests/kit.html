@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><title>Textile kit check</title>
+<style>body{margin:0;background:#3c3864}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/","delaunator":"/node_modules/delaunator/index.js","robust-predicates":"/node_modules/robust-predicates/esm/orient2d.js"}}</script>
+<script type="module">
+// Dev check of the construction language: a sewn wall with openings on a little house, a tab roof, a felt fir, cut stones.
+import * as THREE from 'three';
+import { makeKit } from '../src/vendor/textile_kit.js';
+import { extendKit } from '../src/construct.js';
+import { kitMeshes } from '../src/materials.js';
+import { rect, arch, M } from '../src/vendor/kit.js';
+const q = new URLSearchParams(location.search), view = q.get('v') || 'front';
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(innerWidth, innerHeight); r.shadowMap.enabled = true; r.toneMapping = THREE.AgXToneMapping; document.body.append(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x3c3864);
+const k = extendKit(makeKit(5));
+const W = 4, H = 3.2, D = 3.4, pitch = 0.9;
+const front = [[-W / 2, 0], [W / 2, 0], [W / 2, H], [0, H + (W / 2) * Math.tan(pitch)], [-W / 2, H]];
+const holes = [rect(-1.5, 0.9, -0.6, 2.1), rect(0.6, 0.9, 1.5, 2.1), arch(-0.35, 0, 0.35, 1.7, 10)];
+if (q.get('cut')) k.cut(front, holes, M([0, 0, 0]), 0x3c6aa8, { amp: 0.014, wave: 0.6 }); else if (q.get('flat')) k.sewnWall(front, holes, M([0, 0, 0]), 0x3c6aa8, { seams: [-0.33, 0.37], stuff: 0, pucker: 0 }); else k.sewnWall(front, holes, M([0, 0, 0]), 0x3c6aa8, { seams: [-0.33, 0.37] });
+k.sewnWall([[0, 0], [D, 0], [D, H], [0, H]], [rect(1.1, 1.0, 2.3, 2.1)], M([W / 2, 0, 0], [0, Math.PI / 2, 0]), 0x3c6aa8, { seams: [0.8, 2.6] });
+k.woodFrame(M([0, 0, 0.07]), -1.5, 0.9, -0.6, 2.1, 0, 0xf1e3c6);
+k.boundFrame(M([0, 0, 0.07]), rect(0.6, 0.9, 1.5, 2.1), 0, 0xae3430, 0xf4ead6);
+k.shingleRoof(M([0, 0, -D / 2]).multiply(M([0, 0, 0])), { halfSpan: W / 2, eaveH: H, pitch, zf: D / 2 + 0.3, zb: -D / 2 - 0.3, fabrics: [{ color: 0x4d4a68 }, { color: 0xb4545a, batch: 'print', extra: 0 }, { color: 0x6f8f7c, batch: 'print', extra: 1 }] });
+k.feltFir(-4.2, 0, 1.5, 3.4, { seed: 3 });
+k.cutStones(-6, 6, () => [1.2, 4.2], { y: 0.0 });
+k.drape(M([0, 0.02, 0], [-Math.PI / 2, 0, 0]), -8, 8, -0.6, 3.0, { thick: 0.14, res: 0.2 });
+for (const m of kitMeshes(k)) { m.castShadow = true; m.receiveShadow = true; scene.add(m); }
+scene.add(new THREE.HemisphereLight(0x8088d4, 0x3e3048, 1.0));
+const key = new THREE.DirectionalLight(0xffe2c0, 2.4); key.position.set(-6, 9, 8); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.04; Object.assign(key.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9 }); scene.add(key);
+const cams = { front: [[-4.5, 3.2, 9.5], [0, 2.2, 0]], side: [[7.5, 3.0, 2.5], [0.5, 2.4, -1.2]], close: [[-1.3, 2.0, 2.4], [-0.6, 1.8, 0]], roof: [[-3.5, 6.5, 4.5], [0, 4.0, -1.0]] };
+const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.05, 100); cam.position.set(...cams[view][0]); cam.lookAt(...cams[view][1]);
+r.render(scene, cam); window.__ready = true;
+</script>

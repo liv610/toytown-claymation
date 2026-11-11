@@ -1,0 +1,13 @@
+<!doctype html><meta charset="utf-8"><title>Textile geometry check</title>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/","delaunator":"/node_modules/delaunator/index.js","robust-predicates":"/node_modules/robust-predicates/esm/orient2d.js"}}</script>
+<script type="module">
+// Dev check: every textile corner mesh must have finite positions and normals (a NaN shows up as a black block after post).
+import { buildCorner } from '../src/corner.js';
+const spec = await (await fetch('../assets/corner.json')).json();
+const c = buildCorner(spec), bad = [];
+const scan = (root) => root.traverse((o) => { if (!o.isMesh) return; for (const a of ['position', 'normal']) { const at = o.geometry.attributes[a]; if (!at) continue; let n = 0; for (let i = 0; i < at.array.length; i++) if (!Number.isFinite(at.array[i])) n++; if (n) bad.push(`${o.name || o.material.name}.${a}: ${n}`); } });
+scan(c.group); scan(c.door);
+const per = []; c.group.traverse((o) => { if (o.isMesh) per.push([(o.name || o.material.name) + (o.isInstancedMesh ? '[x' + o.count + ']' : ''), Math.round((o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3 * (o.isInstancedMesh ? o.count : 1))]); });
+per.sort((a, b) => b[1] - a[1]);
+window.__result = { bad, buildMs: Math.round(c.buildMs), triangles: c.triangles, per, ledger: c.ledger };
+</script>

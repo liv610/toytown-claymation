@@ -1,23 +1,35 @@
 #!/usr/bin/env bash
 # Package the journey prototype as a self-contained artifact folder.
 #   tools/build_journey.sh OUTDIR
+#   TEXTILE=1 tools/build_journey.sh OUTDIR   the textile comparison (experiment/textile-toytown): adds the split village,
+#                                             the clay corner and corner.json, and opens in the textile look
 # The page loads the action layer first (small chunk); three.js and the world load lazily in their own chunk.
 set -euo pipefail
 cd "$(dirname "$0")/../web"
 OUT=${1:?outdir}; mkdir -p "$OUT/assets/stills"; rm -f "$OUT"/*.js
 npx esbuild journey/src/main.js --bundle --splitting --format=esm --minify --target=es2020 --outdir="$OUT" --entry-names=journey --chunk-names=world-[hash] 2>&1 | tail -2
-for f in static static_lo terrain protos protos_lo marine; do base64 -w0 region/assets/$f.glb > "$OUT/assets/$f.glb.txt"; done
+BASE="static static_lo"; [ "${TEXTILE:-0}" = 1 ] && BASE=""   # the textile comparison loads the split village instead
+for f in $BASE terrain protos protos_lo marine; do base64 -w0 region/assets/$f.glb > "$OUT/assets/$f.glb.txt"; done
 base64 -w0 sequence/assets/gift.glb > "$OUT/assets/gift.glb.txt"
 cp region/assets/region.json "$OUT/assets/"; cp journey/assets/stills/*.jpg "$OUT/assets/stills/"
-python3 - "$OUT" <<'PY'
+if [ "${TEXTILE:-0}" = 1 ]; then
+  for f in static_base static_base_lo corner_clay; do base64 -w0 textile/assets/$f.glb > "$OUT/assets/$f.glb.txt"; done
+  cp textile/assets/corner.json "$OUT/assets/"
+fi
+python3 - "$OUT" "${TEXTILE:-0}" <<'PY'
 import sys, re
-out = sys.argv[1]
+out, textile = sys.argv[1], sys.argv[2] == '1'
 s = open('journey/index.html').read()
 page = s[s.index('<!--PAGE-START-->') + 17:s.index('<!--PAGE-END-->')]
-names = ['static', 'static_lo', 'terrain', 'protos', 'protos_lo', 'marine', 'gift']
+names = (['terrain', 'protos', 'protos_lo', 'marine', 'gift', 'static_base', 'static_base_lo', 'corner_clay'] if textile
+         else ['static', 'static_lo', 'terrain', 'protos', 'protos_lo', 'marine', 'gift'])
 b64 = ', '.join(f"'{n}.glb': './assets/{n}.glb.txt'" for n in names)
-boot = ("<script>window.TT_ASSETS = './assets/'; window.TT_GIFT = 'gift.glb'; window.TT_STILLS = './assets/stills/';\n"
+extra = " window.TT_TEXTILE_ASSETS = './assets/'; window.TT_LOOK = 'textile';" if textile else ''
+boot = ("<script>window.TT_ASSETS = './assets/'; window.TT_GIFT = 'gift.glb'; window.TT_STILLS = './assets/stills/';" + extra + "\n"
         f"  window.TT_B64 = {{ {b64} }};</script>\n<script type=\"module\" src=\"./journey.js\"></script>\n")
+if textile:
+    page = page.replace('<title>Toy Town Journey Prototype</title>', '<title>Textile Toy Town</title>')
+    page = page.replace('<span class="badge">Prototype · placeholder data</span>', '<span class="badge">Prototype · textile look test</span>')
 page = re.sub(r'<!--PAGE-SCRIPTS-->.*?<!--PAGE-SCRIPTS-END-->', boot, page, flags=re.S)
 open(f'{out}/journey.html', 'w').write(page.strip() + '\n')
 PY

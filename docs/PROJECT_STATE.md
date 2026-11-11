@@ -15,6 +15,15 @@ actions are always available without the world.
 
 ## Where we are now (updated)
 
+**Newest line of work: `experiment/textile-toytown` (from `experiment/national`). The owner chose a handmade textile direction for the whole project.**
+- **Scope:** one cohesive textile world across the national map and Toy Town, at different scales. The national map keeps its routes, geography, stops and navigation, but its look will change. Prove it in Toy Town first.
+- **Built, awaiting review:** the toy shop corner of Toy Town in textile, built from a reusable construction language (`web/textile/`, `docs/TEXTILE_SYSTEM.md`).
+  - **The corner:** the shop, the pink house, the tree, the lamps, garlands, five neighbours, firs and the street.
+  - **The Marines:** both are stuffed puppets on their existing rig and story.
+- **Comparing:** the journey with `?look=textile` / `?look=clay` (artifact `#textile` / `#clay`) and a Clay / Textile switch. Without `?look`, the journey is unchanged.
+- **Source of the techniques:** `experiment/textile-storybook` (with paper and felt on `experiment/handmade-styles`). It was ported by copying files (`web/textile/src/vendor/`, source commit noted), not merged.
+- **National map target:** the owner's reference image (felt land on a navy felt sea, gold blanket-stitched coast, stitched routes, roving mountains). See `docs/TEXTILE_SYSTEM.md` §4. Not started, by agreement.
+
 **Current line of work: `experiment/national`.**
 - **The national story in this project is now a 3D claymation map of the US.**
 - **The owner explores alternative art styles (paper, felt) in a separate project.**
@@ -75,6 +84,8 @@ Toy*, exactly in this order:
 | `experiment/map-scale` | 320 × 260 m regional diorama around the village, validated railway layout (`scripts/tt/layout.py`, `region.py`), trains, continuous descent (`web/region`), `docs/MAP_SCALE_ASSESSMENT.md` | — |
 | `experiment/visual-quality` | Cycles texture-bake experiment on the blue shop and pink house (`scripts/tt/hq.py`, `bake_hq.py`, `export_hq.py`, `web/hq`), before/after images, `docs/VISUAL_QUALITY_EXPERIMENT.md` | [Toy Town Quality Test](https://claude.ai/artifact/3bqaJDnGMco4e3kR83cfXf) |
 | `experiment/journey` (from map-scale) | Journey prototype: drop-off reached three ways (direct / explore / Marine story), the toy shop interior and "send a toy online" with the station departure and ZIP line map, illustrated fallback, local event log + research panel (`web/journey`), `docs/JOURNEY_PROTOTYPE.md`, `docs/JOURNEY_TESTING_GUIDE.md` | [Toy Town Journey Prototype](https://claude.ai/artifact/68VGT1ZJfx3HdZF8vPkQNw) |
+| `experiment/textile-toytown` (from national) | **Newest.** Textile construction system (`web/textile/`), the textile toy shop corner + puppet Marines in the journey behind `?look=`, split village export (`scripts/tt/corner.py`, `export_region.py --split-corner`), `docs/TEXTILE_SYSTEM.md` | (see the published Textile Toy Town artifact) |
+| `experiment/textile-storybook`, `experiment/handmade-styles` | The owner's separate style experiments (paper, felt, textile). Source of the textile techniques; not merged | — |
 | `experiment/national` (from storybook) | **Current line of work.** Clay national relief + descent into Maple Hollow + Chapter 1 with townspeople (`web/national`, `scripts/tt/people.py`, `scripts/tt/toys.py`), `docs/NATIONAL_MAP.md`; journey copy revised | [Railroad of Hope National Map](https://claude.ai/artifact/Ljs6JaGJYW1kMGijHRKaZ1) |
 | `experiment/storybook` (from journey) | Earlier line of work. Pop-up transition test (`web/storybook`): placeholder illustrated US map (`mapart.js`), pop-up community (`popup_town.js`), timeline + scrubber (`main.js`); plus `tools/tests/`, this doc and `CLAUDE.md` | [Storybook Pop-up Test](https://claude.ai/artifact/4V1Ax45MgzCV2UVdy5a928) |
 
@@ -99,6 +110,9 @@ New work should branch from `experiment/national` (it contains everything except
 | Townspeople | Parent, child and volunteer are sculpted like the Marine and skinned to **his rig and walk/idle cycles** (`people.py` reuses `marine.py` without changing it) | one stop-motion cast; no new rig to maintain |
 | Toys in the story | Always **new and unwrapped** (red truck, teddy, blocks, ball, doll); the wrapped-present pile by Maple Hollow's box was removed | matches "new, unwrapped toy"; avoids mixed messages |
 | Chapter 1 interaction | One optional tap (give the toy); the story waits ≤ 4.5 s then continues; actions bar always live | meaningful but never forced |
+| Visual direction | **Handmade textile world** for the whole project (national map + Toy Town), textile primary, felt where it helps. The folk-art look is no longer a constraint | owner's decision after comparing paper / felt / textile |
+| Textile approach | Port techniques selectively, never merge the style branches; construction over texture (sewn panels, laps, tabs, bindings, batting); stitching only where it holds things together | the experiment still looked like textured 3D in places |
+| Corner split | Village exported once more with the test corner separated (`--split-corner`); original assets untouched; both looks swap live | safe A/B in the real journey |
 | Story copy | Invitations, not process claims; nothing about where a specific toy goes | owner's review (point 8); organisation to approve wording |
 
 ## How to run and rebuild
@@ -150,6 +164,8 @@ New work should branch from `experiment/national` (it contains everything except
 | Playwright (testing) | Apache-2.0 |
 | us-atlas | ISC; the data is US Census Bureau boundaries, public domain |
 | d3-geo | ISC |
+| delaunator (textile panels) | ISC |
+| robust-predicates (used by delaunator) | Unlicense |
 | topojson-client | ISC |
 | Fonts: Fraunces, Atkinson Hyperlegible | SIL Open Font License |
 
