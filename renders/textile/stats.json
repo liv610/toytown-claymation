@@ -1,0 +1,75 @@
+{
+ "views": {
+  "elevated_clay": {
+   "calls": 1398,
+   "triangles": 12063681
+  },
+  "elevated_textile": {
+   "calls": 998,
+   "triangles": 14802556
+  },
+  "elevated_felt": {
+   "calls": 1028,
+   "triangles": 19306834
+  },
+  "street_clay": {
+   "calls": 1464,
+   "triangles": 12403785
+  },
+  "street_textile": {
+   "calls": 1070,
+   "triangles": 15143590
+  },
+  "street_felt": {
+   "calls": 1106,
+   "triangles": 19650712
+  },
+  "closeup_clay": {
+   "calls": 1341,
+   "triangles": 12376569
+  },
+  "closeup_textile": {
+   "calls": 992,
+   "triangles": 15180400
+  },
+  "closeup_felt": {
+   "calls": 1019,
+   "triangles": 19683754
+  },
+  "side_clay": {
+   "calls": 1443,
+   "triangles": 12543303
+  },
+  "side_textile": {
+   "calls": 1061,
+   "triangles": 15287182
+  },
+  "side_felt": {
+   "calls": 1076,
+   "triangles": 19782640
+  },
+  "marine_clay": {
+   "calls": 1428,
+   "triangles": 12368187
+  },
+  "marine_textile": {
+   "calls": 1055,
+   "triangles": 15156124
+  },
+  "marine_felt": {
+   "calls": 1079,
+   "triangles": 19636942
+  }
+ },
+ "corners": {
+  "textile": {
+   "buildMs": 6926,
+   "triangles": 862739
+  },
+  "felt": {
+   "buildMs": 2471,
+   "triangles": 1589099
+  }
+ },
+ "errors": []
+}
