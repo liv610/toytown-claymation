@@ -9,9 +9,12 @@
     "@gltf-transform/core": "^4.1.1",
     "@gltf-transform/extensions": "^4.1.1",
     "@gltf-transform/functions": "^4.1.1",
+    "d3-geo": "^3.1.1",
     "esbuild": "^0.24.0",
     "meshoptimizer": "^0.22.0",
     "three": "^0.170.0",
-    "three-mesh-bvh": "^0.8.3"
+    "three-mesh-bvh": "^0.8.3",
+    "topojson-client": "^3.1.0",
+    "us-atlas": "^3.0.1"
   }
 }
