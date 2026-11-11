@@ -8,7 +8,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   p.on('pageerror', (e) => console.log('PAGEERROR ' + e.message)); p.on('console', (m) => { if (m.type() === 'error') console.log('CONSOLE ' + m.text()); });
   await p.addInitScript(() => { window.__dtMax = 0.5; });
   await p.goto((process.env.TT_URL || 'http://localhost:8765') + '/journey/index.html?' + qs);
-  const shot = async (n) => { await p.evaluate(() => window.__journey.world.host && window.__journey.world.host.setPaused(true)); await wait(400); await p.screenshot({ path: `${out}/${n}.png`, timeout: 180000 }); await p.evaluate(() => window.__journey.world.host && window.__journey.world.host.setPaused(false)); console.log('shot', n, await p.evaluate(() => window.__journey.state())); };
+  const shot = async (n) => { await p.evaluate(() => window.__journey.world.host && window.__journey.world.host.setPaused(true)); await wait(3000); await p.screenshot({ path: `${out}/${n}.png`, timeout: 400000 }); await p.evaluate(() => window.__journey.world.host && window.__journey.world.host.setPaused(false)); console.log('shot', n, await p.evaluate(() => window.__journey.state())); };
   await wait(300); await p.screenshot({ path: `${out}/01_landing_now.png`, timeout: 180000 });
   await p.waitForFunction(() => window.__journey.world.host && window.__journey.world.story, null, { timeout: 400000, polling: 1000 });
   await wait(3000); await shot('02_landing_ready');
