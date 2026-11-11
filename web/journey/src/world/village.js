@@ -58,7 +58,7 @@ export function createVillage(host, pins, { onHotspot, allowPin = () => true }) 
   // textile comparison: the same box in painted wood with a sewn sign, swapped with the look
   if (host.textile) {
     const clay = [...dropBox.children], tb = host.textile.module.dropOffBox(dropBox.userData.signCanvas); dropBox.add(tb);
-    host.onLook((l) => { const tx = l === 'textile'; tb.visible = tx; for (const m of clay) m.visible = !tx; });
+    host.onLook((l) => { const tx = l !== 'clay'; tb.visible = tx; for (const m of clay) m.visible = !tx; });
   }
   const gy = host.groundAt(ANCHORS.dropBox.x, ANCHORS.dropBox.z, 1.0);
   dropBox.position.set(ANCHORS.dropBox.x, gy, ANCHORS.dropBox.z);

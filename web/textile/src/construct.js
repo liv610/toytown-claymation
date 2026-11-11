@@ -260,7 +260,7 @@ export function extendKit(k) {
    * Street stones, each one cut separately, laid in courses that follow the street and change rhythm at its edges.
    * edges(x) → [yNear, yFar] (the street between two curbs, in the frame's xz plane); joints stay open to show the bed.
    */
-  k.cutStones = (x0, x1, edges, { course = 0.36, stone = 0.46, y = 0.0, cols = [0x8c8590, 0x847e8a, 0x928b94, 0x8a8e9c, 0x8e857c, 0x968e92], seed = 3, skip = () => false } = {}) => {
+  k.cutStones = (x0, x1, edges, { course = 0.36, stone = 0.46, y = 0.0, cols = [0x8c8590, 0x847e8a, 0x928b94, 0x8a8e9c, 0x8e857c, 0x968e92], seed = 3, skip = () => false, pillow = false } = {}) => {
     const r = rng(seed);
     for (let x = x0; x < x1;) {
       const [za, zb] = edges(x), width = zb - za, rows = Math.max(2, Math.round(width / course)), ch = width / rows;
@@ -272,7 +272,8 @@ export function extendKit(k) {
           if (sw < 0.12 || skip(cx, cz)) continue;
           const hw = sw / 2 - 0.022, hd = ch / 2 - 0.024, rr = Math.min(hw, hd) * (0.35 + 0.4 * r());
           const out = handCut(roundRect(-hw, -hd, hw, hd, rr, 3), { amp: 0.008, wave: 0.18, step: 0.08, seed: (r() * 1e5) | 0 });
-          k.panel(out, null, M([cx, y, cz], [-Math.PI / 2, 0, (r() - 0.5) * 0.08]), cols[(r() * cols.length) | 0], { batch: r() < 0.4 ? 'woven' : 'felt', t: 0.045, stuff: 0, amp: 0, roll: 0.6, vary: 0.07 });
+          if (pillow) k.pillow(out, 0.05, M([cx, y, cz], [-Math.PI / 2, 0, (r() - 0.5) * 0.08]), cols[(r() * cols.length) | 0], { batch: 'felt', rings: 3, flat: 3, under: 0.1, amp: 0, vary: 0.07 });   // the felt look: stuffed pebbles
+          else k.panel(out, null, M([cx, y, cz], [-Math.PI / 2, 0, (r() - 0.5) * 0.08]), cols[(r() * cols.length) | 0], { batch: r() < 0.4 ? 'woven' : 'felt', t: 0.045, stuff: 0, amp: 0, roll: 0.6, vary: 0.07 });
         }
       }
       x += colW;

@@ -202,17 +202,24 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
   const lookListeners = new Set();
   if (look) {
     onStatus('Sewing the textile corner…', 0.92);
-    const TX = await import('../../../textile/src/corner.js');
+    const [TX, FX] = await Promise.all([import('../../../textile/src/corner.js'), import('../../../textile/src/felt_corner.js')]);
     const spec = await (await fetch(textileBase + 'corner.json')).json();
-    const c = TX.buildCorner(spec);
-    scene.add(c.group);
-    c.door.position.copy(c.doorPivot).sub(door.position); door.add(c.door);
-    // the clay village's ground snow is re-clothed as cotton batting while the textile look is on
+    // the ground snow is re-clothed as cotton batting while a textile or felt look is on
     const ground = []; stat.scene.traverse((o) => { if (o.isMesh && /GroundSnow/.test(o.name)) ground.push(o); });
-    textile = { module: TX, corner: c, ground, unclothe: [] };
+    textile = { module: TX, spec, corners: {}, ground, unclothe: [], build: { textile: TX.buildCorner, felt: FX.buildFeltCorner } };
+    // a look's corner is built the first time it is shown (the felt corner costs nothing until someone asks for it)
+    textile.ensure = (l) => {
+      if (textile.corners[l]) return textile.corners[l];
+      const c = textile.build[l](spec); c.look = l;
+      scene.add(c.group); c.door.position.copy(c.doorPivot).sub(door.position); door.add(c.door);
+      for (const m of c.collide) m.geometry.computeBoundsTree();
+      c.group.visible = false; c.door.visible = false;
+      return (textile.corners[l] = c);
+    };
+    textile.ensure(look === 'felt' ? 'felt' : 'textile');
+    Object.defineProperty(textile, 'corner', { get: () => textile.corners[host.look] || textile.corners.textile });
   }
   for (const m of collidables) m.geometry.computeBoundsTree();
-  if (textile) for (const m of textile.corner.collide) m.geometry.computeBoundsTree();
 
   // ---------------- instanced prototypes with per-instance LOD
   const PH = {}, PL = {};
@@ -434,7 +441,7 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     for (const l of villageLights) l.visible = vd < 130;
     const lo = vd > 150;
     stat.scene.visible = !lo; statLo.scene.visible = lo;
-    if (textile) { textile.corner.group.visible = !lo && host.look === 'textile'; if (cornerClay) cornerClay.scene.visible = !lo && host.look === 'clay'; }
+    if (textile) { for (const [l, c] of Object.entries(textile.corners)) c.group.visible = !lo && host.look === l; if (cornerClay) cornerClay.scene.visible = !lo && host.look === 'clay'; }
     snowPts.visible = alt < 22 && dist < 45;
     if (bokeh) {
       bokeh.uniforms.focus.value = dist;
@@ -556,22 +563,24 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     textile,
     onLook(fn) { lookListeners.add(fn); if (host.look) fn(host.look); return () => lookListeners.delete(fn); },
     setLook(l) {
-      if (!textile || (l !== 'clay' && l !== 'textile') || l === host.look) return;
-      host.look = l;
-      const tx = l === 'textile', c = textile.corner;
-      c.group.visible = tx; c.door.visible = tx; cornerClay.scene.visible = !tx;
-      for (const m of doorParts) m.visible = !tx;
+      if (!textile || !['clay', 'textile', 'felt'].includes(l) || l === host.look) return;
+      const prev = host.look; host.look = l;
+      const on = l === 'clay' ? null : textile.ensure(l);
+      for (const [k, c] of Object.entries(textile.corners)) { c.group.visible = k === l; c.door.visible = k === l; }
+      cornerClay.scene.visible = l === 'clay';
+      for (const m of doorParts) m.visible = l === 'clay';
       // camera collision and ground probes follow whichever corner is showing
-      const out = tx ? clayCornerMeshes : c.collide, inn = tx ? c.collide : clayCornerMeshes;
-      for (const m of out) { const i = collidables.indexOf(m); if (i >= 0) collidables.splice(i, 1); }
-      for (const m of inn) if (!collidables.includes(m)) collidables.push(m);
-      if (tx) textile.unclothe = textile.ground.map((m) => textile.module.clothe(m, 'batt', 0xf7f4ee));
-      else { textile.unclothe.forEach((f) => f()); textile.unclothe = []; }
+      const all = [...clayCornerMeshes, ...Object.values(textile.corners).flatMap((c) => c.collide)], want = on ? on.collide : clayCornerMeshes;
+      for (const m of all) { const i = collidables.indexOf(m); if (i >= 0) collidables.splice(i, 1); }
+      for (const m of want) collidables.push(m);
+      const handmade = l !== 'clay', wasHandmade = prev && prev !== 'clay';
+      if (handmade && !wasHandmade) textile.unclothe = textile.ground.map((m) => textile.module.clothe(m, 'batt', 0xf7f4ee));
+      if (!handmade && wasHandmade) { textile.unclothe.forEach((f) => f()); textile.unclothe = []; }
       for (const fn of lookListeners) fn(l);
     },
   };
-  if (textile) host.setLook(look === 'clay' ? 'clay' : 'textile');
-  if (textile) host.onUpdate(() => textile.corner.update(T));
+  if (textile) host.setLook(['clay', 'felt'].includes(look) ? look : 'textile');
+  if (textile) host.onUpdate(() => { for (const c of Object.values(textile.corners)) c.update(T); });
   onStatus('Ready', 1);
   return host;
 }

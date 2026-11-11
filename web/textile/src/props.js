@@ -73,10 +73,10 @@ export function wagon(k, x, z, rot) {
 
 /** the corner's stretch of street: cut stones between Toy Town's own curbs, a stuffed tweed kerb on the shop side,
  *  batting drifts along both edges (replacing the clay crust) */
-export function street(k, { x0, x1, near, far }) {
-  k.cutStones(x0, x1, (x) => [near(x) + 0.1, far(x) - 0.1], { y: 0.006, seed: 7, course: 0.38, stone: 0.5 });   // laid on the street bed (z = 0.005 in the clay village)
+export function street(k, { x0, x1, near, far, pillow = false, kerb = 0x7a7480 }) {
+  k.cutStones(x0, x1, (x) => [near(x) + 0.1, far(x) - 0.1], { y: 0.006, seed: 7, course: 0.38, stone: 0.5, pillow });   // laid on the street bed (z = 0.005 in the clay village)
   const pts = []; for (let x = x0; x <= x1; x += 0.25) pts.push(V(x, 0.03, near(x)));
-  k.yarnTube(pts, 0.085, 0x7a7480, { closed: false });
+  k.yarnTube(pts, 0.085, kerb, { closed: false });
   const r = rng(12);
   for (let x = x0; x < x1; x += 0.32 + r() * 0.2) for (const [edge, s] of [[near, -1], [far, 1]]) {
     if (r() < 0.3) continue;

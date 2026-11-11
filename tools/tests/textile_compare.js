@@ -1,6 +1,7 @@
 // Clay vs textile, from identical cameras, inside the real journey (experiment/textile-toytown).
 //   node textile_compare.js OUTDIR [views]       views: elevated,street,closeup,side,marine (default: all)
-// Writes OUTDIR/<view>_clay.jpg, <view>_textile.jpg and stats.json (draw calls, triangles, textile build time).
+// Writes OUTDIR/<view>_<look>.jpg for clay, textile and felt (env LOOKS to choose) and stats.json (draw calls,
+// triangles, each corner's build time).
 // SwiftShader (no GPU): draw calls and triangles are exact; frame times are not real-device numbers.
 const { chromium } = require('playwright'); const fs = require('fs');
 const out = process.argv[2]; fs.mkdirSync(out, { recursive: true });
@@ -12,8 +13,8 @@ const want = (process.argv[3] || 'elevated,street,closeup,side,marine').split(',
   await p.goto((process.env.TT_URL || 'http://localhost:8765') + '/journey/index.html?capture=1&q=high&variant=explore&look=textile', { timeout: 600000 });
   await p.waitForFunction(() => window.__journey.world.host && window.__journey.world.story, null, { timeout: 900000, polling: 1000 });
   await p.evaluate(() => { const w = window.__journey.world; w.host.setPaused(true); w.map.unmount(); });
-  const stats = { textileBuildMs: await p.evaluate(() => Math.round(window.__journey.world.host.textile.corner.buildMs)), textileTriangles: await p.evaluate(() => window.__journey.world.host.textile.corner.triangles), views: {} };
-  for (const view of want) for (const look of ['clay', 'textile']) {
+  const stats = { views: {} };
+  for (const view of want) for (const look of (process.env.LOOKS || 'clay,textile,felt').split(',')) {
     const r = await p.evaluate(([view, look]) => {
       const w = window.__journey.world, h = w.host, T = h.THREE, st = w.story, B = (x, y, z) => new T.Vector3(x, z, -y);
       h.setLook(look);
@@ -33,8 +34,9 @@ const want = (process.argv[3] || 'elevated,street,closeup,side,marine').split(',
     stats.views[`${view}_${look}`] = { calls: r.calls, triangles: r.triangles };
     console.log(view, look, r.calls, 'calls', r.triangles, 'triangles');
   }
+  stats.corners = await p.evaluate(() => Object.fromEntries(Object.entries(window.__journey.world.host.textile.corners).map(([k, c]) => [k, { buildMs: Math.round(c.buildMs), triangles: c.triangles }])));
   stats.errors = errors;
   fs.writeFileSync(`${out}/stats.json`, JSON.stringify(stats, null, 1));
-  console.log(errors.length ? 'ERRORS\n' + errors.join('\n') : 'no page errors', 'build', stats.textileBuildMs, 'ms');
+  console.log(errors.length ? 'ERRORS\n' + errors.join('\n') : 'no page errors', JSON.stringify(stats.corners));
   await b.close();
 })();

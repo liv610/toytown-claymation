@@ -48,7 +48,8 @@ export async function createMarineStory(host, village, { load, onBeat, onEnd }) 
     const pupA = TX.puppet(A.obj), pupB = TX.puppet(Bm.obj, { skin: 0x8a5a3c, cheek: 0x9a5848, hair: 0x1a120e });
     const giftMeshes = []; gift.traverse((o) => { if (o.isMesh) giftMeshes.push(o); });
     const toy = TX.storyToy(); gift.add(toy);
-    host.onLook((l) => { const tx = l === 'textile'; pupA.setLook(tx); pupB.setLook(tx); toy.visible = tx; for (const m of giftMeshes) m.visible = !tx; });
+    host.onLook((l) => { const tx = l !== 'clay';   // both handmade looks use the textile puppet (owner's choice)
+      pupA.setLook(tx); pupB.setLook(tx); toy.visible = tx; for (const m of giftMeshes) m.visible = !tx; });
   }
   const gbox = new T.Box3().setFromObject(gift), gH = gbox.max.y - gbox.min.y;
 

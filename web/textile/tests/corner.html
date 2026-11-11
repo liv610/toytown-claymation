@@ -5,11 +5,12 @@
 // Dev check: the textile corner alone (no village around it), from a few cameras. ?v=elev|street|close|side
 import * as THREE from 'three';
 import { buildCorner } from '../src/corner.js';
+import { buildFeltCorner } from '../src/felt_corner.js';
 const q = new URLSearchParams(location.search), view = q.get('v') || 'elev';
 const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(innerWidth, innerHeight); r.shadowMap.enabled = true; r.toneMapping = THREE.AgXToneMapping; r.toneMappingExposure = 1.2; document.body.append(r.domElement);
 const scene = new THREE.Scene(); scene.background = new THREE.Color(0x2a2440); scene.fog = new THREE.FogExp2(0x2a2440, 0.02);
 const spec = await (await fetch('../assets/corner.json')).json();
-const c = buildCorner(spec); scene.add(c.group);
+const c = (q.get('look') === 'felt' ? buildFeltCorner : buildCorner)(spec); scene.add(c.group);
 c.door.position.copy(c.doorPivot); scene.add(c.door);
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ color: 0xe8e6ee, roughness: 1 })); ground.rotation.x = -Math.PI / 2; ground.position.y = -0.04; ground.receiveShadow = true; scene.add(ground);
 scene.add(new THREE.HemisphereLight(0x8a90c8, 0x5a4038, 0.9));

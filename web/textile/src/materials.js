@@ -12,9 +12,11 @@ export { timeU };
  */
 const BUMP = 'normal = normalize(abs(det) * normal - sign(det) * (dhx * r1 + dhy * r2));';
 const SAFE = '{ vec3 nn_ = abs(det) * normal - sign(det) * (dhx * r1 + dhy * r2); if (dot(nn_, nn_) > 1e-12) normal = normalize(nn_); }';
+const BUMP2 = 'return normalize(abs(det) * n - sign(det) * (dhx * r1 + dhy * r2));';   // the felt experiment's bumpN()
+const SAFE2 = '{ vec3 nn_ = abs(det) * n - sign(det) * (dhx * r1 + dhy * r2); return dot(nn_, nn_) > 1e-12 ? normalize(nn_) : n; }';
 export function guard(m) {
   const prev = m.onBeforeCompile;
-  m.onBeforeCompile = (sh, r) => { prev.call(m, sh, r); sh.fragmentShader = sh.fragmentShader.split(BUMP).join(SAFE); };
+  m.onBeforeCompile = (sh, r) => { prev.call(m, sh, r); sh.fragmentShader = sh.fragmentShader.split(BUMP).join(SAFE).split(BUMP2).join(SAFE2); };
   const key = m.customProgramCacheKey; m.customProgramCacheKey = () => key.call(m) + '-safe';
   return m;
 }
