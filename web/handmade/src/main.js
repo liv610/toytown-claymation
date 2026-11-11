@@ -3,8 +3,7 @@
 // Marine's position along his beat, and the time of day are shared, so the two treatments can be compared
 // fairly: switch instantly, or drag a split line across the screen with both rendered from the same viewpoint.
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import RIG from './marine_rig.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -19,7 +18,6 @@ import { buildTextile } from './textile/index.js';
 
 const Q = new URLSearchParams(location.search + '&' + location.hash.slice(1));
 const CAPTURE = Q.get('capture') === '1';
-const ASSETS = window.HM_ASSETS || '../realtime/assets/';
 const ui = window.HM_UI || {};
 const status = (s) => ui.status && ui.status(s);
 
@@ -54,13 +52,23 @@ function goCam(name, instant = false) {
 
 // ------------------------------------------------------------------ styles
 status('Loading the Marine’s rig…');
-const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-async function loadGLB(name) {
-  const b64 = window.HM_B64 && window.HM_B64[name];
-  if (b64) { const txt = await (await fetch(b64)).text(); return loader.parseAsync(Uint8Array.from(atob(txt.trim()), (c) => c.charCodeAt(0)).buffer, ''); }
-  return loader.loadAsync(ASSETS + name);
+// the Marine's skeleton and Walk clip, rebuilt from plain data (no model file to download)
+function buildMarineRig() {
+  const objs = RIG.nodes.map((n, i) => { const o = RIG.joints.includes(i) ? new THREE.Bone() : new THREE.Object3D(); o.name = THREE.PropertyBinding.sanitizeNodeName(n.name);
+    o.position.fromArray(n.t); o.quaternion.fromArray(n.r); o.scale.fromArray(n.s); return o; });
+  const scene = new THREE.Group();
+  RIG.nodes.forEach((n, i) => (n.parent >= 0 ? objs[n.parent] : scene).add(objs[i]));
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 0, 0, 0, 0], 3));
+  g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Array(12).fill(0), 4)); g.setAttribute('skinWeight', new THREE.Float32BufferAttribute([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0], 4));
+  const mesh = new THREE.SkinnedMesh(g, new THREE.MeshBasicMaterial({ visible: false })); mesh.name = 'Marine_body';
+  (RIG.meshParent >= 0 ? objs[RIG.meshParent] : scene).add(mesh);
+  scene.updateMatrixWorld(true); mesh.bind(new THREE.Skeleton(RIG.joints.map((j) => objs[j])));
+  const P = { translation: ['position', THREE.VectorKeyframeTrack], rotation: ['quaternion', THREE.QuaternionKeyframeTrack], scale: ['scale', THREE.VectorKeyframeTrack] };
+  const animations = RIG.anims.map((a) => new THREE.AnimationClip(a.name, -1, a.ch.map((c) => { const [prop, Track] = P[c.path];
+    return new Track(`${objs[c.node].name}.${prop}`, c.t, c.v, c.interp === 'STEP' ? THREE.InterpolateDiscrete : THREE.InterpolateLinear); })));
+  return { scene, animations };
 }
-const marine = await loadGLB('marine.glb');
+const marine = buildMarineRig();
 const styles = {};
 const want = (Q.get('style') || 'paper').toLowerCase();
 const builders = { paper: buildPaper, felt: buildFelt, textile: buildTextile };
