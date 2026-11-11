@@ -6,8 +6,8 @@ export function createFallback(root, { stills, variant, log, onUse3D }) {
   const shopOK = variant !== 'story';
   const STORY = [
     ['story1.jpg', 'A new toy has just been left at the drop-off box beside the toy shop.'],
-    ['story2.jpg', 'A Marine lifts it out. Marines and volunteers collect every donated toy…'],
-    ['story3.jpg', '…and make sure it reaches a child in the same community.'],
+    ['story2.jpg', 'A Marine lifts it out. Marines and volunteers help gather donated toys…'],
+    ['story3.jpg', '…so they can be shared in time for the holidays.'],
   ];
   root.innerHTML = `
     <div class="row" style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;justify-content:space-between">
@@ -41,13 +41,13 @@ export function createFallback(root, { stills, variant, log, onUse3D }) {
     if (a === 'shop') {
       log('hotspot_open', { id: 'shop', via: 'lite' });
       img.src = stills + 'window.jpg'; img.alt = 'The toy shop window: a wooden train, a spinning top and a teddy bear on display.';
-      cap.innerHTML = 'Every toy in this window is on its way to a child in Toy Town. When you drop off a new, unwrapped toy near you, it’s given to a child in your own community.';
+      cap.innerHTML = 'Each toy in this window stands for a gift from someone in Toy Town. Want to give a real one? Find a toy drop-off or local campaign near you.';
       btns.innerHTML = '<button type="button" class="btn btn-primary" data-action="dropoff" data-source="explore-shop-lite">Find a toy drop-off near you</button><button type="button" class="btn" data-fb="home">Back to the street</button>';
     } else if (a === 'story') { log('story_start', { source: 'lite' }); k = 0; storyFrame(); }
     else if (a === 'next') { k++; storyFrame(); }
     else if (a === 'end') {
       log('story_complete', { reason: 'lite' });
-      cap.innerHTML = '<strong>Toys given here stay close to home.</strong> A new, unwrapped toy left at a drop-off near you goes to a child in your own community.';
+      cap.innerHTML = '<strong>It starts with one toy.</strong> Want to give a new, unwrapped toy too? Find a drop-off near you.';
       btns.innerHTML = '<button type="button" class="btn btn-primary" data-action="dropoff" data-source="story-end-lite">Find a toy drop-off near you</button><button type="button" class="btn" data-fb="home">Back to the street</button>';
     } else if (a === 'home') home();
     b.blur(); cap.focus?.();

@@ -49,7 +49,7 @@ export function createGiftFlow({ $, log, pathOf, stills, canWatch, onWatch, onDo
   $('coDone').addEventListener('click', () => {
     log('order_simulated', { toy: order.toy, wrap: order.wrap, zip3: order.zip.slice(0, 3), area: +order.zip[0], source: order.source, path: pathOf(order.source) });
     const t = TOYS.find((x) => x.id === order.toy), a = areaOf(order.zip);
-    $('doneText').innerHTML = `Your ${t.name.toLowerCase()} will go to the local campaign serving ZIP ${order.zip}, in ${a.name}, who give it to a child there. <span class="muted">Prototype: nothing was ordered or charged, and no real delivery will happen.</span>`;
+    $('doneText').innerHTML = `You chose a ${t.name.toLowerCase()} for ${a.name} (ZIP ${order.zip}). <span class="muted">Prototype only: how an online gift would reach a local campaign has not been confirmed, so nothing was ordered, charged or sent.</span>`;
     show('gfDone');
     const acts = $('doneActions'); acts.innerHTML = '';
     const btn = (label, fn, primary) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn' + (primary ? ' btn-primary' : ''); b.textContent = label; b.addEventListener('click', fn); acts.appendChild(b); return b; };

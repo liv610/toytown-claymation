@@ -1,7 +1,7 @@
 // The Marine's moment (about 15 s, never blocking anything):
 //   a new toy has just been left at the drop-off box beside the toy shop; the Marine walks over,
 //   lifts it out, pauses to look at it, carries it to the wagon where a second Marine is loading
-//   toys for local families, sets it in, and the town's lights warm up.
+//   donated toys, sets it in, and the town's lights warm up.
 // Everything is a pure function of story time, so skip / replay / jump-to-end are exact.
 // It reuses the existing Marine (model, clips, colours) and the Delivery sequence's rig helpers.
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
@@ -9,8 +9,8 @@ import { B, V, clamp, smooth, lerp, ramp, patch } from './diorama.js';
 
 export const STORY_COPY = [
   { at: 0.5, text: 'Someone in Toy Town just left a new toy at the drop-off.' },
-  { at: 'lift', text: 'Marines and volunteers collect every donated toy…' },
-  { at: 'place', text: '…and make sure it reaches a child in the same community.' },
+  { at: 'lift', text: 'Marines and volunteers help gather donated toys…' },
+  { at: 'place', text: '…so they can be shared in time for the holidays.' },
 ];
 
 export async function createMarineStory(host, village, { load, onBeat, onEnd }) {

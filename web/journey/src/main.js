@@ -257,7 +257,7 @@ async function onHotspot(id, via = 'pin') {
   if (id === 'shop') {
     world.village.showPins(false);
     showCard({ id: 'shop', title: 'The toy shop window',
-      body: '<p class="lede">Every toy in this window is on its way to a child in Toy Town.</p><p>When you drop off a new, unwrapped toy near you, it’s given to a child in your own community.</p>',
+      body: '<p class="lede">Each toy in this window stands for a gift from someone in Toy Town.</p><p>Want to give a real one? Find a toy drop-off or local campaign near you.</p>',
       actions: [['Step inside the toy shop', () => enterShop('explore-shop-card'), true], ['Find a toy drop-off near you', null, false, 'explore-shop'], ['Keep exploring', () => { hideCard(); world.village.freeLook(); }]] });
     await world.village.focus('window', { reducedMotion: REDUCED });
   } else if (id === 'tree') {
@@ -292,8 +292,8 @@ function onStoryEnd(reason) {
   setState('village');
   $('worldui').hidden = false;
   renderPlaces();
-  showCard({ id: 'story-end', title: 'Toys given here stay close to home',
-    body: '<p class="lede">A new, unwrapped toy left at a drop-off near you goes to a child in your own community.</p>',
+  showCard({ id: 'story-end', title: 'It starts with one toy',
+    body: '<p class="lede">Want to give a new, unwrapped toy too? Find a drop-off near you.</p>',
     actions: [['Find a toy drop-off near you', null, true, 'story-end'], ['Watch again', () => startStory('story-replay')], ['Look around', () => { hideCard(); world.village.freeLook(); }]] });
 }
 $('skipStory').addEventListener('click', () => { if (state !== 'story') return; log('story_skip', { at: +world.story.time.toFixed(1) }); world.story.skip(); });
@@ -371,7 +371,7 @@ async function onToy(id, via) {
   const t = TOYS.find((x) => x.id === id);
   log('toy_select', { id, via });
   showCard({ id: 'toy-' + id, title: t.name, body: `<p class="lede">${t.blurb}</p><p>Ages ${t.ages} · placeholder price ${t.price}</p>`,
-    actions: [['Give this toy to a child', null, true, 'explore-shop-interior', 'gift', id],
+    actions: [['Choose this toy', null, true, 'explore-shop-interior', 'gift', id],
       ['Play again', () => { log('toy_play', { id }); world.shop.play(id); }],
       ['Back to the shelves', () => { hideCard(); world.shop.overview({ reducedMotion: REDUCED }); }]] });
   await world.shop.focus(id, { reducedMotion: REDUCED });
@@ -418,7 +418,7 @@ async function showMapView(order) {
   $('mvActions').innerHTML = '';
   log('delivery_map', { area: +order.zip[0], where: 'full' });
   await animateDelivery(el, order.zip, { reducedMotion: REDUCED });
-  $('mvText').textContent = `Your toy has reached ${a.name}. The local campaign there gives it to a child. (Prototype: symbolic only, no real delivery.)`;
+  $('mvText').textContent = `${a.name} lights up on the map: a symbol of giving close to home. (Prototype: symbolic only; nothing is sent.)`;
   const add = (label, fn, primary) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn' + (primary ? ' btn-primary' : ''); b.textContent = label; b.addEventListener('click', fn); $('mvActions').appendChild(b); };
   if (world.village) add('Back to Toy Town', backFromMapView, true);
   add('Send another toy', () => { log('gift_again'); gift.open(order.source); }, !world.village);
