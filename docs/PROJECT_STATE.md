@@ -21,7 +21,7 @@ actions are always available without the world.
   - **The corner:** the shop, the pink house, the tree, the lamps, garlands, five neighbours, firs and the street.
   - **The Marines:** both are stuffed puppets on their existing rig and story.
 - **Comparing:** [Textile Toy Town](https://claude.ai/artifact/Ajk5aHEBWDgSDXdZ7j5RZG) (opens in the textile look; Clay / Textile / Felt switch, T cycles). Locally: the journey with `?look=textile|felt|clay`. Without `?look`, the journey is unchanged. Same-camera images and numbers: `renders/textile/`.
-- **Owner's leaning (in progress):** likes felt's soft, toy-like feel (without fibres) and the textile test's light; wants the textile puppet Marine in both. The Felt look was added for that comparison.
+- **Decided: FELT** (without fibres) is the direction: "everything feels soft, almost like a toy". Keep the textile puppet Marine. The textile test's twilight light is liked and can be applied to felt. Textile stays on the branch as a reference; the construction kit (`web/textile/src/construct.js`) serves both.
 - **Source of the techniques:** `experiment/textile-storybook` (with paper and felt on `experiment/handmade-styles`). It was ported by copying files (`web/textile/src/vendor/`, source commit noted), not merged.
 - **National map target:** the owner's reference image (felt land on a navy felt sea, gold blanket-stitched coast, stitched routes, roving mountains). See `docs/TEXTILE_SYSTEM.md` §4. Not started, by agreement.
 
@@ -111,7 +111,8 @@ New work should branch from `experiment/national` (it contains everything except
 | Townspeople | Parent, child and volunteer are sculpted like the Marine and skinned to **his rig and walk/idle cycles** (`people.py` reuses `marine.py` without changing it) | one stop-motion cast; no new rig to maintain |
 | Toys in the story | Always **new and unwrapped** (red truck, teddy, blocks, ball, doll); the wrapped-present pile by Maple Hollow's box was removed | matches "new, unwrapped toy"; avoids mixed messages |
 | Chapter 1 interaction | One optional tap (give the toy); the story waits ≤ 4.5 s then continues; actions bar always live | meaningful but never forced |
-| Visual direction | **Handmade textile world** for the whole project (national map + Toy Town), textile primary, felt where it helps. The folk-art look is no longer a constraint | owner's decision after comparing paper / felt / textile |
+| Visual direction (final) | **Felt without fibres**, chosen after the clay / textile / felt comparison in the journey; textile puppet Marine | owner: soft and toy-like |
+| Visual direction (earlier) | **Handmade textile world** for the whole project (national map + Toy Town), textile primary, felt where it helps. The folk-art look is no longer a constraint | owner's decision after comparing paper / felt / textile |
 | Textile approach | Port techniques selectively, never merge the style branches; construction over texture (sewn panels, laps, tabs, bindings, batting); stitching only where it holds things together | the experiment still looked like textured 3D in places |
 | Corner split | Village exported once more with the test corner separated (`--split-corner`); original assets untouched; both looks swap live | safe A/B in the real journey |
 | Story copy | Invitations, not process claims; nothing about where a specific toy goes | owner's review (point 8); organisation to approve wording |
