@@ -57,7 +57,10 @@
   .toast { position: fixed; z-index: 5; left: 50%; translate: -50% 0; bottom: calc(76px + env(safe-area-inset-bottom)); background: var(--panel-solid); border: 1px solid var(--gold);
            border-radius: 12px; padding: 8px 14px; font: 500 1rem var(--display); transition: opacity 0.4s; pointer-events: none; }
   .label { position: fixed; z-index: 2; top: calc(74px + env(safe-area-inset-top)); font: 600 1.05rem var(--display); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px 10px; pointer-events: none; }
-  #labelA { left: 16px; } #labelB { right: 16px; }
+  #labelA { left: max(16px, env(safe-area-inset-left, 0px)); } #labelB { right: max(16px, env(safe-area-inset-right, 0px)); }
+  .label { pointer-events: auto; } .label select { font: inherit; color: var(--ink); background: transparent; border: 0; padding: 2px 4px; cursor: pointer; }
+  .label select option { background: var(--panel-solid); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .handle { position: fixed; z-index: 4; top: 50%; width: 44px; height: 44px; translate: -50% -50%; border-radius: 50%; background: var(--ink); color: #1b1630; border: 0;
             display: grid; place-items: center; font-weight: 700; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4); cursor: ew-resize; touch-action: none; }
   .loading { position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; background: var(--night); }
@@ -90,16 +93,18 @@
 <header class="bar top">
   <div class="brand">
     <h1>Handmade Toy Town <span class="badge">Style test</span></h1>
-    <p>Concept prototype · same street, two hand-made materials</p>
+    <p>Concept prototype · one street, three hand-made treatments</p>
   </div>
   <div class="seg" role="group" aria-label="Style">
     <button type="button" data-mode="paper" aria-pressed="true">Paper</button>
     <button type="button" data-mode="felt" aria-pressed="false">Felt</button>
+    <button type="button" data-mode="textile" aria-pressed="false">Textile</button>
     <button type="button" data-mode="split" aria-pressed="false">Compare</button>
   </div>
 </header>
 <p class="hint" id="hint">Drag to look around · tap the shop door, the lamp or the tree</p>
-<span class="label" id="labelA" hidden>Paper</span><span class="label" id="labelB" hidden>Felt</span>
+<label class="label" id="labelA" hidden><span class="sr">Left side</span><select id="pickA"><option value="paper">Paper</option><option value="felt" selected>Felt</option><option value="textile">Textile</option></select></label>
+<label class="label" id="labelB" hidden><span class="sr">Right side</span><select id="pickB"><option value="paper">Paper</option><option value="felt">Felt</option><option value="textile" selected>Textile</option></select></label>
 <button type="button" class="handle" id="handle" hidden aria-label="Drag to move the comparison line">⇔</button>
 
 <footer class="bar bottom">
@@ -119,10 +124,10 @@
 <aside class="about" id="about" hidden aria-labelledby="aboutTitle">
   <button type="button" class="x" id="aboutClose" aria-label="Close">×</button>
   <h2 id="aboutTitle">What you are looking at</h2>
-  <p>The same small corner of Toy Town (toy shop, pink house, tree, lamp, a short street and one Marine), built twice from code: once as cut, folded and layered card, once as felt, wool and stitching. Both are real 3D and share the camera, the Marine’s walk and the interactions.</p>
+  <p>The same corner of Toy Town (toy shop, pink house, tree, lamp, street and one Marine), built three times from code: as cut and layered card; as felt, wool and stitching; and as a mixed-media textile storybook street (felt, woven cotton, quilting, embroidery, cardstock, painted wood and cotton batting). All are real 3D and share the cameras, the Marine’s walk and the interactions.</p>
   <h3>Try</h3>
   <ul>
-    <li><strong>Compare</strong> and drag the line: both styles from the same camera.</li>
+    <li><strong>Compare</strong> and drag the line: any two styles from the same camera (pick them at the top corners).</li>
     <li><strong>Close-up</strong> and <strong>Roof detail</strong> show construction: card thickness and cut edges, or stitches and fuzz.</li>
     <li>Tap the shop door, the lamp, or the tree.</li>
   </ul>
@@ -141,11 +146,13 @@
     ready: () => { $('loading').hidden = true; },
     mode: (m) => {
       document.querySelectorAll('[data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
-      $('fuzzTog').hidden = m === 'paper';
+      const pr = window.__hm ? window.__hm.pair : ['felt', 'textile'];
+      $('fuzzTog').hidden = !(m === 'felt' || (m === 'split' && pr.includes('felt')));
       const split = m === 'split'; $('handle').hidden = !split; $('labelA').hidden = !split; $('labelB').hidden = !split;
       $('loading').hidden = true;
     },
     cam: (c) => document.querySelectorAll('[data-cam]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cam === c))),
+    pair: (p) => { $('pickA').value = p[0]; $('pickB').value = p[1]; $('fuzzTog').hidden = !p.includes('felt'); },
     toast: (t) => { if (!t) return; const el = $('toast'); el.textContent = t; el.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => { el.style.opacity = 0; }, 2200); },
     stats: (r) => { $('meta').textContent = `${r.calls} draw calls · ${(r.drawnTris / 1e6).toFixed(1)}M triangles drawn` + (window.__fps ? ` · ${window.__fps.toFixed(0)} fps` : ''); },
     fps: () => {},
@@ -161,6 +168,8 @@
   $('walk').addEventListener('change', (e) => window.__hm && window.__hm.setWalking(e.target.checked));
   $('twos').addEventListener('change', (e) => window.__hm && window.__hm.setTwos(e.target.checked));
   $('fuzz').addEventListener('change', (e) => window.__hm && window.__hm.setFuzz(e.target.checked ? 5 : 0));
+  const repair = async () => { $('loading').hidden = false; $('loadMsg').textContent = 'Building…'; await window.__hm.setPair($('pickA').value, $('pickB').value); $('loading').hidden = true; };
+  $('pickA').addEventListener('change', repair); $('pickB').addEventListener('change', repair);
   $('aboutBtn').addEventListener('click', () => { $('about').hidden = !$('about').hidden; });
   $('aboutClose').addEventListener('click', () => { $('about').hidden = true; });
   // the comparison line
@@ -173,7 +182,7 @@
   h.addEventListener('keydown', (e) => { const x = parseFloat(h.style.left) / 100; if (e.key === 'ArrowLeft') place(x - 0.05); if (e.key === 'ArrowRight') place(x + 0.05); });
   addEventListener('keydown', (e) => {
     if (e.target.closest('input')) return;
-    const map = { 1: 'paper', 2: 'felt', 3: 'split' };
+    const map = { 1: 'paper', 2: 'felt', 3: 'textile', 4: 'split' };
     if (map[e.key] && window.__hm) window.__hm.setMode(map[e.key]);
   });
 })();

@@ -25,7 +25,7 @@ export const CAMS = {
   Elevated: { label: 'Elevated', pos: [-5.6, 13.2, 15.8], target: [1.4, 1.0, -0.4], fovH: 50 },
   Close:    { label: 'Close-up', pos: [-3.45, 2.75, 4.0], target: [-1.25, 2.05, 0.1], fovH: 42 },
   Street:   { label: 'Street',   pos: [9.6, 1.25, 7.6], target: [0.4, 2.2, 0.4], fovH: 54 },
-  Side:     { label: 'Side',     pos: [-10.8, 4.6, 2.6], target: [0.4, 3.1, -1.9], fovH: 50 },
+  Side:     { label: 'Side',     pos: [-7.0, 4.6, 3.4], target: [0.4, 3.3, -2.0], fovH: 56 },
   Roof:     { label: 'Roof detail', pos: [-4.2, 8.2, 3.4], target: [-1.3, 6.3, -1.2], fovH: 40 },
   Marine:   { label: 'Marine', follow: true, pos: [-3, 1.5, 5], target: [-3, 1.1, 3], fovH: 46 },
 };

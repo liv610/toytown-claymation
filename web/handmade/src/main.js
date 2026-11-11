@@ -15,6 +15,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CAMS, MARINE_PATH } from './layout.js';
 import { buildPaper } from './paper/index.js';
 import { buildFelt } from './felt/index.js';
+import { buildTextile } from './textile/index.js';
 
 const Q = new URLSearchParams(location.search + '&' + location.hash.slice(1));
 const CAPTURE = Q.get('capture') === '1';
@@ -62,10 +63,10 @@ async function loadGLB(name) {
 const marine = await loadGLB('marine.glb');
 const styles = {};
 const want = (Q.get('style') || 'paper').toLowerCase();
-const builders = { paper: buildPaper, felt: buildFelt };
+const builders = { paper: buildPaper, felt: buildFelt, textile: buildTextile };
 async function ensure(name) {
   if (styles[name]) return styles[name];
-  status(name === 'paper' ? 'Cutting and folding the paper village…' : 'Stitching the felt village…');
+  status({ paper: 'Cutting and folding the paper village…', felt: 'Stitching the felt village…', textile: 'Sewing the textile storybook street…' }[name]);
   await new Promise((r) => setTimeout(r, 30));
   const t0 = performance.now();
   const s = builders[name]({ marine, renderer });
@@ -103,8 +104,9 @@ const blit = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMater
 }));
 const blitScene = new THREE.Scene(); blitScene.add(blit); const blitCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-let mode = ['paper', 'felt', 'split'].includes(want) ? want : 'paper';
+let mode = ['paper', 'felt', 'textile', 'split'].includes(want) ? want : 'paper';
 let splitX = 0.5;
+const pair = [(Q.get('left') || 'felt'), (Q.get('right') || 'textile')];     // the two styles shown in Compare
 
 // ------------------------------------------------------------------ the Marine's beat (shared by both styles)
 const path = new THREE.CatmullRomCurve3(MARINE_PATH.map(([x, z]) => new THREE.Vector3(x, 0.05, z)), true, 'centripetal');
@@ -117,6 +119,7 @@ function poseMarine(s, dt) {
   const pp = path.getPointAt(a2);
   s.walk.timeScale = 1; s.walk.time = (tPose * SPEED / STRIDE * s.walk.getClip().duration) % s.walk.getClip().duration;
   s.puppet.mixer.update(0);
+  if (s.puppet.afterPose) s.puppet.afterPose(s.walk.time / s.walk.getClip().duration);
   s.puppet.root.position.copy(walking ? pp : p);
   s.puppet.root.lookAt(ahead.x, (walking ? pp : p).y, ahead.z);
 }
@@ -125,8 +128,8 @@ function poseMarine(s, dt) {
 const _fp = new THREE.Vector3(), _ft = new THREE.Vector3();
 function followCam(k) {
   const p = path.getPointAt(along), ahead = path.getPointAt((along + 0.006) % 1), fwd = ahead.clone().sub(p).setY(0).normalize(), side = new THREE.Vector3(fwd.z, 0, -fwd.x);
-  _fp.copy(p).addScaledVector(fwd, 2.5).addScaledVector(side, -1.25).add(new THREE.Vector3(0, 1.45, 0));
-  _ft.copy(p).add(new THREE.Vector3(0, 1.0, 0)).addScaledVector(fwd, 0.1);
+  _fp.copy(p).addScaledVector(fwd, 2.7).addScaledVector(side, -1.3).add(new THREE.Vector3(0, 1.55, 0));
+  _ft.copy(p).add(new THREE.Vector3(0, 1.12, 0)).addScaledVector(fwd, 0.1);
   camera.position.lerp(_fp, k); controls.target.lerp(_ft, k); camera.lookAt(controls.target);
 }
 
@@ -139,7 +142,7 @@ function pick(e) {
   for (const c of s.clickables) { const h = ray.intersectObjects(c.objects, true)[0]; if (h && (!best || h.distance < best.d)) best = { c, d: h.distance }; }
   return best && best.c;
 }
-function activeStyle(x) { return mode === 'split' ? (x / innerWidth < splitX ? 'paper' : 'felt') : mode; }
+function activeStyle(x) { return mode === 'split' ? (x / innerWidth < splitX ? pair[0] : pair[1]) : mode; }
 let downAt = null;
 renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
 renderer.domElement.addEventListener('pointermove', (e) => { renderer.domElement.style.cursor = pick(e) ? 'pointer' : 'grab'; });
@@ -157,11 +160,13 @@ function act(name) {   // interactions are applied to both styles, so the compar
 // ------------------------------------------------------------------ public hooks for the page and for tests
 window.__hm = {
   async setMode(m) {
-    if (m === 'split') { await ensure('paper'); await ensure('felt'); } else await ensure(m);
+    if (m === 'split') { await ensure(pair[0]); await ensure(pair[1]); } else await ensure(m);
     mode = m; ui.mode && ui.mode(m); status(''); stats();
   },
   goCam, act, cams: CAMS,
   setSplit(x) { splitX = Math.min(0.97, Math.max(0.03, x)); },
+  async setPair(a, b) { pair[0] = a; pair[1] = b; await ensure(a); await ensure(b); ui.pair && ui.pair(pair); },
+  get pair() { return pair.slice(); },
   setWalking(v) { walking = v; }, setTwos(v) { twos = v; },
   /** felt fibres: number of fuzz shells (0 = off) — to compare the look and the cost */
   setFuzz(n) { if (n > 0 && Math.min(innerWidth, innerHeight) < 600) n = Math.min(n, 3); const s = styles.felt; if (!s) return; s.scene.traverse((o) => { if (o.userData.fuzz) { o.geometry.instanceCount = n; o.visible = n > 0; } }); s.setShells && s.setShells(n); stats(); },
@@ -170,11 +175,17 @@ window.__hm = {
   /** headless: settle a still frame at time t (seconds) and return a JPEG data URL */
   async still(t = 4, q = 0.9) { renderFrame(t, 1 / 24, true); renderFrame(t, 1 / 24, true); return renderer.domElement.toDataURL('image/jpeg', q); },
   stats: () => stats(),
+  /** measure: render n frames of the current view, forcing the GPU to finish each one; returns ms per frame (median) */
+  timeFrames(n = 6) {
+    const gl = renderer.getContext(), px = new Uint8Array(4), t = [];
+    for (let i = 0; i < n; i++) { const t0 = performance.now(); renderFrame(4 + i / 24, 1 / 24, true); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); t.push(performance.now() - t0); }
+    t.sort((a, b) => a - b); return { ms: t[Math.floor(t.length / 2)], ...stats() };
+  },
 };
 
 let lastInfo = { calls: 0, triangles: 0 };
 function stats() {
-  const info = lastInfo, s = styles[mode === 'split' ? 'paper' : mode];
+  const info = lastInfo, s = styles[mode === 'split' ? pair[1] : mode];
   let tris = 0; s && s.scene.traverse((o) => { if (o.isMesh && o.geometry) tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3 * (o.geometry.isInstancedBufferGeometry ? (o.geometry.instanceCount || 1) : 1) * (o.isInstancedMesh ? o.count : 1); });
   const r = { calls: info.calls, drawnTris: info.triangles, sceneTris: Math.round(tris), buildMs: s ? Math.round(s.buildMs) : 0 };
   ui.stats && ui.stats(r); return r;
@@ -196,7 +207,7 @@ function renderFrame(t, dt, still = false) {
   if (walking && !still) { along = (along + dt * SPEED / PATH_LEN) % 1; animClock += dt; }
   if (follow) followCam(still ? 1 : 1 - Math.exp(-dt * 3)); else controls.update();
   const focus = camera.position.distanceTo(controls.target);
-  const list = mode === 'split' ? ['paper', 'felt'] : [mode];
+  const list = mode === 'split' ? pair.slice() : [mode];
   for (const n of list) {
     const s = styles[n]; if (!s) continue;
     s.update(t, still ? 1 : dt); poseMarine(s, dt);
@@ -204,9 +215,9 @@ function renderFrame(t, dt, still = false) {
     renderer.toneMappingExposure = s.exposure ?? 1;
   }
   renderer.info.autoReset = false; renderer.info.reset();
-  if (mode === 'split' && styles.paper && styles.felt) {
-    for (const n of ['paper', 'felt']) { const s = styles[n]; renderer.toneMappingExposure = s.exposure ?? 1; s.composer.renderToScreen = false; s.composer.render(dt); }
-    blit.material.uniforms.tA.value = styles.paper.composer.readBuffer.texture; blit.material.uniforms.tB.value = styles.felt.composer.readBuffer.texture; blit.material.uniforms.uX.value = splitX;
+  if (mode === 'split' && styles[pair[0]] && styles[pair[1]]) {
+    for (const n of pair) { const s = styles[n]; renderer.toneMappingExposure = s.exposure ?? 1; s.composer.renderToScreen = false; s.composer.render(dt); }
+    blit.material.uniforms.tA.value = styles[pair[0]].composer.readBuffer.texture; blit.material.uniforms.tB.value = styles[pair[1]].composer.readBuffer.texture; blit.material.uniforms.uX.value = splitX;
     renderer.setRenderTarget(null); renderer.render(blitScene, blitCam);
   } else if (styles[mode]) { const s = styles[mode]; s.composer.renderToScreen = true; renderer.toneMappingExposure = s.exposure ?? 1; s.composer.render(dt); }
   lastInfo = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };   // whole frame: shadows, scene, post passes

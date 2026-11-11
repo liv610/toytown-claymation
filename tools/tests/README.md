@@ -30,3 +30,4 @@ which is how every change in this project has been checked.
 | `blender_reference_render.py` | Cycles reference render of the baked HQ scene from the Hero camera | `blender -b renders/hq/bake/hq_baked.blend --python tools/tests/blender_reference_render.py -- OUT.png` |
 | `handmade_views.js` | Handmade style test: every camera preset for paper and felt | `node handmade_views.js OUTDIR [paper,felt] [Hero,Close,…] [W] [H] [query]` |
 | `handmade_interact.js` | Handmade style test: comparison split, door / lamp / tree interactions, a real click on the door | `node handmade_interact.js OUTDIR` |
+| `handmade_measure.js` | All three handmade styles under identical conditions (Hero, 1280×720), with/without AO+DOF, felt with/without shells; writes JSON | `node handmade_measure.js OUT.json [W] [H]` |

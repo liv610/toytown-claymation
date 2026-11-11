@@ -1,0 +1,86 @@
+[
+ {
+  "name": "paper",
+  "query": "style=paper",
+  "ms": 7852.300000000279,
+  "calls": 247,
+  "drawnTris": 3213241,
+  "sceneTris": 564590,
+  "buildMs": 1277,
+  "programs": 24,
+  "textures": 22,
+  "geometries": 45
+ },
+ {
+  "name": "paper, no AO/DOF",
+  "query": "style=paper&ao=0&dof=0",
+  "ms": 5444.5,
+  "calls": 90,
+  "drawnTris": 1071088,
+  "sceneTris": 564590,
+  "buildMs": 1190,
+  "programs": 18,
+  "textures": 15,
+  "geometries": 45
+ },
+ {
+  "name": "felt (5 shells)",
+  "query": "style=felt&fuzz=5",
+  "ms": 15840.799999999814,
+  "calls": 324,
+  "drawnTris": 9281211,
+  "sceneTris": 4652036,
+  "buildMs": 2901,
+  "programs": 35,
+  "textures": 23,
+  "geometries": 83
+ },
+ {
+  "name": "felt, no AO/DOF",
+  "query": "style=felt&fuzz=5&ao=0&dof=0",
+  "ms": 13303.399999999907,
+  "calls": 148,
+  "drawnTris": 6097638,
+  "sceneTris": 4652036,
+  "buildMs": 3170,
+  "programs": 29,
+  "textures": 16,
+  "geometries": 83
+ },
+ {
+  "name": "felt, no shells",
+  "query": "style=felt&fuzz=0",
+  "ms": 6591.800000000279,
+  "calls": 304,
+  "drawnTris": 6147691,
+  "sceneTris": 1527850,
+  "buildMs": 3178,
+  "programs": 34,
+  "textures": 23,
+  "geometries": 80
+ },
+ {
+  "name": "textile",
+  "query": "style=textile",
+  "ms": 4287.700000000186,
+  "calls": 186,
+  "drawnTris": 3126689,
+  "sceneTris": 668826,
+  "buildMs": 3579,
+  "programs": 42,
+  "textures": 29,
+  "geometries": 42
+ },
+ {
+  "name": "textile, no AO/DOF",
+  "query": "style=textile&ao=0&dof=0",
+  "ms": 2738.5,
+  "calls": 76,
+  "drawnTris": 1122804,
+  "sceneTris": 668826,
+  "buildMs": 3684,
+  "programs": 34,
+  "textures": 22,
+  "geometries": 42
+ }
+]

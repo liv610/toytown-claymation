@@ -14,15 +14,17 @@ const out = process.argv[2]; fs.mkdirSync(out, { recursive: true });
   await shot('split_lamp_off', async () => { window.__hm.act('lamp'); window.__hm.goCam('Street', true); window.__hm.setSplit(0.5); return window.__hm.still(4.2); });
   await shot('split_marine', async () => { window.__hm.act('lamp'); window.__hm.goCam('Marine', true); return window.__hm.still(4); });
   // a real click on the door through the page (raycast path), single style
-  const at = await p.evaluate(async () => { await window.__hm.setMode('paper'); window.__hm.goCam('Close', true); window.__hm.still(4);
-    const box = new window.__hm.camera.position.constructor(); const door = window.__hm.styles.paper.clickables[0].objects[0];
-    door.geometry.computeBoundingBox(); door.geometry.boundingBox.getCenter(box); door.localToWorld(box); box.project(window.__hm.camera);
-    return [(box.x + 1) / 2 * innerWidth, (1 - box.y) / 2 * innerHeight]; });
-  const before = await p.evaluate(() => window.__hm.styles.paper.clickables[0].objects[0].parent.rotation.y);
-  await p.mouse.move(at[0], at[1]); await p.mouse.down(); await p.mouse.up();
-  const after = await p.evaluate(() => { window.__hm.still(4); return window.__hm.styles.paper.clickables[0].objects[0].parent.rotation.y; });
-  console.log('door rotation before/after a real click at', at.map(Math.round).join(','), ':', before.toFixed(2), '→', after.toFixed(2), after !== before ? 'OK' : 'FAILED');
-  const st = await p.evaluate(async () => { const out = {}; for (const m of ['paper', 'felt']) { await window.__hm.setMode(m); window.__hm.goCam('Hero', true); window.__hm.still(4); out[m] = window.__hm.stats(); } return out; });
+  for (const sty of ['paper', 'textile']) {
+    const at = await p.evaluate(async (sty) => { await window.__hm.setMode(sty); window.__hm.goCam('Close', true); window.__hm.still(4);
+      const box = new window.__hm.camera.position.constructor(); const door = window.__hm.styles[sty].clickables[0].objects[0];
+      door.geometry.computeBoundingBox(); door.geometry.boundingBox.getCenter(box); door.localToWorld(box); box.project(window.__hm.camera);
+      return [(box.x + 1) / 2 * innerWidth, (1 - box.y) / 2 * innerHeight]; }, sty);
+    const before = await p.evaluate((sty) => window.__hm.styles[sty].clickables[0].objects[0].parent.rotation.y, sty);
+    await p.mouse.move(at[0], at[1]); await p.mouse.down(); await p.mouse.up();
+    const after = await p.evaluate((sty) => { window.__hm.still(4); return window.__hm.styles[sty].clickables[0].objects[0].parent.rotation.y; }, sty);
+    console.log(sty, 'door rotation before/after a real click at', at.map(Math.round).join(','), ':', before.toFixed(2), '→', after.toFixed(2), after !== before ? 'OK' : 'FAILED');
+  }
+  const st = await p.evaluate(async () => { const out = {}; for (const m of ['paper', 'felt', 'textile']) { await window.__hm.setMode(m); window.__hm.goCam('Hero', true); window.__hm.still(4); out[m] = window.__hm.stats(); } return out; });
   console.log('frame stats (whole frame incl. shadows + post):', JSON.stringify(st));
   await b.close();
 })();

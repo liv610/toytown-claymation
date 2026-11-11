@@ -149,7 +149,7 @@ export class Batch {
   constructor(name, seed = 1) { this.name = name; this.parts = []; this.r = rng(seed); }
   add(geo, matrix, color, { vary = 0.04, extra = 0, edgeAxis = 'z', edge: forceEdge = null } = {}) {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
-    for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
+    for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'aUv') g.deleteAttribute(k);
     if (!g.attributes.normal) g.computeVertexNormals();
     const n = g.attributes.position.count, nrm = g.attributes.normal;
     const edge = new Float32Array(n), seed = new Float32Array(n).fill(this.r()), ex = new Float32Array(n).fill(extra), col = new Float32Array(n * 3);
