@@ -1,0 +1,33 @@
+<!doctype html><meta charset="utf-8"><title>Chapter 1 cast check</title>
+<style>body{margin:0;background:#cbbfae}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// Dev check: every Chapter 1 character in every clip, sampled at a fixed time (?t=seconds).
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+const q = new URLSearchParams(location.search), T = +(q.get('t') || 0.4);
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(innerWidth, innerHeight); document.body.append(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xcbbfae);
+const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.1, 100);
+scene.add(new THREE.HemisphereLight(0xfff4e0, 0x6a5a50, 1.6)); const d = new THREE.DirectionalLight(0xffffff, 2.2); d.position.set(3, 6, 5); scene.add(d);
+const L = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+const cast = ['parent', 'child', 'volunteer']; let x = 0;
+for (const k of cast) {
+  const g = await L.loadAsync('../assets/ch1_' + k + '.glb');
+  for (const clip of g.animations) {
+    const o = (await L.loadAsync('../assets/ch1_' + k + '.glb')).scene;
+    if (k === 'child') o.scale.setScalar(0.66);
+    o.position.x = x; o.rotation.y = 0.35; x += 1.0; scene.add(o);
+    const mx = new THREE.AnimationMixer(o); mx.clipAction(clip).play(); mx.setTime(clip.name === 'Give' ? T * 2.2 : T);
+    const lab = document.createElement('div'); lab.textContent = k + ' ' + clip.name; lab.style.cssText = `position:fixed;bottom:8px;font:12px sans-serif;left:${0}px`; lab.dataset.x = o.position.x; document.body.append(lab);
+  }
+}
+const props = await L.loadAsync('../assets/ch1_props.glb');
+const P = props.scene; P.position.set(x + 0.4, 0, 0); scene.add(P);
+['Truck', 'Carton', 'Wagon'].forEach((n, i) => { const o = P.getObjectByName(n); if (o) o.position.set(i * 0.9, 0, 0); });
+cam.position.set((x + 2) / 2, 1.3, 9.5); cam.lookAt((x + 2) / 2, 0.8, 0);
+r.render(scene, cam);
+document.querySelectorAll('div').forEach((el) => { const v = new THREE.Vector3(+el.dataset.x, 0, 0).project(cam); el.style.left = ((v.x + 1) / 2 * innerWidth - 30) + 'px'; });
+window.__ready = true;
+</script>

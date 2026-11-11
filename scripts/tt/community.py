@@ -183,7 +183,7 @@ def lane_cobbles(x0, x1, a, b):
 
 
 def collection_box(loc):
-    """The toy drop-off: a painted crate with a lettered placeholder sign, a few gifts already given."""
+    """The toy drop-off: a painted crate with a lettered placeholder sign."""
     R = B.root("DropOff", loc)
     red = lib.glossy_paint("CrateRed", P.MUTED_RED, rough=0.45)
     trim = wood("CreamWood", P.CREAM, painted=True, rough=0.5)
@@ -197,7 +197,7 @@ def collection_box(loc):
         t = lib.text_obj("dropsign", txt, (0, 0.24, z), s, lib.glossy_paint("SignLetters", P.DEEP_RED, rough=0.35), extrude=0.02); t.parent = R
     for o in objs:
         o.parent = R
-    props.gift_pile("DropGifts", (loc[0] + 1.0, loc[1] - 0.2, 0.0), n=4, spread=0.45, scale=0.95)
+    # (no wrapped presents here: toys are given new and unwrapped; Chapter 1 sets a carton of toys beside the box)
     META["box"] = tuple(loc)
     return R
 

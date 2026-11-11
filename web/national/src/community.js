@@ -11,7 +11,7 @@ const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 export const S = 0.2;                   // Toy Town units → map units
 const CLAY_KINDS = { clay: 'clay', snow: 'snow', wood: 'wood', cobble: 'cobble', fabric: 'fabric', felt: 'clay' };
 
-async function loadGLB(url, b64) {
+export async function loadGLB(url, b64) {
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   if (b64) { const txt = await (await fetch(b64)).text(); return loader.parseAsync(Uint8Array.from(atob(txt.trim()), (c) => c.charCodeAt(0)).buffer, ''); }
   return loader.loadAsync(url);
@@ -53,8 +53,19 @@ export async function createCommunity(scene, siteWorld, { assets = './assets/', 
   flakes.frustumCulled = false; root.add(flakes);
 
   const local = (v) => siteWorld.clone().add(V(...v).multiplyScalar(S));
+  // ground height (town units) under a point of the street or sidewalk, for the characters' feet
+  const groundMeshes = []; gltf.scene.traverse((o) => { if (o.isMesh && /^(Snow|Cobble|Curb|Footing)/.test(o.name)) groundMeshes.push(o); });
+  const rc = new THREE.Raycaster(), gcache = new Map();
+  function groundAt(x, z) {
+    const k = Math.round(x * 6) + ',' + Math.round(z * 6);
+    if (gcache.has(k)) return gcache.get(k);
+    root.updateMatrixWorld(true);
+    rc.set(root.localToWorld(V(Math.round(x * 6) / 6, 1.6, Math.round(z * 6) / 6)), V(0, -1, 0)); rc.far = 2.2 * S;
+    const h = rc.intersectObjects(groundMeshes, false)[0], y = h ? root.worldToLocal(h.point.clone()).y : 0;
+    gcache.set(k, y); return y;
+  }
   return {
-    root, meta,
+    root, meta, groundAt,
     boxWorld: local(meta.box), treeWorld: local(meta.tree),
     // dusk: 0 = daylight seen from the sky, 1 = blue-hour street with lamps and windows lit
     setDusk(d, t, pxScale) {

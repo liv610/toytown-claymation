@@ -18,10 +18,27 @@ actions are always available without the world.
 **Current line of work: `experiment/national`.**
 - **The national story in this project is now a 3D claymation map of the US.**
 - **The owner explores alternative art styles (paper, felt) in a separate project.**
-- **Step 1 is built and awaiting review:** the clay national map and the descent into Maple Hollow. Prototype:
-  [Railroad of Hope National Map](https://claude.ai/artifact/Ljs6JaGJYW1kMGijHRKaZ1). Architecture and plan:
-  `docs/NATIONAL_MAP.md`.
-- **Next, after approval:** the chapter engine plus Chapters 1–2, then Chapters 3–5 and the ZIP ending.
+- **Step 1 (built):** the clay national map and the descent into Maple Hollow.
+- **Chapter 1 (built, awaiting review): *It Starts With You*.**
+  - **What happens:**
+    - A family walks up to the drop-off box; a volunteer waves; a Marine carries a carton of toys into the hall; neighbours
+      pass across the street.
+    - At the box the story waits a few seconds for the visitor to tap the toy, then carries on by itself.
+    - The child sets the red truck in, the box glows, and the camera rises to the street.
+  - **Around it:** play, pause, skip and replay; a text version; an end card with a placeholder "Find a Toy Drop-Off".
+  - **Prototype:** [Railroad of Hope National Map](https://claude.ai/artifact/Ljs6JaGJYW1kMGijHRKaZ1). Press "Visit Maple
+    Hollow", or add `#chapter1` to the link (`?chapter=1` locally) to start in the chapter. Architecture and plan:
+    `docs/NATIONAL_MAP.md`.
+- **Owner's priorities after Chapter 1:**
+  1. National map art direction: sculpted mountains, tree clusters, lit villages along real miniature tracks, composition.
+  2. Opening screen and story navigation ("Explore the Journey" / "Find a Way to Help").
+  3. UI softening: ivory, evergreen, cranberry, paper.
+  4. A magical toy shop.
+  5. Chapters 2–5 and the ZIP ending.
+- **Copy rule (owner, after review):** story text must not say where a given toy ends up ("given to a child in your own
+  community", "on its way to a child"). It also must not build on the unconfirmed online-gift process. Use invitations
+  ("Want to give a toy too?") and placeholders until the organisation confirms the wording. The journey copy was revised
+  to match and republished.
 
 ## Earlier status (storybook branch)
 
@@ -58,7 +75,7 @@ Toy*, exactly in this order:
 | `experiment/map-scale` | 320 × 260 m regional diorama around the village, validated railway layout (`scripts/tt/layout.py`, `region.py`), trains, continuous descent (`web/region`), `docs/MAP_SCALE_ASSESSMENT.md` | — |
 | `experiment/visual-quality` | Cycles texture-bake experiment on the blue shop and pink house (`scripts/tt/hq.py`, `bake_hq.py`, `export_hq.py`, `web/hq`), before/after images, `docs/VISUAL_QUALITY_EXPERIMENT.md` | [Toy Town Quality Test](https://claude.ai/artifact/3bqaJDnGMco4e3kR83cfXf) |
 | `experiment/journey` (from map-scale) | Journey prototype: drop-off reached three ways (direct / explore / Marine story), the toy shop interior and "send a toy online" with the station departure and ZIP line map, illustrated fallback, local event log + research panel (`web/journey`), `docs/JOURNEY_PROTOTYPE.md`, `docs/JOURNEY_TESTING_GUIDE.md` | [Toy Town Journey Prototype](https://claude.ai/artifact/68VGT1ZJfx3HdZF8vPkQNw) |
-| `experiment/national` (from storybook) | **Current line of work.** Clay national relief + descent into Maple Hollow (`web/national`), `docs/NATIONAL_MAP.md` | [Railroad of Hope National Map](https://claude.ai/artifact/Ljs6JaGJYW1kMGijHRKaZ1) |
+| `experiment/national` (from storybook) | **Current line of work.** Clay national relief + descent into Maple Hollow + Chapter 1 with townspeople (`web/national`, `scripts/tt/people.py`, `scripts/tt/toys.py`), `docs/NATIONAL_MAP.md`; journey copy revised | [Railroad of Hope National Map](https://claude.ai/artifact/Ljs6JaGJYW1kMGijHRKaZ1) |
 | `experiment/storybook` (from journey) | Earlier line of work. Pop-up transition test (`web/storybook`): placeholder illustrated US map (`mapart.js`), pop-up community (`popup_town.js`), timeline + scrubber (`main.js`); plus `tools/tests/`, this doc and `CLAUDE.md` | [Storybook Pop-up Test](https://claude.ai/artifact/4V1Ax45MgzCV2UVdy5a928) |
 
 New work should branch from `experiment/national` (it contains everything except visual-quality); previously `experiment/storybook` (it contains master + map-scale + journey + storybook).
@@ -79,6 +96,10 @@ New work should branch from `experiment/national` (it contains everything except
 | National story (later) | **A lightweight 3D claymation relief of the US** with nested story dioramas and one continuous camera; folk-art and other styles explored in a separate project | owner's direction for this project |
 | Toy Town | Stays the imaginative hub; national-story communities are separate small dioramas | clarity of roles |
 | Symbolism | Train and red toy are metaphors, not literal logistics | accuracy; organisation to review the narrative |
+| Townspeople | Parent, child and volunteer are sculpted like the Marine and skinned to **his rig and walk/idle cycles** (`people.py` reuses `marine.py` without changing it) | one stop-motion cast; no new rig to maintain |
+| Toys in the story | Always **new and unwrapped** (red truck, teddy, blocks, ball, doll); the wrapped-present pile by Maple Hollow's box was removed | matches "new, unwrapped toy"; avoids mixed messages |
+| Chapter 1 interaction | One optional tap (give the toy); the story waits ≤ 4.5 s then continues; actions bar always live | meaningful but never forced |
+| Story copy | Invitations, not process claims; nothing about where a specific toy goes | owner's review (point 8); organisation to approve wording |
 
 ## How to run and rebuild
 
@@ -108,6 +129,12 @@ New work should branch from `experiment/national` (it contains everything except
   - the map is a placeholder drawing;
   - the reverse transition simply replays the forward one at 1.25×;
   - no family, volunteer or interiors yet (that's Chapter 1–2 work).
+- **National Chapter 1:**
+  - the Marine "enters" the hall on a cut (the door doesn't open);
+  - adults are cropped at the head in the close shot (camera at child height, intentional but worth reviewing);
+  - characters walk set paths and can brush the snowbanks;
+  - passers-by wrap around off-screen;
+  - no sound.
 - **Real-device performance has never been measured** (no GPU here); the in-page Measure / `perf` events are there for it.
 
 ## Licences of what's used

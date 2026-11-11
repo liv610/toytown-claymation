@@ -12,6 +12,7 @@ import { timeU } from './clay.js';
 import { loadGeography, toWorld, MAP_W, MAP_H } from './geo.js';
 import { buildRelief } from './relief.js';
 import { createCommunity, S } from './community.js';
+import { createChapter1, CH1 } from './chapter1.js';
 
 const $ = (id) => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
@@ -51,6 +52,8 @@ const site = geo.sites.maple, [sx, sz] = toWorld(...site.a);
 const siteWorld = V(sx, geo.siteBase(site) + 0.25, sz);
 status('Building Maple Hollow…');
 const town = await createCommunity(scene, siteWorld, { assets: ASSETS, b64: window.NAT_B64, tier });
+status('Gathering the townspeople…');
+const ch1 = await createChapter1(town, { assets: ASSETS, b64: window.NAT_B64 });
 const ttSite = geo.sites.toytown, [tx, tz] = toWorld(...ttSite.a);
 const toyTownWorld = V(tx, geo.siteBase(ttSite) + 0.25, tz);
 // Toy Town's place on the map: a little glowing hub where the lines meet (the real Toy Town is its own experience)
@@ -84,7 +87,7 @@ function nationalPose() {
 }
 Object.assign(rig, nationalPose());
 const NAT_MIN = 90, STREET_MIN = 6 * S, STREET_MAX = 140 * S;
-let mode = 'national';                 // national | flying | town
+let mode = 'national';                 // national | flying | town | story
 function applyRig() {
   const ce = Math.cos(rig.el);
   camera.position.set(rig.target.x + rig.dist * ce * Math.sin(rig.az), rig.target.y + rig.dist * Math.sin(rig.el), rig.target.z + rig.dist * ce * Math.cos(rig.az));
@@ -113,21 +116,74 @@ function snapshot() { return { target: rig.target.clone(), dist: rig.dist, az: r
 function descend() {
   if (mode === 'flying') return;
   mode = 'flying'; ui('flying-down');
-  flight = makeFlight(snapshot(), town.streetPose(), 7.5, () => { mode = 'town'; ui('town'); });
+  // land where Chapter 1 opens, then the chapter plays by itself (pause, skip and the help actions are always there)
+  flight = makeFlight(snapshot(), rigFrom(ch1.shotWorld(0, REDUCED)), 7.5, () => startStory());
+}
+// a camera position + look-at point → the rig's target / distance / heading / tilt
+function rigFrom({ pos, look }) {
+  const d = pos.clone().sub(look), dist = d.length();
+  return { target: look.clone(), dist, az: Math.atan2(d.x, d.z), el: Math.asin(d.y / dist) };
 }
 function ascend() {
   if (mode === 'flying') return;
+  endStory();
   mode = 'flying'; ui('flying-up');
   flight = makeFlight(snapshot(), nationalPose(), 5.5, () => { mode = 'national'; ui('national'); });
 }
 
+// ------------------------------------------------------------------ Chapter 1: story clock, the visitor's tap, controls
+// The clock stops at the box for at most HOLD_MAX seconds waiting for a tap on the toy; then it carries on by itself.
+const HOLD_MAX = 4.5;
+let story = null;                       // { t, playing, given, waited, ended }
+function startStory() {
+  mode = 'story'; story = { t: 0, playing: true, given: false, waited: 0, ended: false };
+  ui('story'); storyUI();
+}
+function endStory() { story = null; $('givePrompt').hidden = true; $('endcard').hidden = true; $('storybar').hidden = true; }
+function lookAround() { endStory(); mode = 'town'; ui('town'); }
+function giveToy() { if (story && !story.given && story.t >= ch1.beats.hold - 0.01) { story.given = true; storyUI(); } }
+function storyStep(dt) {
+  if (story.playing && !story.ended) {
+    const B = ch1.beats;
+    if (story.t < B.hold || story.given) story.t = Math.min(B.end, story.t + dt);
+    else { story.waited += dt; if (story.waited > HOLD_MAX) story.given = true; }
+    if (story.t >= B.end) { story.ended = true; storyUI(); }
+  }
+  ch1.evaluate(story.t, timeU.value);
+  Object.assign(rig, rigFrom(ch1.shotWorld(story.t, REDUCED))); applyRig(); camera.updateMatrixWorld();
+  const waiting = story.t >= ch1.beats.hold - 0.01 && !story.given;
+  $('caption').textContent = waiting ? 'Tap the toy to give it.' : ch1.caption(story.t);
+  const gp = $('givePrompt'); gp.hidden = !waiting;
+  // placed once, just below the toy when the story stops (a still target is easier to tap; it stays clear of the face)
+  if (waiting && !story.promptAt) { const p = ch1.toyWorld().project(camera); story.promptAt = [(p.x + 1) / 2 * innerWidth, (1 - p.y) / 2 * innerHeight + 34]; gp.style.transform = `translate(${story.promptAt[0].toFixed(1)}px, ${story.promptAt[1].toFixed(1)}px)`; }
+}
+function storyUI() {
+  if (!story) return;
+  $('storybar').hidden = story.ended; $('endcard').hidden = !story.ended;
+  $('sPlay').textContent = story.playing ? 'Pause' : 'Play';
+  $('sPlay').setAttribute('aria-pressed', String(!story.playing));
+  if (story.ended) $('caption').textContent = '';
+}
+$('sPlay').onclick = () => { if (story) { story.playing = !story.playing; storyUI(); } };
+$('sSkip').onclick = () => { if (story) { story.given = true; story.t = ch1.beats.end; story.ended = true; storyUI(); } };
+for (const id of ['sReplay', 'eReplay']) $(id).onclick = () => startStory();
+$('givePrompt').onclick = giveToy;
+$('eLook').onclick = lookAround;
+$('eMap').onclick = ascend;
+$('playCh1').onclick = () => { mode = 'flying'; flight = makeFlight(snapshot(), rigFrom(ch1.shotWorld(0, REDUCED)), 1.6, () => startStory()); };
+for (const id of ['sText', 'eText']) $(id).onclick = () => $('ch1text').showModal();
+$('ch1textBody').innerHTML = CH1.text.map((p) => `<p>${p}</p>`).join('');
+$('eNext').textContent = CH1.next;
+
 // ------------------------------------------------------------------ direct manipulation (drag / wheel / pinch), never during a flight
 const pointers = new Map(); let pinch0 = 0;
-renderer.domElement.addEventListener('pointerdown', (e) => { pointers.set(e.pointerId, [e.clientX, e.clientY]); renderer.domElement.setPointerCapture(e.pointerId); });
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (mode === 'story' && story && !story.given && story.t >= ch1.beats.hold - 0.01) { const p = ch1.toyWorld().project(camera); if (Math.hypot((p.x + 1) / 2 * innerWidth - e.clientX, (1 - p.y) / 2 * innerHeight - e.clientY) < 90) giveToy(); }
+  pointers.set(e.pointerId, [e.clientX, e.clientY]); renderer.domElement.setPointerCapture(e.pointerId); });
 renderer.domElement.addEventListener('pointerup', (e) => { pointers.delete(e.pointerId); pinch0 = 0; });
 renderer.domElement.addEventListener('pointercancel', (e) => { pointers.delete(e.pointerId); pinch0 = 0; });
 renderer.domElement.addEventListener('pointermove', (e) => {
-  if (!pointers.has(e.pointerId) || mode === 'flying') return;
+  if (!pointers.has(e.pointerId) || mode === 'flying' || mode === 'story') return;
   const [px, py] = pointers.get(e.pointerId), dx = e.clientX - px, dy = e.clientY - py; pointers.set(e.pointerId, [e.clientX, e.clientY]);
   if (pointers.size === 2) { const [a, b] = [...pointers.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch0) zoom(pinch0 / d); pinch0 = d; return; }
   if (mode === 'national') {                       // pan the map under the finger
@@ -143,7 +199,7 @@ function zoom(f) {
   if (mode === 'national') rig.dist = clamp(rig.dist * f, NAT_MIN, nationalPose().dist * 1.15);
   else if (mode === 'town') rig.dist = clamp(rig.dist * f, STREET_MIN, STREET_MAX);
 }
-renderer.domElement.addEventListener('wheel', (e) => { e.preventDefault(); if (mode !== 'flying') zoom(Math.exp(e.deltaY * 0.0012)); }, { passive: false });
+renderer.domElement.addEventListener('wheel', (e) => { e.preventDefault(); if (mode !== 'flying' && mode !== 'story') zoom(Math.exp(e.deltaY * 0.0012)); }, { passive: false });
 
 // ------------------------------------------------------------------ scale-aware look: lighting, haze, focus, occlusion, shadows
 function atmosphere(t) {
@@ -164,6 +220,8 @@ function atmosphere(t) {
   relief.setLineFade(smooth((Math.log(rig.dist) - Math.log(14)) / (Math.log(60) - Math.log(14))));
   town.setDusk(smooth((dusk - 0.35) / 0.65), t, px);
   hubGlow.intensity = lerp(0, 900, k); star.rotation.y = t * 0.6;
+  // up close, lit windows fill much of the frame: keep their bloom from washing the scene out
+  bloom.strength = lerp(0.12, 0.35, smooth((Math.log(rig.dist) - Math.log(0.4)) / (Math.log(6) - Math.log(0.4))));
 }
 
 // ------------------------------------------------------------------ pins + UI
@@ -171,7 +229,7 @@ const pins = [['pinMaple', () => siteWorld.clone().add(V(0, 3, 0))], ['pinToy', 
 function placePins() {
   for (const [id, f] of pins) {
     const p = f().project(camera), el = $(id);
-    const show = mode === 'national' && p.z < 1;
+    const show = mode === 'national' && p.z < 1 && !flight;
     el.hidden = !show; if (!show) continue;
     el.style.transform = `translate(${((p.x + 1) / 2 * innerWidth).toFixed(1)}px, ${((1 - p.y) / 2 * innerHeight).toFixed(1)}px)`;
   }
@@ -179,12 +237,14 @@ function placePins() {
 const CAPTIONS = {
   national: 'A miniature United States, sculpted in clay. Three symbolic lines connect communities across the country.',
   'flying-down': 'Maple Hollow, Ohio — a small town getting ready for the holidays.',
-  town: 'Maple Hollow at dusk. The community hall is collecting new, unwrapped toys.',
+  town: 'Maple Hollow at dusk.',
+  story: '',
   'flying-up': 'Back to the whole country…',
 };
 function ui(m) {
   $('caption').textContent = CAPTIONS[m];
-  $('descend').hidden = m !== 'national'; $('ascend').hidden = m !== 'town';
+  document.querySelector('.note').hidden = m !== 'national';
+  $('descend').hidden = m !== 'national'; $('ascend').hidden = m !== 'town'; $('playCh1').hidden = m !== 'town';
   $('hint').textContent = m === 'town' ? 'Drag to look around · scroll or pinch to move closer' : m === 'national' ? 'Drag to move · scroll or pinch to zoom' : '';
 }
 $('descend').onclick = descend; $('pinMaple').onclick = descend; $('ascend').onclick = ascend;
@@ -201,13 +261,15 @@ function frame(dt) {
     Object.assign(rig, flight.at(flight.t));
     if (flight.t >= 1) { const f = flight; flight = null; f.onDone(); }
   }
+  if (mode === 'story' && story) storyStep(dt);
   applyRig(); atmosphere(timeU.value); relief.update(dt, timeU.value); placePins();
   composer.render(dt);
 }
-addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); if (mode === 'national') Object.assign(rig, nationalPose()); });
+addEventListener('resize', () => { if (story) story.promptAt = null; camera.aspect = innerWidth / innerHeight; renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); if (mode === 'national') Object.assign(rig, nationalPose()); });
 document.addEventListener('visibilitychange', () => { paused = document.hidden; });
 $('status').remove();
 ui('national');
+if (Q.get('chapter') === '1' || location.hash === '#chapter1') { Object.assign(rig, rigFrom(ch1.shotWorld(0, REDUCED))); startStory(); }
 renderer.setAnimationLoop((now) => { const dt = Math.min(0.1, (now - last) / 1000); last = now; if (!paused) frame(dt); });
 
 // test hooks (no effect for visitors): pose the camera along the descent at u ∈ [0,1] and grab a frame
@@ -220,5 +282,15 @@ window.__nat = {
     return renderer.domElement.toDataURL('image/jpeg', 0.9);
   },
   pose(p) { renderer.setAnimationLoop(null); Object.assign(rig, p); applyRig(); atmosphere(3); relief.update(0, 12); composer.render(0.016); return renderer.domElement.toDataURL('image/jpeg', 0.9); },
+  // Chapter 1 at story time t (given: whether the toy has been given yet)
+  story(t, given = true) {
+    renderer.setAnimationLoop(null);
+    if (!story) startStory();
+    Object.assign(story, { t, given, playing: false, ended: t >= ch1.beats.end, promptAt: null }); storyUI();
+    timeU.value = 20 + t; storyStep(0); applyRig(); placePins(); atmosphere(timeU.value); relief.update(0, 12); composer.render(0.016);
+    return renderer.domElement.toDataURL('image/jpeg', 0.9);
+  },
+  beats: () => ch1.beats,
+  state: () => ({ mode, t: story && story.t, given: story && story.given, waited: story && story.waited, ended: story && story.ended }),
   rig, siteWorld, S,
 };

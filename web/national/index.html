@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!--PAGE-START-->
+<meta charset="utf-8">
 <title>Railroad of Hope National Map</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -64,12 +65,33 @@
     .note { display: none; } .hint { display: none; }
     .caption { top: calc(92px + env(safe-area-inset-top, 0px)); }
   }
+  .storybar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .chip { position: fixed; z-index: 3; left: max(16px, env(safe-area-inset-left, 0px)); top: calc(76px + env(safe-area-inset-top, 0px)); margin: 0; padding: 5px 12px; border-radius: 999px;
+          background: rgba(24, 21, 46, 0.7); border: 1px solid var(--line); font: 600 0.85rem var(--display); color: var(--gold); }
+  .give { position: fixed; z-index: 4; left: 0; top: 0; translate: -50% 0; border: 2px solid var(--gold); border-radius: 999px; padding: 10px 16px; min-height: 44px;
+          background: var(--holly); color: var(--on-holly); font-weight: 700; box-shadow: 0 0 0 6px rgba(242, 184, 92, 0.25), 0 8px 22px rgba(0, 0, 0, 0.45); }
+  .give::after { content: ""; position: absolute; left: 50%; top: -9px; translate: -50% 0; border: 8px solid transparent; border-bottom-color: var(--gold); border-top: 0; }
+  @media (prefers-reduced-motion: no-preference) { .give { animation: breathe 1.6s ease-in-out infinite; } }
+  @keyframes breathe { 50% { box-shadow: 0 0 0 12px rgba(242, 184, 92, 0.12), 0 8px 22px rgba(0, 0, 0, 0.45); } }
+  .endcard { position: fixed; z-index: 4; left: 50%; translate: -50% 0; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); width: min(620px, calc(100% - 24px));
+             background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; text-align: center; }
+  .endcard h2 { margin: 0 0 4px; font: 600 1.35rem var(--display); }
+  .endcard p { margin: 0 0 10px; color: var(--muted); font-size: 0.92rem; }
+  .endcard .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .endcard .next { margin: 10px 0 0; font-size: 0.85rem; }
+  .small { font-size: 0.8rem; }
+  @media (max-width: 760px) {
+    .endcard { bottom: calc(var(--bar-h) + 10px + env(safe-area-inset-bottom, 0px)); padding: 12px; }
+    .endcard .btn { padding: 9px 12px; min-height: 44px; font-size: 0.9rem; }
+    .storybar .btn { padding: 9px 12px; }
+    .chip { display: none; }
+  }
 </style>
 
 <div id="stage"></div>
 <div id="status" class="status" role="status">Loading…</div>
 <header class="topbar">
-  <div class="brand"><strong>Railroad of Hope</strong><span class="badge">Prototype · national map, step 1</span></div>
+  <div class="brand"><strong>Railroad of Hope</strong><span class="badge">Prototype · national story, chapter 1</span></div>
   <nav class="actions" aria-label="Ways to help">
     <button type="button" class="act act-primary" data-action="give">Give Toys</button>
     <button type="button" class="act" data-action="donate">Donate</button>
@@ -82,9 +104,35 @@
 <button type="button" id="pinToy" class="pin hub" hidden>★ Toy Town</button>
 <div class="controls">
   <button type="button" id="descend" class="btn primary">Visit Maple Hollow</button>
+  <button type="button" id="playCh1" class="btn primary" hidden>Play Chapter 1</button>
   <button type="button" id="ascend" class="btn" hidden>Back to the national map</button>
+  <div id="storybar" class="storybar" hidden role="group" aria-label="Story controls">
+    <button type="button" id="sPlay" class="btn" aria-pressed="false">Pause</button>
+    <button type="button" id="sSkip" class="btn">Skip</button>
+    <button type="button" id="sReplay" class="btn">Replay</button>
+    <button type="button" id="sText" class="btn">Read as text</button>
+  </div>
   <span id="hint" class="hint"></span>
 </div>
+<button type="button" id="givePrompt" class="give" hidden>Give the toy</button>
+<section id="endcard" class="endcard" hidden aria-labelledby="endTitle">
+  <h2 id="endTitle">It starts with you.</h2>
+  <p>Want to give a toy too? <em>(Placeholder action in this prototype.)</em></p>
+  <div class="row">
+    <button type="button" class="btn primary" data-action="dropoff">Find a Toy Drop-Off</button>
+    <button type="button" id="eReplay" class="btn">Replay</button>
+    <button type="button" id="eLook" class="btn">Look around</button>
+    <button type="button" id="eText" class="btn">Read as text</button>
+    <button type="button" id="eMap" class="btn">Back to the map</button>
+  </div>
+  <p id="eNext" class="next"></p>
+</section>
+<dialog id="ch1text" aria-labelledby="ch1Title">
+  <h2 id="ch1Title">Chapter 1 · It Starts With You</h2>
+  <div id="ch1textBody"></div>
+  <p class="small">Draft story text for review. Maple Hollow and its people are fictional.</p>
+  <button type="button" class="btn" data-close>Close</button>
+</dialog>
 <p class="note">Clay relief from US Census boundaries (public domain). Mountains placed by real latitude and longitude, heights exaggerated. Towns are generic; Maple Hollow is fictional.</p>
 <dialog id="notyet" aria-labelledby="nyTitle">
   <h2 id="nyTitle"></h2>

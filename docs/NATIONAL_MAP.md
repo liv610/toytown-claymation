@@ -8,11 +8,13 @@ clay miniature of the United States.
 
 ## Plan, in increments
 
-1. **Step 1 (built, awaiting review).** A recognisable clay national map and one continuous descent into a detailed
-   community (Maple Hollow, Ohio, fictional).
-2. **Step 2.** The chapter engine plus Chapter 1 (*It Starts With You*: family, child, donation box, volunteer; optional
-   "Find a Toy Drop-Off") and Chapter 2 (*A Community Comes Together*: the Riverton sorting centre with Marines and volunteers;
-   optional "Volunteer Locally").
+1. **Step 1 (built).** A recognisable clay national map and one continuous descent into a detailed community (Maple
+   Hollow, Ohio, fictional).
+2. **Step 2.**
+   - **Chapter 1 (built, awaiting review): *It Starts With You*.** About 15 seconds in Maple Hollow, described below.
+   - **Chapter 2 (next):** *A Community Comes Together*, the Riverton sorting centre with Marines and volunteers; optional
+     "Volunteer Locally".
+   - **Then:** the general chapter engine, extracted from Chapter 1.
 3. **Step 3.**
    - Chapter 3: the nationwide illumination moment.
    - Chapter 4: another community, where toys are prepared for distribution, shown with dignity.
@@ -34,8 +36,42 @@ scripts/export_community.py  builds and exports maple_raw.glb + maple.json; then
   TT_OVERRIDE='{"Snow":[0.12,0.0016],"Needles_0.102":[0.22,0.0012]}' node web/tools_optimize.mjs \
     web/national/assets/maple_raw.glb web/national/assets/maple.glb 0.14 0.001     (4.5 M → 0.21 M triangles, 0.8 MB)
   src/clay.js         the clay surface shader with screen-space detail fade (works across a 1000× zoom)
-  src/main.js         renderer, camera rig, the descent, scale-aware lighting/haze/focus/AO/shadows, UI
+  src/main.js         renderer, camera rig, the descent, scale-aware lighting/haze/focus/AO/shadows, UI, story clock
+  src/chapter1.js     Chapter 1: cast, props, script (pure function of story time), camera shots, draft copy (CH1)
+  tests/cast.html     dev page: every character in every clip, side by side
+scripts/tt/people.py         parent, child, volunteer: sculpted like the Marine, skinned to his rig (marine.py unchanged)
+scripts/tt/toys.py           new, unwrapped toys (red truck, teddy, blocks, ball, doll), a carton of toys, a toy wagon
+scripts/export_chapter1.py   exports ch1_parent/child/volunteer (Walk, Idle, + WalkCarry/IdleCarry/Give, Wave, Look)
+                             and ch1_props; optimise each with: node web/tools_optimize.mjs IN_raw.glb OUT.glb 0.5 0.0004
+                             (props 0.4 0.0005). The Marine is web/sequence/assets/marine.glb, copied.
 ```
+
+## Chapter 1: *It Starts With You*
+
+**Beats (seconds):**
+
+| Time | Shot | What happens |
+|---|---|---|
+| 0–3.8 | Wide and low from the street | The family walks up the sidewalk. The Marine carries a carton of toys from the wagon to the hall door; the cut hides him going in. The volunteer waves. |
+| 3.8–6.6 | Following the family | The family walks to the drop-off. |
+| 6.6–9.8 | Close on the box, at child height | The story waits at 7.3 s (for at most 4.5 s) for "Give the toy", a tap on the button or on the toy itself. The child reaches in, the red truck arcs into the slot, the box glows and a few sparks rise. The volunteer nods, then waves. |
+| 9.8–14.4 | Rising to the street | Ends on the end card. |
+
+**Design rules kept:**
+- **Actions stay live:** the top/bottom action bar never depends on the story.
+- **Never forced:** the tap is optional, and the story waits only briefly.
+- **Controls:** pause, skip, replay and "Read as text" (a dialog with the whole chapter in prose).
+- **Reduced motion:** cuts instead of dollies and crane moves.
+- **Phones:** portrait framings, and the prompt sits below the toy so it never covers the child's face.
+- **Dignity and privacy:**
+  - nobody is named;
+  - the family is fictional;
+  - the toy is new and unwrapped;
+  - the copy says nothing about where the toy goes.
+- **Draft copy:** all text is in `CH1` in `chapter1.js`, for review.
+
+**Checks:** `tools/tests/national_chapter1.js` (stills at given story times; or a real-time run that waits at the box, taps,
+checks the end card and that the actions open during the story). SwiftShader only, so no real-device frame rates.
 
 **Nested dioramas, not a street-level country.**
 - **The national level is one lightweight relief.** It has:
@@ -106,5 +142,5 @@ The descent also now comes down along the street, so it never passes through roo
 **Not yet:**
 - **Placeholder relief, not data:** the relief is stylised rather than an elevation dataset.
 - **Basic mid-height terrain:** at mid-height the terrain between towns is plain snowy clay.
-- **No characters yet:** they arrive with Chapter 1.
+- **Chapter 1's open points:** see "Known issues" in `PROJECT_STATE.md`.
 - **Frame rates unmeasured:** frame rates on real devices have not been measured (no GPU here).
