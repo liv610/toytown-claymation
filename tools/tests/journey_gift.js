@@ -5,7 +5,7 @@ const out = process.argv[2], W = 1100, H = 620; const wait = (ms) => new Promise
   const p = await b.newPage({ viewport: { width: W, height: H } });
   p.on('pageerror', (e) => console.log('PAGEERROR ' + e.message)); p.on('console', (m) => { if (m.type() === 'error' && !/404/.test(m.text())) console.log('CONSOLE ' + m.text()); });
   await p.addInitScript(() => { window.__dtMax = 0.5; });
-  await p.goto((process.env.TT_URL || 'http://localhost:8765') + '/journey/index.html?q=low&capture=1');
+  await p.goto((process.env.TT_URL || 'http://localhost:8765') + '/journey/index.html?q=low&capture=1' + (process.env.QS ? '&' + process.env.QS : ''));   // QS=look=felt etc.
   const J = (f, a) => p.evaluate(f, a);
   const shot = async (n) => { await J(() => window.__journey.world.host?.setPaused(true)); await wait(6000); await p.screenshot({ path: `${out}/${n}.png`, timeout: 400000 }); await J(() => window.__journey.world.host?.setPaused(false)); console.log('shot', n, await J(() => window.__journey.state())); };
   const idle = () => p.waitForFunction(() => !window.__journey.world.host.moving, null, { timeout: 300000, polling: 500 });

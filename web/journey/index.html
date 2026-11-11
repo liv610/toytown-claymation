@@ -32,7 +32,7 @@
   /* ---------- world layers */
   #stage { position: fixed; inset: 0; }
   #stage canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; }
-  .backdrop { position: fixed; inset: 0; background: var(--night) center / cover no-repeat; transition: opacity 0.8s ease; }
+  .backdrop { position: fixed; inset: 0; background: var(--night) center / cover no-repeat; transition: opacity 0.8s ease; pointer-events: none; }   /* a picture only: never in the way of dragging the world */
   .backdrop::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(20, 19, 42, 0.78), rgba(20, 19, 42, 0.15) 60%); }
   .pins { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
   .pin { position: absolute; left: 0; top: 0; pointer-events: auto; display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 0;

@@ -553,7 +553,10 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     renderer.info.reset();
     if (felt) {
       // down in the town (and not inside the shop) the felt street takes over; the map and the descent stay clay
-      const want = host.look === 'felt' && !interior && camera.position.distanceTo(VC) < 75 ? 1 : 0;
+      // only while the camera is looking at the felt street from nearby: the map, the station (the toy's send-off)
+      // and the shop interior keep their own scenes
+      const L = cur.look, onStreet = L.x > -13 && L.x < 16 && L.z > -7 && L.z < 10 && dist < 32;
+      const want = host.look === 'felt' && !interior && onStreet ? 1 : 0;
       felt.mix = clamp(felt.mix + (want ? 1 : -1) * dt / 1.4);
       felt.update(T, dt);
       const k = smooth(felt.mix);
