@@ -27,7 +27,12 @@ web/national/
                       forests, generic towns, story sites, symbolic lines
   src/relief.js       clay slab + sculpted heightfield (coastline clipped per pixel), sea, base, instanced
                       firs and town clusters, three symbolic rail lines with trains
-  src/community.js    Maple Hollow: a detailed diorama modelled in metres, placed at miniature scale (S = 0.12)
+  src/community.js    Maple Hollow: loads maple.glb (built in Blender with Toy Town's generators), placed at
+                      miniature scale (S = 0.2); lamps, glows, falling snow and the street pose
+scripts/tt/community.py      Maple Hollow's buildings, street and props, made with Toy Town's own generators
+scripts/export_community.py  builds and exports maple_raw.glb + maple.json; then optimise with tools_optimize.mjs:
+  TT_OVERRIDE='{"Snow":[0.12,0.0016],"Needles_0.102":[0.22,0.0012]}' node web/tools_optimize.mjs \
+    web/national/assets/maple_raw.glb web/national/assets/maple.glb 0.14 0.001     (4.5 M → 0.21 M triangles, 0.8 MB)
   src/clay.js         the clay surface shader with screen-space detail fade (works across a 1000× zoom)
   src/main.js         renderer, camera rig, the descent, scale-aware lighting/haze/focus/AO/shadows, UI
 ```
@@ -90,6 +95,13 @@ web/national/
   golden plains, red-rock and terracotta Southwest, the green South.
 - The descent over Ohio into Maple Hollow at dusk is continuous, with no cuts or loading pauses.
 - The street-level view frames the community hall, the toy drop-off box and the lit town tree.
+
+**Changed after the first review:** Maple Hollow was rebuilt in Blender with Toy Town's own generators. That fixed:
+- the snow drips that looked like eggs (now real icicles and sculpted snow slabs);
+- the sign text that overflowed its board (now raised lettering sized to fit);
+- buildings that weren't as beautiful as Toy Town.
+
+The descent also now comes down along the street, so it never passes through roofs.
 
 **Not yet:**
 - **Placeholder relief, not data:** the relief is stylised rather than an elevation dataset.

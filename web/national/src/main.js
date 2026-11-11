@@ -50,7 +50,7 @@ const relief = buildRelief(scene, geo, { tier });
 const site = geo.sites.maple, [sx, sz] = toWorld(...site.a);
 const siteWorld = V(sx, geo.siteBase(site) + 0.25, sz);
 status('Building Maple Hollow…');
-const town = await createCommunity(scene, siteWorld, { tier });
+const town = await createCommunity(scene, siteWorld, { assets: ASSETS, b64: window.NAT_B64, tier });
 const ttSite = geo.sites.toytown, [tx, tz] = toWorld(...ttSite.a);
 const toyTownWorld = V(tx, geo.siteBase(ttSite) + 0.25, tz);
 // Toy Town's place on the map: a little glowing hub where the lines meet (the real Toy Town is its own experience)
@@ -91,7 +91,7 @@ function applyRig() {
   camera.lookAt(rig.target);
   // a wider lens near the ground, like a miniature-set camera; a longer one over the country
   const k = smooth((Math.log(rig.dist) - Math.log(4)) / (Math.log(260) - Math.log(4)));
-  camera.fov = lerp(50, 32, k);
+  camera.fov = lerp(innerWidth < innerHeight ? 64 : 50, 32, k);
   camera.near = Math.max(0.004, rig.dist * 0.01); camera.far = Math.max(60, rig.dist * 8); camera.updateProjectionMatrix();
 }
 

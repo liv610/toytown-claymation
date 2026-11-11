@@ -17,3 +17,4 @@ web/region/dist/assets/*.txt
 web/storybook/dist/
 dist/
 web/national/dist/
+web/national/assets/*_raw.glb
