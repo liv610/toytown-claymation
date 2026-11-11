@@ -49,6 +49,7 @@ Toy*, exactly in this order:
 | `experiment/visual-quality` | Cycles texture-bake experiment on the blue shop and pink house (`scripts/tt/hq.py`, `bake_hq.py`, `export_hq.py`, `web/hq`), before/after images, `docs/VISUAL_QUALITY_EXPERIMENT.md` | [Toy Town Quality Test](https://claude.ai/artifact/3bqaJDnGMco4e3kR83cfXf) |
 | `experiment/journey` (from map-scale) | Journey prototype: drop-off reached three ways (direct / explore / Marine story), the toy shop interior and "send a toy online" with the station departure and ZIP line map, illustrated fallback, local event log + research panel (`web/journey`), `docs/JOURNEY_PROTOTYPE.md`, `docs/JOURNEY_TESTING_GUIDE.md` | [Toy Town Journey Prototype](https://claude.ai/artifact/68VGT1ZJfx3HdZF8vPkQNw) |
 | `experiment/storybook` (from journey) | **Current line of work.** Pop-up transition test (`web/storybook`): placeholder illustrated US map (`mapart.js`), pop-up community (`popup_town.js`), timeline + scrubber (`main.js`); plus `tools/tests/`, this doc and `CLAUDE.md` | [Storybook Pop-up Test](https://claude.ai/artifact/4V1Ax45MgzCV2UVdy5a928) |
+| `experiment/handmade-styles` (from storybook) | **Style test.** The same corner of Toy Town (shop, pink house, tree, lamp, street, Marine) rebuilt twice from code: as cut/folded/layered paper and as felt, wool and stitching; split-screen compare, shared cameras and interactions (`web/handmade`), `docs/HANDMADE_STYLES.md`, `renders/handmade/` | Handmade Toy Town (see the session history) |
 
 New work should branch from `experiment/storybook` (it contains master + map-scale + journey + storybook).
 `experiment/visual-quality` is a side branch.
@@ -67,6 +68,7 @@ New work should branch from `experiment/storybook` (it contains master + map-sca
 | Signature transition | Illustrated map → **pop-up book** → clay diorama, and back | distinctive visual language |
 | Toy Town | Stays the imaginative hub; national-story communities are separate small dioramas | clarity of roles |
 | Symbolism | Train and red toy are metaphors, not literal logistics | accuracy; organisation to review the narrative |
+| Handmade styles | Explore paper-cut and felt treatments on a small section before any wider change | the clay look read as a conventional 3D game; findings in `docs/HANDMADE_STYLES.md`, awaiting the owner's choice |
 
 ## How to run and rebuild
 

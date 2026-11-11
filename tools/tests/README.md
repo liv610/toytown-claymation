@@ -28,3 +28,5 @@ which is how every change in this project has been checked.
 | `hq_capture.js` / `hq_measure.js` | Visual-quality before/after captures and measurements (`experiment/visual-quality` branch) | see the script headers |
 | `region_capture.js` / `region_measure.js` / `region_flight_audit.js` | Map-scale diorama captures, measurements, camera-clearance audit | see the script headers |
 | `blender_reference_render.py` | Cycles reference render of the baked HQ scene from the Hero camera | `blender -b renders/hq/bake/hq_baked.blend --python tools/tests/blender_reference_render.py -- OUT.png` |
+| `handmade_views.js` | Handmade style test: every camera preset for paper and felt | `node handmade_views.js OUTDIR [paper,felt] [Hero,Close,…] [W] [H] [query]` |
+| `handmade_interact.js` | Handmade style test: comparison split, door / lamp / tree interactions, a real click on the door | `node handmade_interact.js OUTDIR` |
