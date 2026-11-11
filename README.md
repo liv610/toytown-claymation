@@ -1,5 +1,7 @@
 # Toy Town — Claymation Street Corner (proof of concept)
 
+> **Start here:** `docs/PROJECT_STATE.md` (what exists, decisions, next steps) and `CLAUDE.md` (the owner's standing rules for any Claude session). Quick start: `cd web && npm install && npm run dev`.
+
 A standalone visual experiment for *Railroad of Hope* (Toys for Tots): can a
 small, genuinely beautiful, navigable claymation world be built with free,
 open-source tools?  This repository is independent of any other project.

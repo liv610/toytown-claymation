@@ -16,5 +16,14 @@
     "three-mesh-bvh": "^0.8.3",
     "topojson-client": "^3.1.0",
     "us-atlas": "^3.0.1"
+  },
+  "scripts": {
+    "dev": "python3 -m http.server 8765",
+    "build:storybook": "npx esbuild storybook/src/main.js --bundle --format=esm --target=es2022 --outfile=storybook/dist/storybook.js",
+    "build": "npm run build:storybook",
+    "package:journey": "bash ../tools/build_journey.sh ../dist/journey",
+    "package:storybook": "bash ../tools/build_storybook.sh ../dist/storybook",
+    "test:gift-direct": "mkdir -p ../dist/test && node ../tools/tests/journey_gift_direct.js ../dist/test",
+    "test:storybook": "mkdir -p ../dist/test && node ../tools/tests/storybook_frames.js ../dist/test"
   }
 }
