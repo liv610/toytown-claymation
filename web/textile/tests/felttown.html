@@ -1,0 +1,19 @@
+<!doctype html><meta charset="utf-8"><title>Felt town check</title>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/","delaunator":"/node_modules/delaunator/index.js","robust-predicates":"/node_modules/robust-predicates/esm/orient2d.js"}}</script>
+<script type="module">
+// Dev check: build the felt street (felt_town.js) alone and time each stage.
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+const log = (m) => { (window.__log = window.__log || []).push(m); console.log(m); };
+try {
+  log('import'); const FT = await import('../src/felt_town.js'); log('imported');
+  const mg = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync('../../region/assets/marine.glb'); log('marine loaded');
+  const r = new THREE.WebGLRenderer(); r.setSize(800, 450); document.body.append(r.domElement);
+  const cam = new THREE.PerspectiveCamera(45, 16 / 9, 0.1, 200);
+  const t0 = performance.now();
+  const f = FT.buildFeltTown({ marine: mg, renderer: r, camera: cam, width: 800, height: 450, post: false, spots: { lamp: [-5, 2.35], wagon: [7.6, 2.6, -0.35] } });
+  log('built ' + Math.round(performance.now() - t0) + ' ms');
+} catch (e) { log('ERROR ' + e.message + ' ' + (e.stack || '').split('\n').slice(0, 3).join(' | ')); }
+window.__done = true;
+</script>

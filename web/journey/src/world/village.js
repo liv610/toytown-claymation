@@ -24,7 +24,7 @@ const EXPLORE = { minDistance: 3, maxDistance: 22, maxPolar: 84, minPolar: 30, b
 
 export function createVillage(host, pins, { onHotspot, allowPin = () => true }) {
   const T = host.THREE;
-  const props = new T.Group(); host.scene.add(props);
+  const props = new T.Group(); host.scene.add(props); host.share && host.share(props);
 
   // ---------------- story prop: the toy drop-off box (painted wood, a hand-lettered sign)
   const dropBox = new T.Group();

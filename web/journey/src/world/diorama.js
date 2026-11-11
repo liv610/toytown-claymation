@@ -218,10 +218,31 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
       c.group.visible = false; c.door.visible = false;
       return (textile.corners[l] = c);
     };
-    textile.ensure(look === 'felt' ? 'felt' : 'textile');
+    if (look === 'textile') textile.ensure('textile');   // other corners are built when first shown
     Object.defineProperty(textile, 'corner', { get: () => textile.corners[host.look] || textile.corners.textile });
   }
   for (const m of collidables) m.geometry.computeBoundsTree();
+  // ---------------- the felt look: the felt style test's own street and rendering, crossfaded in when down in town
+  let felt = null, feltBuilding = null, hostRef;
+  const makeFelt = () => feltBuilding || (feltBuilding = (async () => {
+    const [FT, mg] = await Promise.all([import('../../../textile/src/felt_town.js'), load('marine.glb')]);
+    const R = textile.spec.roots;
+    const built = FT.buildFeltTown({ marine: mg, renderer, camera, width: W(), height: H(), dpr: renderer.getPixelRatio(), post: cfg.post && cfg.ao,
+      spots: { lamp: [R.LampWest.pos[0], R.LampWest.pos[2]], wagon: [R.Wagon.pos[0], R.Wagon.pos[2], R.Wagon.rot_z] } });
+    felt = built; felt.mix = 0; felt.shared = new Set();
+    felt.clayRT = new THREE.WebGLRenderTarget(W() * renderer.getPixelRatio(), H() * renderer.getPixelRatio(), { type: THREE.HalfFloatType });
+    felt.blend = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({ depthTest: false, depthWrite: false,
+      uniforms: { tA: { value: null }, tB: { value: null }, uK: { value: 0 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader: 'uniform sampler2D tA, tB; uniform float uK; varying vec2 vUv; void main(){ gl_FragColor = mix(texture2D(tA, vUv), texture2D(tB, vUv), uK); }' }));
+    felt.blendScene = new THREE.Scene(); felt.blendScene.add(felt.blend); felt.blendCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    for (const m of felt.collide) m.geometry.computeBoundsTree();
+    for (const o of pendingShare) felt.shared.add(o);
+    if (typeof hostRef !== 'undefined' && hostRef.look === 'felt') hostRef.poses = felt.poses;   // (when built later, on a switch)
+    return felt;
+  })());
+  const pendingShare = new Set();
+  if (look === 'felt') { onStatus('Stitching the felt street…', 0.95); await makeFelt(); }
 
   // ---------------- instanced prototypes with per-instance LOD
   const PH = {}, PL = {};
@@ -530,6 +551,29 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     snowMat.uniforms.uT.value = T; snowMat.uniforms.uPx.value = px; snowMat.uniforms.uFocus.value = dist; snowMat.uniforms.uC.value.copy(cur.look);
     smokeMat.uniforms.uT.value = T; smokeMat.uniforms.uPx.value = px;
     renderer.info.reset();
+    if (felt) {
+      // down in the town (and not inside the shop) the felt street takes over; the map and the descent stay clay
+      const want = host.look === 'felt' && !interior && camera.position.distanceTo(VC) < 75 ? 1 : 0;
+      felt.mix = clamp(felt.mix + (want ? 1 : -1) * dt / 1.4);
+      felt.update(T, dt);
+      const k = smooth(felt.mix);
+      if (k > 0) {
+        // the journey's characters and story props are drawn into the felt street too
+        for (const o of felt.shared) felt.scene.add(o);
+        const tB = felt.render(dt, dist, k >= 1);
+        for (const o of felt.shared) scene.add(o);
+        if (k < 1) {
+          renderer.toneMappingExposure = 1.25;
+          let tA;
+          if (composer) { composer.renderToScreen = false; composer.render(dt); tA = composer.readBuffer.texture; composer.renderToScreen = true; }
+          else { renderer.setRenderTarget(felt.clayRT); renderer.render(scene, camera); renderer.setRenderTarget(null); tA = felt.clayRT.texture; }
+          const u = felt.blend.material.uniforms; u.tA.value = tA; u.tB.value = tB; u.uK.value = k;
+          renderer.toneMappingExposure = 1; renderer.render(felt.blendScene, felt.blendCam);
+        }
+        renderer.toneMappingExposure = 1.25;
+        return;
+      }
+    }
     if (composer) composer.render(dt); else renderer.render(scene, camera);
   }
   function start() {
@@ -545,6 +589,7 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
   function resize() {
     camera.aspect = W() / H(); setFovH(fovH);
     renderer.setSize(W(), H()); composer && composer.setSize(W(), H());
+    if (felt) { felt.setSize(W(), H()); felt.clayRT.setSize(W() * renderer.getPixelRatio(), H() * renderer.getPixelRatio()); }
   }
   addEventListener('resize', resize);
 
@@ -574,30 +619,34 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     // ---- textile comparison (look !== null): which corner is showing, and a switch that keeps every interaction
     look: null,
     textile,
+    // objects the journey adds that must also appear in the felt street (characters, story props)
+    share(o) { pendingShare.add(o); if (felt) felt.shared.add(o); },
     onLook(fn) { lookListeners.add(fn); if (host.look) fn(host.look); return () => lookListeners.delete(fn); },
     setLook(l) {
       if (!textile || !['clay', 'textile', 'felt'].includes(l) || l === host.look) return;
       const prev = host.look; host.look = l;
-      const on = l === 'clay' ? null : textile.ensure(l);
+      const on = l === 'clay' || l === 'felt' ? null : textile.ensure(l);   // felt: the clay set stays for the map; the felt street is its own scene
       for (const [k, c] of Object.entries(textile.corners)) { c.group.visible = k === l; c.door.visible = k === l; }
-      cornerClay.scene.visible = l === 'clay';
-      for (const m of doorParts) m.visible = l === 'clay';
+      cornerClay.scene.visible = l === 'clay' || l === 'felt';
+      for (const m of doorParts) m.visible = l === 'clay' || l === 'felt';
       // camera collision and ground probes follow whichever corner is showing
-      const all = [...clayCornerMeshes, ...Object.values(textile.corners).flatMap((c) => c.collide)], want = on ? on.collide : clayCornerMeshes;
+      const all = [...clayCornerMeshes, ...Object.values(textile.corners).flatMap((c) => c.collide), ...(felt ? felt.collide : [])];
+      const want = on ? on.collide : l === 'felt' && felt ? felt.collide : clayCornerMeshes;
       for (const m of all) { const i = collidables.indexOf(m); if (i >= 0) collidables.splice(i, 1); }
       for (const m of want) collidables.push(m);
-      const handmade = l !== 'clay', wasHandmade = prev && prev !== 'clay';
+      const handmade = l === 'textile', wasHandmade = prev === 'textile';
       if (handmade && !wasHandmade) textile.unclothe = textile.ground.map((m) => textile.module.clothe(m, 'batt', 0xf7f4ee));
       if (!handmade && wasHandmade) { textile.unclothe.forEach((f) => f()); textile.unclothe = []; }
       // the felt look brings its own world (sky, hills, felt base) and its own night light; the others use the town's
-      const st = on && on.stage;
+      const st = null;
       if (!host._light) host._light = { hemiSky: hemi.color.clone(), hemiGround: hemi.groundColor.clone(), key: keyLight.color.clone(), keyI: keyLight.intensity, exposure: renderer.toneMappingExposure, bg: scene.background };
       baseHidden = st || null;
       feltNear = false; terr.scene.visible = true;
       for (const gI of instGroups) for (const im of gI.hi.concat(gI.lo)) im.visible = true;
       applyLight();
       host.dofBoost = st ? st.dofBoost || 1 : 1;
-      host.poses = st ? st.poses : null;          // the village uses these instead of its own while the felt world shows
+      host.poses = l === 'felt' && felt ? felt.poses : null;   // the village uses the felt street's cameras in the felt look
+      if (l === 'felt' && !felt && textile) makeFelt();         // built the first time Felt is chosen
       if (exploreAsked) explore(exploreAsked);
       for (const fn of lookListeners) fn(l);
     },
@@ -608,6 +657,7 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     if (st) { hemi.color.setHex(st.light.hemi[0]); hemi.groundColor.setHex(st.light.hemi[1]); keyLight.color.setHex(st.light.key[0]); keyLight.intensity = st.light.key[1]; renderer.toneMappingExposure = st.light.exposure; scene.background = new THREE.Color(st.light.background); }
     else { hemi.color.copy(L0.hemiSky); hemi.groundColor.copy(L0.hemiGround); keyLight.color.copy(L0.key); keyLight.intensity = L0.keyI; renderer.toneMappingExposure = L0.exposure; scene.background = L0.bg; }
   }
+  hostRef = host;
   if (textile) host.setLook(['clay', 'felt'].includes(look) ? look : 'textile');
   if (textile) host.onUpdate(() => { for (const c of Object.values(textile.corners)) c.update(T); });
   onStatus('Ready', 1);

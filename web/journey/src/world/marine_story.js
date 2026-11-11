@@ -29,7 +29,7 @@ export async function createMarineStory(host, village, { load, onBeat, onEnd }) 
       });
       o.material = Array.isArray(o.material) ? out : out[0];
     });
-    host.scene.add(obj);
+    host.scene.add(obj); host.share && host.share(obj);
     const mixer = new T.AnimationMixer(obj), acts = {};
     for (const name of ['Walk', 'WalkCarry', 'Idle', 'IdleCarry']) {
       const a = mixer.clipAction(mg.animations.find((c) => c.name === name)); a.play(); a.setEffectiveWeight(0); acts[name] = a;
@@ -40,7 +40,7 @@ export async function createMarineStory(host, village, { load, onBeat, onEnd }) 
   const A = makeMarine(null);
   const Bm = makeMarine({ rt_MarineSkin: 0x8a5a3c, rt_MarineCheek: 0x9a5848, rt_MarineHair: 0x1a120e });
   const gift = gg.scene; gift.traverse((o) => { if (o.isMesh) { o.castShadow = true; patch(o.material, 'clay', {}, true); } });
-  host.scene.add(gift);
+  host.scene.add(gift); host.share && host.share(gift);
   // textile comparison: the same two Marines dressed as stuffed puppets, and the toy is a felt bear (new, unwrapped).
   // Clips, blends, IK reaches and every story beat run on the same bones, so nothing else changes.
   if (host.textile) {
