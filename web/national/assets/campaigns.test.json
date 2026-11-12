@@ -1,0 +1,72 @@
+{
+  "test": true,
+  "version": "test-1",
+  "note": "FICTIONAL TEST DATA for the Railroad of Hope prototype. These campaigns, names, service areas and ZIP codes are made up. ZIP codes 00101-00401 are not assigned by USPS. Websites point to example.org. Do not use in production.",
+  "zips": {
+    "00101": { "point": [40.47, -82.40] },
+    "00102": { "point": [40.12, -82.90] },
+    "00103": { "point": [40.30, -82.60] },
+    "00104": { "point": [40.83, -81.98] },
+    "00105": { "point": [40.28, -82.72] },
+    "00106": { "point": [40.62, -82.18] },
+    "00201": { "point": [33.60, -111.90] },
+    "00301": { "point": [44.30, -69.00] },
+    "00401": { "point": [39.00, -117.20] }
+  },
+  "campaigns": [
+    {
+      "id": "test-maple-hollow",
+      "name": "Maple Hollow Toy Drive",
+      "website": "https://example.org/test-campaigns/maple-hollow",
+      "state": "OH",
+      "location": { "lat": 40.45, "lon": -82.45, "label": "Maple Hollow, Ohio" },
+      "serves": { "zips": ["00101", "00105"], "label": "Maple Hollow and the Birch Valley townships" },
+      "active": true
+    },
+    {
+      "id": "test-lanternfield",
+      "name": "Lanternfield Toy Collection",
+      "website": "https://example.org/test-campaigns/lanternfield",
+      "state": "OH",
+      "location": { "lat": 40.10, "lon": -82.95, "label": "Lanternfield, Ohio" },
+      "serves": { "zips": ["00102", "00105"], "label": "Lanternfield and Juniper County" },
+      "active": true
+    },
+    {
+      "id": "test-sparrow-creek",
+      "name": "Sparrow Creek Holiday Toy Drive",
+      "website": "https://example.org/test-campaigns/sparrow-creek",
+      "state": "OH",
+      "location": { "lat": 40.85, "lon": -81.95, "label": "Sparrow Creek, Ohio" },
+      "serves": { "zips": ["00104"], "label": "Sparrow Creek and the river towns" },
+      "active": true
+    },
+    {
+      "id": "test-bramblewood",
+      "name": "Bramblewood Toy Drive",
+      "website": "https://example.org/test-campaigns/bramblewood",
+      "state": "OH",
+      "location": { "lat": 40.60, "lon": -82.20, "label": "Bramblewood, Ohio" },
+      "serves": { "zips": ["00106"], "label": "Bramblewood" },
+      "active": false
+    },
+    {
+      "id": "test-copper-wash",
+      "name": "Copper Wash Toy Drive",
+      "website": "https://example.org/test-campaigns/copper-wash",
+      "state": "AZ",
+      "location": { "lat": 33.62, "lon": -111.88, "label": "Copper Wash, Arizona" },
+      "serves": { "zips": ["00201"], "label": "Copper Wash and the canyon communities" },
+      "active": true
+    },
+    {
+      "id": "test-pine-harbor",
+      "name": "Pine Harbor Toy Drive",
+      "website": "https://example.org/test-campaigns/pine-harbor",
+      "state": "ME",
+      "location": { "lat": 44.32, "lon": -68.98, "label": "Pine Harbor, Maine" },
+      "serves": { "zips": ["00301"], "label": "Pine Harbor and the island towns" },
+      "active": true
+    }
+  ]
+}

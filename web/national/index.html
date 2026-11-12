@@ -65,6 +65,65 @@
     .note { display: none; } .hint { display: none; }
     .caption { top: calc(92px + env(safe-area-inset-top, 0px)); }
   }
+  /* Campaign finder (Milestone 1): a felt panel under the top bar, right-hand column on wide screens, a full-width strip
+     on narrow ones. Readability first; the handmade touches are a stitched edge and a sewn-on "Test data" label. */
+  .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .finder { position: fixed; z-index: 4; top: var(--finder-top, 76px); right: max(16px, env(safe-area-inset-right, 0px)); width: 360px;
+            max-height: calc(100dvh - var(--finder-top, 76px) - 96px); overflow: auto; overscroll-behavior: contain;
+            background: #221c3e; border: 1px solid rgba(242, 184, 92, 0.35); border-radius: 18px; padding: 16px 18px 18px;
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45), inset 0 0 0 5px #221c3e, inset 0 0 0 6.5px rgba(242, 184, 92, 0.0);
+            outline: 1.5px dashed rgba(242, 184, 92, 0.45); outline-offset: -7px; }
+  body.finder-busy .finder-intro, body.finder-busy .finder-test p + p { display: none; }   /* room for results and the card */
+  .finder-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .finder-head h2 { margin: 0; font: 600 1.3rem/1.2 var(--display); }
+  .finder-hide { border: 0; background: none; color: var(--muted); font-size: 0.85rem; text-decoration: underline; padding: 8px 4px; min-height: 40px; }
+  .finder-intro { margin: 4px 0 12px; color: var(--muted); font-size: 0.95rem; }
+  .finder-test { margin: 0 0 12px; font-size: 0.85rem; color: var(--muted); }
+  .finder-test p { margin: 0 0 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .finder .btn.primary, a.finder-site { background: var(--holly); border-color: var(--holly); color: var(--on-holly); }
+  .finder .btn.primary:hover, a.finder-site:hover { background: var(--holly-hi); }
+  .finder-test button { border: 1px dashed rgba(242, 184, 92, 0.6); background: none; color: var(--ink); border-radius: 8px; padding: 4px 8px; min-height: 32px; font-size: 0.85rem; }
+  .tag { display: inline-block; vertical-align: middle; margin-left: 8px; font: 700 0.68rem/1 var(--body); letter-spacing: 0.08em; text-transform: uppercase;
+         color: #2a1606; background: var(--gold); padding: 4px 7px; border-radius: 4px; rotate: -2deg; outline: 1px dashed rgba(42, 22, 6, 0.45); outline-offset: -3px; }
+  .finder-test .tag { margin-left: 0; margin-right: 4px; }
+  .finder label { display: block; font-weight: 700; margin-bottom: 6px; }
+  .finder-row { display: flex; gap: 8px; }
+  .finder input { flex: 1; min-width: 0; min-height: 48px; border-radius: 12px; border: 2px solid transparent; background: var(--ink); color: #1b1630;
+                  font: 700 1.15rem var(--body); letter-spacing: 0.06em; padding: 8px 12px; }
+  .finder input[aria-invalid="true"] { border-color: var(--holly-hi); }
+  .finder-row .btn { min-height: 48px; }
+  .finder-error { margin: 8px 0 0; color: #ffb9ad; font-weight: 700; font-size: 0.92rem; }
+  .finder-out:not(:empty) { margin-top: 14px; padding-top: 12px; border-top: 1.5px dashed var(--line); }
+  .finder-h { margin: 0 0 8px; font: 600 1.15rem/1.25 var(--display); }
+  .finder-h:focus { outline: none; } .finder-h:focus-visible { outline: 3px solid var(--gold); }
+  .finder-sub { margin: 12px 0 6px; font-size: 0.82rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); }
+  .finder-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .finder-row-btn { display: grid; gap: 2px; width: 100%; text-align: left; border: 1px solid var(--line); background: rgba(246, 236, 218, 0.06); border-radius: 12px; padding: 10px 36px 10px 12px; position: relative; min-height: 48px; }
+  .finder-row-btn::after { content: "›"; position: absolute; right: 14px; top: 50%; translate: 0 -50%; font-size: 1.4rem; color: var(--gold); }
+  .finder-row-btn:hover { border-color: var(--gold); }
+  .finder-row-name { font-weight: 700; }
+  .finder-row-note { color: var(--muted); font-size: 0.88rem; }
+  .finder-msg { margin: 0 0 8px; }
+  .finder-msg p { margin: 0 0 10px; }
+  .finder-fine { margin: 10px 0 0; color: var(--muted); font-size: 0.85rem; }
+  .finder a { color: var(--gold); font-weight: 700; }
+  .finder-card dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 10px 0 14px; }
+  .finder-card dt { color: var(--muted); font-size: 0.88rem; } .finder-card dd { margin: 0; }
+  .finder-back { margin-bottom: 12px; min-height: 40px; padding: 7px 14px; }
+  .finder-rel { margin: 0 0 6px; font-weight: 700; font-size: 0.92rem; } .finder-rel.serving { color: #bfe3a8; } .finder-rel.nearby { color: var(--gold); }
+  a.finder-site { display: inline-flex; align-items: center; text-decoration: none; color: var(--on-holly); }
+  .finder-pill { position: fixed; z-index: 4; top: var(--finder-top, 76px); right: max(16px, env(safe-area-inset-right, 0px)); border: 1px solid rgba(242, 184, 92, 0.6);
+                 background: #221c3e; border-radius: 999px; padding: 10px 16px; min-height: 44px; font-weight: 700; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4); }
+  .finder-pill::before { content: "⌕ "; color: var(--gold); }
+  @media (min-width: 1100px) { .caption { width: min(720px, calc(100% - 2 * 400px)); } }
+  @media (max-width: 1099px) {
+    .finder { left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); width: auto; padding: 12px 14px 14px;
+              max-height: calc(100dvh - var(--finder-top, 76px) - 150px); }
+    .finder-head h2 { font-size: 1.1rem; } .finder-intro { display: none; }
+    .finder-test { margin-bottom: 8px; }
+    .caption { top: calc(var(--finder-bottom, 92px) + 10px); }
+    body.finder-busy .caption { visibility: hidden; }
+  }
   .storybar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
   .chip { position: fixed; z-index: 3; left: max(16px, env(safe-area-inset-left, 0px)); top: calc(76px + env(safe-area-inset-top, 0px)); margin: 0; padding: 5px 12px; border-radius: 999px;
           background: rgba(24, 21, 46, 0.7); border: 1px solid var(--line); font: 600 0.85rem var(--display); color: var(--gold); }
@@ -99,6 +158,30 @@
     <button type="button" class="act" data-action="campaign">Find Local Campaign</button>
   </nav>
 </header>
+<section id="finder" class="finder" aria-labelledby="finderTitle" data-pill="finderPill"
+         data-campaigns="test" data-src="./assets/campaigns.test.json" data-official-src=""
+         data-official-url="https://www.toysfortots.org/">
+  <div class="finder-head">
+    <h2 id="finderTitle">Find your local campaign</h2>
+    <button type="button" class="finder-hide" aria-expanded="true" aria-controls="finder">Hide</button>
+  </div>
+  <p class="finder-intro">Enter a ZIP code to see the campaign that serves it.</p>
+  <div class="finder-test" hidden>
+    <p><span class="tag">Test data</span> Fictional campaigns for this prototype.</p>
+    <p>Try a test ZIP: <button type="button" data-try="00101">00101</button> <button type="button" data-try="00103">00103</button> <button type="button" data-try="00105">00105</button></p>
+  </div>
+  <form class="finder-form" novalidate>
+    <label for="zip">ZIP code</label>
+    <div class="finder-row">
+      <input id="zip" name="zip" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="10" aria-describedby="zipError" placeholder="12345">
+      <button type="submit" class="btn primary">Search</button>
+    </div>
+    <p id="zipError" class="finder-error" hidden></p>
+  </form>
+  <div class="finder-out"></div>
+  <p class="finder-live sr" role="status"></p>
+</section>
+<button type="button" id="finderPill" class="finder-pill" hidden aria-controls="finder" aria-expanded="false">Find your local campaign</button>
 <p id="caption" class="caption" aria-live="polite"></p>
 <button type="button" id="pinMaple" class="pin" hidden>Maple Hollow, Ohio</button>
 <button type="button" id="pinToy" class="pin hub" hidden>★ Toy Town</button>

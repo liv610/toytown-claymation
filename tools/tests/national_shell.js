@@ -32,7 +32,7 @@ async function actionsWork(p, label) {
 // a frame of the live 3D map (?capture=1 keeps the drawing buffer). Page screenshots of the running map stall under
 // SwiftShader (the same on the build before this change), so the normal scenario grabs the canvas instead.
 const canvasShot = async (p, path) => fs.writeFileSync(path, Buffer.from((await p.evaluate(() => document.querySelector('#stage canvas').toDataURL('image/jpeg', 0.85))).split(',')[1], 'base64'));
-const worldChunk = (log) => log.requests.some((u) => /\/world-[A-Z0-9]+\.js/.test(u));
+const worldChunk = (log) => log.requests.some((u) => /\/main-[A-Z0-9]+\.js/.test(u));
 
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });

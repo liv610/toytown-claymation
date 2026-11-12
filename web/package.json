@@ -26,7 +26,7 @@
     "package:storybook": "bash ../tools/build_storybook.sh ../dist/storybook",
     "test:gift-direct": "mkdir -p ../dist/test && node ../tools/tests/journey_gift_direct.js ../dist/test",
     "test:storybook": "mkdir -p ../dist/test && node ../tools/tests/storybook_frames.js ../dist/test",
-    "build:national": "rm -f national/dist/world-*.js && npx esbuild national/src/app.js --bundle --splitting --format=esm --target=es2022 --outdir=national/dist --entry-names=national --chunk-names=world-[hash]",
+    "build:national": "rm -f national/dist/*.js && npx esbuild national/src/app.js --bundle --splitting --format=esm --target=es2022 --outdir=national/dist --entry-names=national --chunk-names=[name]-[hash]",
     "package:national": "bash ../tools/build_national.sh ../dist/national"
   }
 }
