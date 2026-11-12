@@ -12,8 +12,8 @@ const out = process.argv[2] || '.'; fs.mkdirSync(out, { recursive: true });
 const BASE = process.env.URL || 'http://localhost:8765/national/index.html';
 let failed = 0; const ok = (cond, msg) => { console.log((cond ? 'ok   ' : 'FAIL ') + msg); if (!cond) failed++; };
 
-async function page(b, { viewport = { width: 1280, height: 720 }, noWebGL = false } = {}) {
-  const p = await b.newPage({ viewport });
+async function page(b, { viewport = { width: 1280, height: 720 }, noWebGL = false, reducedMotion = 'no-preference' } = {}) {
+  const p = await b.newPage({ viewport, reducedMotion });
   const log = { errors: [], uncaught: [], warnings: [], requests: [] };
   p.on('pageerror', (e) => { log.uncaught.push(e.message); log.errors.push(e.message); });
   p.on('console', (m) => { if (m.type() === 'error') log.errors.push(m.text()); if (m.type() === 'warning') log.warnings.push(m.text()); });
@@ -61,9 +61,10 @@ const worldChunk = (log) => log.requests.some((u) => /\/world-[A-Z0-9]+\.js/.tes
     await p.screenshot({ path: `${out}/shell_nowebgl.png`, timeout: 120000 }); await p.close();
   }
 
-  // 3. normal: actions before the world, then the world and its controls
+  // 3. normal: actions before the world, then the world and its controls. With prefers-reduced-motion, flights are
+  // instant (SwiftShader draws ~0.5 frames/s, so the 7.5 s descent would take many minutes; same on the old build).
   {
-    const { p, log } = await page(b);
+    const { p, log } = await page(b, { reducedMotion: 'reduce' });
     const t0 = Date.now();
     await p.goto(BASE + '?capture=1&q=medium', { waitUntil: 'domcontentloaded' });
     await p.waitForFunction(() => window.__natShell);
