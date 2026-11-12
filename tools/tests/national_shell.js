@@ -22,12 +22,16 @@ async function page(b, { viewport = { width: 1280, height: 720 }, noWebGL = fals
   return { p, log };
 }
 async function actionsWork(p, label) {
-  for (const a of ['give', 'donate', 'request', 'campaign']) {
+  for (const a of ['give', 'donate', 'request']) {   // placeholders: the "not connected yet" dialog
     await p.click(`[data-action="${a}"]`, { timeout: 5000 });
     const open = await p.isVisible('#notyet'), title = await p.textContent('#nyTitle');
     await p.click('#notyet [data-close]'); const closed = !(await p.isVisible('#notyet'));
     ok(open && title.trim().length > 0 && closed, `${label}: "${title.trim()}" opens its dialog and closes`);
   }
+  // "Find Local Campaign" opens the campaign finder (step 2) and puts the cursor in the ZIP field
+  await p.click('[data-action="campaign"]', { timeout: 5000 });
+  ok(await p.isVisible('#finder') && await p.evaluate(() => document.activeElement && document.activeElement.id === 'zip') && !(await p.isVisible('#notyet')),
+    `${label}: "Find Local Campaign" opens the campaign finder with the ZIP field focused`);
 }
 // a frame of the live 3D map (?capture=1 keeps the drawing buffer). Page screenshots of the running map stall under
 // SwiftShader (the same on the build before this change), so the normal scenario grabs the canvas instead.
@@ -69,8 +73,8 @@ const worldChunk = (log) => log.requests.some((u) => /\/main-[A-Z0-9]+\.js/.test
     await p.goto(BASE + '?capture=1&q=medium', { waitUntil: 'domcontentloaded' });
     await p.waitForFunction(() => window.__natShell);
     const tShell = Date.now() - t0, early = await p.evaluate(() => !window.__nat);
-    await p.click('[data-action="campaign"]'); const open = await p.isVisible('#notyet'); await p.click('#notyet [data-close]');
-    ok(early && open, `normal: "Find Local Campaign" works ${tShell} ms after navigation, before the 3D map is ready`);
+    await p.click('[data-action="request"]'); const open = await p.isVisible('#notyet'); await p.click('#notyet [data-close]');
+    ok(early && open, `normal: "Request Toys" works ${tShell} ms after navigation, before the 3D map is ready`);
     const w = await p.evaluate(() => window.__natShell.world, null); const tWorld = Date.now() - t0;
     ok(w === true && await p.evaluate(() => !!window.__nat), `normal: 3D map ready after ${tWorld} ms (SwiftShader)`);
     ok(await p.isVisible('#descend') && !(await p.$('#status')), 'normal: "Visit Maple Hollow" shown, loading message gone');
