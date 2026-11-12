@@ -17,7 +17,7 @@ let failed = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m);
 async function open(b, query, { viewport = { width: 1280, height: 720 }, reducedMotion = 'reduce', waitMap = true } = {}) {
   const ctx = await b.newContext({ viewport, reducedMotion });
   await ctx.route(/example\.org|toysfortots\.org/, (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>outbound</title>' }));
-  const p = await ctx.newPage(); const errors = [];
+  const p = await ctx.newPage(); const errors = []; p.setDefaultTimeout(120000);   // SwiftShader can stall the page for a while mid-flight
   p.on('pageerror', (e) => errors.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await p.goto(BASE + '?' + query, { waitUntil: 'domcontentloaded' });
   await p.waitForFunction(() => window.__natShell); await p.waitForSelector('.finder-test:not([hidden])');
