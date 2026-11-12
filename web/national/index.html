@@ -68,14 +68,14 @@
   /* Campaign finder (Milestone 1): a felt panel under the top bar, right-hand column on wide screens, a full-width strip
      on narrow ones. Readability first; the handmade touches are a stitched edge and a sewn-on "Test data" label. */
   .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .finder { position: fixed; z-index: 4; top: var(--finder-top, 76px); right: max(16px, env(safe-area-inset-right, 0px)); width: 360px;
+  .finder { position: fixed; z-index: 4; top: var(--finder-top, 76px); right: max(16px, env(safe-area-inset-right, 0px)); width: 330px;
             max-height: calc(100dvh - var(--finder-top, 76px) - 96px); overflow: auto; overscroll-behavior: contain;
             background: #221c3e; border: 1px solid rgba(242, 184, 92, 0.35); border-radius: 18px; padding: 16px 18px 18px;
             box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45), inset 0 0 0 5px #221c3e, inset 0 0 0 6.5px rgba(242, 184, 92, 0.0);
             outline: 1.5px dashed rgba(242, 184, 92, 0.45); outline-offset: -7px; }
   body.finder-busy .finder-intro, body.finder-busy .finder-test p + p { display: none; }   /* room for results and the card */
   .finder-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-  .finder-head h2 { margin: 0; font: 600 1.3rem/1.2 var(--display); }
+  .finder-head h2 { margin: 0; font: 600 1.18rem/1.2 var(--display); }
   .finder-hide { border: 0; background: none; color: var(--muted); font-size: 0.85rem; text-decoration: underline; padding: 8px 4px; min-height: 40px; }
   .finder-intro { margin: 4px 0 12px; color: var(--muted); font-size: 0.95rem; }
   .finder-test { margin: 0 0 12px; font-size: 0.85rem; color: var(--muted); }
@@ -115,7 +115,7 @@
   .finder-pill { position: fixed; z-index: 4; top: var(--finder-top, 76px); right: max(16px, env(safe-area-inset-right, 0px)); border: 1px solid rgba(242, 184, 92, 0.6);
                  background: #221c3e; border-radius: 999px; padding: 10px 16px; min-height: 44px; font-weight: 700; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4); }
   .finder-pill::before { content: "⌕ "; color: var(--gold); }
-  @media (min-width: 1100px) { .caption { width: min(720px, calc(100% - 2 * 400px)); } }
+  @media (min-width: 1100px) { .caption { width: min(720px, calc(100% - 2 * 370px)); } }
   @media (max-width: 1099px) {
     .finder { left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); width: auto; padding: 12px 14px 14px;
               max-height: calc(100dvh - var(--finder-top, 76px) - 150px); }
