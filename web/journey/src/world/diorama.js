@@ -662,6 +662,10 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
       const L = cur.look, onStreet = L.x > -13 && L.x < 16 && L.z > -7 && L.z < 10 && dist < 32;
       const want = host.look === 'felt' && !interior && onStreet ? 1 : 0;
       felt.mix = clamp(felt.mix + (want ? 1 : -1) * dt / 1.4);
+      // stepping into or out of a room happens behind the journey's fade to black: snap, don't crossfade (a fading
+      // felt street would otherwise blend over the shop interior, and the clay corner would flash on the way out)
+      if (interior) felt.mix = 0; else if (felt.wasInterior && want) felt.mix = 1;
+      felt.wasInterior = !!interior;
       felt.update(T, dt);
       const k = smooth(felt.mix);
       if (k > 0) {

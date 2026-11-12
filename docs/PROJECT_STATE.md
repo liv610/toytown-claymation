@@ -27,8 +27,17 @@ actions are always available without the world.
     the last ~1.4 s (`renders/textile/felt_descent_sheet.jpg`).
   - **Felt only:** the published build has no look switch and ships felt stills (`web/journey/assets/stills_felt/`).
     Locally, `?look=felt|textile|clay` still compares.
-  - **Honest limits:** away from the street the region keeps its clay *shapes* (houses, trees, station) under the felt
-    skin; only the hero street is built of real sewn felt pieces. The toy shop interior is the old room in felt.
+  - **Owner, next round (done):** "fill the region's houses", "a little depth to the toys in the window like the
+    paper-cut version", "the toy shop much bigger inside, like a magical storybook world".
+    - **Houses:** `export_region.py --split-corner --split-houses` takes all 34 background houses (hillside, square,
+      cottages, farmhouses) out of the base village (now 3.7 M triangles) into `houses_clay.glb` + `houses.json`; the
+      journey sews each one in felt at the same footprint (`buildFeltHouses`, `web/textile/src/corner.js`).
+    - **Window:** the felt shop's display windows are open shadow boxes (felt-lined, lit back with felt hills, firs and
+      stars, toys standing at three depths): `displayWindow` in `web/textile/src/vendor/felt_build.js`.
+    - **Storybook shop:** `web/textile/src/storyshop.js`, a 20 × 16 × 10 m felt hall (patchwork floor, shelves of felt
+      toys, gallery train, giant tree, castle, balloon, mobiles, starry ceiling, sparkles). The six interactive toys,
+      their tricks, pins and cards are unchanged (`journey/src/world/toyshop.js`, `storybook` option).
+  - **Honest limits:** the region's trees, barns, chapel and station keep their clay *shapes* under the felt skin.
   - **Not started:** the national map and Maple Hollow in felt (separate project, `experiment/national`).
 - **Scope:** one cohesive textile world across the national map and Toy Town, at different scales. The national map keeps its routes, geography, stops and navigation, but its look will change. Prove it in Toy Town first.
 - **Built, awaiting review:** the toy shop corner of Toy Town in textile, built from a reusable construction language (`web/textile/`, `docs/TEXTILE_SYSTEM.md`).
