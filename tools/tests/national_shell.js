@@ -2,8 +2,8 @@
 //   node national_shell.js OUTDIR          (dev server on :8765, after `npm run build:national`; env URL to override)
 // 1. ?map=off            the ways-to-help bar and dialogs work; the 3D chunk (three.js) is never requested
 // 2. WebGL unavailable   the 3D map fails to start; the page says so and the actions still work
-// 3. normal              actions work before the 3D map is ready; then the map comes up and drag, zoom, the descent to
-//                        Maple Hollow, back up, and Chapter 1 still work. Prints load timings (SwiftShader timings
+// 3. normal              actions work before the 3D map is ready; then the map comes up and drag, zoom, the descent into
+//                        Chapter 1, skip, look around, replay and back to the map still work. Prints load timings (SwiftShader timings
 //                        are not real-device numbers; the shell-vs-world gap is what matters). Runs the map at
 //                        q=medium, like national_chapter1.js.
 // Also checks a phone viewport (390×844) for scenario 1. Exits non-zero on any failure.
@@ -85,16 +85,18 @@ const worldChunk = (log) => log.requests.some((u) => /\/world-[A-Z0-9]+\.js/.tes
     await p.mouse.wheel(0, -600); await p.waitForTimeout(600);
     const r2 = await p.evaluate(() => ({ ...window.__nat.rig }));
     ok(r2.dist < r1.dist, `normal: wheel zooms in (dist ${r1.dist.toFixed(1)} → ${r2.dist.toFixed(1)})`);
-    // descent → town → back up → descent → Chapter 1
+    // descent → Chapter 1 → skip → end card → look around (town) → play Chapter 1 again → skip → back to the map
     const mode = (m) => p.waitForFunction((m) => window.__nat.state().mode === m, m, { timeout: 300000, polling: 250 });
-    await p.click('#descend'); await mode('town'); ok(true, 'normal: descent reaches Maple Hollow');
-    ok(await p.isVisible('#playCh1') && await p.isVisible('#ascend'), 'normal: town controls shown');
-    await canvasShot(p, `${out}/shell_normal_town.jpg`);
-    await p.click('#ascend'); await mode('national'); ok(await p.isVisible('#descend'), 'normal: back up to the national map');
-    await p.click('#descend'); await mode('town'); await p.click('#playCh1'); await mode('story');
-    ok(await p.isVisible('#storybar'), 'normal: Chapter 1 starts with its story controls');
+    await p.click('#descend'); await mode('story'); ok(await p.isVisible('#storybar'), 'normal: descent lands in Chapter 1 with its story controls');
     await p.click('[data-action="request"]'); const dlg = await p.isVisible('#notyet'); await p.click('#notyet [data-close]');
     ok(dlg, 'normal: "Request Toys" still opens during the story');
+    await p.click('#sSkip'); await p.waitForSelector('#endcard:not([hidden])', { timeout: 30000 }); ok(true, 'normal: Skip shows the end card');
+    await p.click('#eLook'); await mode('town');
+    ok(await p.isVisible('#playCh1') && await p.isVisible('#ascend'), 'normal: "Look around" leaves the story in Maple Hollow with its controls');
+    await canvasShot(p, `${out}/shell_normal_town.jpg`);
+    await p.click('#playCh1'); await mode('story'); ok(true, 'normal: "Play Chapter 1" starts the story again');
+    await p.click('#sSkip'); await p.waitForSelector('#endcard:not([hidden])', { timeout: 30000 });
+    await p.click('#eMap'); await mode('national'); ok(await p.isVisible('#descend'), 'normal: "Back to the map" returns to the national map');
     ok(log.errors.length === 0, `normal: no page errors ${log.errors.join(' | ')}`);
     console.log(`timings: shell interactive ${tShell} ms, 3D map ready ${tWorld} ms (SwiftShader, not real-device numbers)`);
     await p.close();
