@@ -233,6 +233,7 @@ function atmosphere(t) {
   town.setDusk(smooth((dusk - 0.35) / 0.65), t, px);
   hubGlow.intensity = lerp(0, FELT ? 160 : 900, k); star.rotation.y = t * 0.6;
   threadScale.value = lerp(0.05, 1, smooth((Math.log(rig.dist) - Math.log(12)) / (Math.log(420) - Math.log(12))));   // felt: floss slims on the way down
+  if (relief.landmarks) relief.landmarks.setScale(smooth((Math.log(rig.dist) - Math.log(28)) / (Math.log(260) - Math.log(28))));   // picture-map icons recede on the way down
   // up close, lit windows fill much of the frame: keep their bloom from washing the scene out
   bloom.strength = lerp(0.12, 0.35, smooth((Math.log(rig.dist) - Math.log(0.4)) / (Math.log(6) - Math.log(0.4))));
 }

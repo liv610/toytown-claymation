@@ -44,6 +44,12 @@ actions are always available without the world.
     the coast, navy felt sea with wavy stitching, wool-roving mountains with batting snow, felt firs, felt houses with lit
     windows, padded-cord rail routes, batting clouds. Felt is the default; `?look=clay` shows the clay map. Maple Hollow
     and the Chapter 1 cast and props wear the felt surface but keep their clay shapes (not yet sewn).
+    - **Picture-map reference (owner, no labels), 3 sessions.** Session 1 (look: warm patchwork, chunky gold stitching,
+      dashed routes to a felt star at Toy Town, blue felt lakes, stitched rivers, edge clouds; stitch thickness follows the
+      camera) and session 2 (landmarks, `web/national/src/landmarks.js`: stuffed felt peaks with batting snow, big fir
+      clusters, cottages, farms with windmills, cacti, mesas, lighthouses, palms, a moose, a mission; one instanced draw
+      per kind; they shrink back on the way down) are done. Session 3: Canada, Mexico and the Caribbean (world-atlas,
+      projection change).
     Package: `tools/build_national.sh OUTDIR` (its Toy Town pin opens Felt Toy Town); checks: `tools/tests/felt_national.js`,
     `tools/tests/national_package_smoke.js`.
   - **Not started:** the national map and Maple Hollow in felt (separate project, `experiment/national`).

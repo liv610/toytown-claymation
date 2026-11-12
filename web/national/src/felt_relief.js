@@ -16,6 +16,7 @@ import { geoPath, geoAlbers } from 'd3-geo';
 // the lower-48 part of Albers USA (identical there), defined beyond the border too (lake shores, later Canada)
 const A48 = geoAlbers().scale(1300).translate([487.5, 305]);
 import { felt } from './felt.js';
+import { buildLandmarks } from './landmarks.js';
 import { MAP_W, MAP_H, toWorld, fbm } from './geo.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -98,8 +99,10 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
   const seam = (ax, ay) => { const x = Math.round(ax), y = Math.round(ay); if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H) return 1; return seamPx[(y * MAP_W + x) * 4] / 255; };
   // the quilting puff, but none on the levelled ground of the story towns (the dioramas sit exactly on the map)
   const siteFlat = (ax, ay) => { let k = 0; for (const st of Object.values(geo.sites)) k = Math.max(k, sstep(st.flatR * 2.2, st.flatR * 1.4, Math.hypot(ax - st.a[0], ay - st.a[1]))); return k; };
-  const surf = (ax, ay) => { const h = geo.height(ax, ay); return h < 0 ? -6 : h + 0.25 + PUFF * (1 - Math.min(1, seam(ax, ay) * 1.6)) * (1 - siteFlat(ax, ay)); };
-  const snowAt = (ax, ay, h) => { let s = sstep(7, 12, h); for (const st of Object.values(geo.sites)) s = Math.max(s, sstep(st.flatR * 1.6, st.flatR * 0.8, Math.hypot(ax - st.a[0], ay - st.a[1]))); return s; };
+  // the felt map's ground is gently rolling: the big ranges are drawn by the stuffed felt peaks (landmarks.js)
+  const soft = (h) => (h <= 2.4 ? h : 2.4 + (h - 2.4) * 0.22);
+  const surf = (ax, ay) => { const h = soft(geo.height(ax, ay)); return h < 0 ? -6 : h + 0.25 + PUFF * (1 - Math.min(1, seam(ax, ay) * 1.6)) * (1 - siteFlat(ax, ay)); };
+  const snowAt = (ax, ay, h) => { let s = 0; for (const st of Object.values(geo.sites)) s = Math.max(s, sstep(st.flatR * 1.6, st.flatR * 0.8, Math.hypot(ax - st.a[0], ay - st.a[1]))); return s; };
 
   // ---------------- the felt slab under the country (cut edge showing), and the surface
   const shapes = [];
@@ -340,5 +343,6 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
     for (const tr of trains) tr.g.visible = k > 0.02;
     cloudMat.opacity = Math.min(0.95, k * 0.95); for (const c of clouds) c.visible = k > 0.02;
   }
-  return { group, land, surfaceY, lines, trains, update, setLineFade, houses: imH, firs: imB };
+  const landmarks = buildLandmarks(group, geo, surfaceY, { tier });
+  return { group, land, surfaceY, lines, trains, update, setLineFade, houses: imH, firs: imB, landmarks };
 }
