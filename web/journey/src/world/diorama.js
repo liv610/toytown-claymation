@@ -17,6 +17,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { computeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 import { sanitizePass } from './sanitize_pass.js';
 import { feltTexture } from '../../../textile/src/vendor/felt_materials.js';
+import { fetchData } from '../../../shared/data.js';
 
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
@@ -154,6 +155,9 @@ const TIERS = {
   low: { post: false, ao: false, dof: false, shadows: false, shadowMap: 512, dpr: 0.85, snow: 1200 },
 };
 
+// packaged models: base64 text, either bare (.glb.txt) or wrapped as a JS data file (.glb.js: window.TT_DATA["x"]="…"),
+// which is what the published pages use (a sharable page may only carry script, style, image, video and audio files)
+const unwrapB64 = (txt) => { const m = txt.match(/"([A-Za-z0-9+/=]{64,})"/); return m ? m[1] : txt.trim(); };
 // ------------------------------------------------------------------ load
 export function makeLoader(base, b64map) {
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
@@ -163,7 +167,7 @@ export function makeLoader(base, b64map) {
     cache[name] = (async () => {
       const b64 = b64map && b64map[name];
       let buf;
-      if (b64) { const txt = await (await fetch(b64)).text(); buf = Uint8Array.from(atob(txt.trim()), (c) => c.charCodeAt(0)).buffer; }
+      if (b64) { const txt = await (await fetch(b64)).text(); buf = Uint8Array.from(atob(unwrapB64(txt)), (c) => c.charCodeAt(0)).buffer; }
       else { const r = await fetch(base + name); if (!r.ok) throw new Error(`Could not load ${name} (${r.status})`); buf = await r.arrayBuffer(); }
       onBytes && onBytes(name, buf.byteLength);
       return loader.parseAsync(buf, '');
@@ -225,7 +229,7 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
   const load = makeLoader(base, b64);
   const bytes = {};
   onStatus('Unpacking the miniature world…', 0.05);
-  const meta = await (await fetch(base + 'region.json')).json();
+  const meta = await fetchData(base + 'region.json');
   let done = 0;
   const names = ['static.glb', 'static_lo.glb', 'terrain.glb', 'protos.glb', 'protos_lo.glb'];
   const textileBase = window.TT_TEXTILE_ASSETS || '../textile/assets/', loadT = makeLoader(textileBase, b64);
@@ -279,7 +283,7 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
   if (look) {
     onStatus('Sewing the textile corner…', 0.92);
     const [TX, FX] = await Promise.all([import('../../../textile/src/corner.js'), import('../../../textile/src/felt_corner.js')]);
-    const spec = await (await fetch(textileBase + 'corner.json')).json();
+    const spec = await fetchData(textileBase + 'corner.json');
     // the ground snow is re-clothed as cotton batting while a textile or felt look is on
     const ground = []; stat.scene.traverse((o) => { if (o.isMesh && /GroundSnow/.test(o.name)) ground.push(o); });
     textile = { module: TX, spec, corners: {}, ground, unclothe: [], build: { textile: TX.buildCorner, felt: FX.buildFeltCorner } };
@@ -294,7 +298,7 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     };
     if (look === 'textile') textile.ensure('textile');   // other corners are built when first shown
     // the region's houses sewn in felt (houses.json): built when the felt look is first shown
-    const houseSpec = await (await fetch(textileBase + 'houses.json')).json();
+    const houseSpec = await fetchData(textileBase + 'houses.json');
     textile.feltHouses = () => {
       if (feltHouses) return feltHouses;
       feltHouses = TX.buildFeltHouses(houseSpec.houses);

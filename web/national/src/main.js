@@ -14,6 +14,7 @@ import { buildRelief } from './relief.js';
 import { buildFeltRelief, threadScale } from './felt_relief.js';
 import { createCommunity, S } from './community.js';
 import { createChapter1, CH1 } from './chapter1.js';
+import { fetchData } from '../../shared/data.js';
 
 const $ = (id) => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
@@ -41,7 +42,7 @@ renderer.domElement.setAttribute('aria-hidden', 'true');
 $('stage').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const sky = (() => { const c = document.createElement('canvas'); c.width = 4; c.height = 256; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
-  if (FELT) { gr.addColorStop(0, '#0d1230'); gr.addColorStop(0.55, '#1c2450'); gr.addColorStop(0.85, '#4a3e62'); gr.addColorStop(1, '#1a1428'); }
+  if (FELT) { gr.addColorStop(0, '#120e0d'); gr.addColorStop(0.55, '#221a18'); gr.addColorStop(0.85, '#33282a'); gr.addColorStop(1, '#161112'); }   // a museum gallery, dim round the lit display
   else { gr.addColorStop(0, '#1a2140'); gr.addColorStop(0.55, '#3a3552'); gr.addColorStop(0.85, '#8a5a50'); gr.addColorStop(1, '#2a1e1a'); } g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
 scene.background = sky;
@@ -50,7 +51,8 @@ const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.01, 8
 
 // ------------------------------------------------------------------ world
 status(FELT ? 'Sewing the country…' : 'Sculpting the country…');
-const geo = await loadGeography(ASSETS + 'states-albers-10m.json');
+// the felt map is the whole continent's middle: Canada, Mexico, Central America and the Caribbean around the US
+const geo = await loadGeography(ASSETS + 'states-albers-10m.json', FELT ? { neighbours: await fetchData(ASSETS + 'neighbours-albers.json') } : {});
 await new Promise((r) => setTimeout(r, 0));
 const relief = (FELT ? buildFeltRelief : buildRelief)(scene, geo, { tier });
 const site = geo.sites.maple, [sx, sz] = toWorld(...site.a);
@@ -92,8 +94,10 @@ const rig = { target: V(0, 0, 18), dist: 1000, az: 0, el: THREE.MathUtils.degToR
 function nationalPose() {
   const aspect = innerWidth / innerHeight, fv = THREE.MathUtils.degToRad(camera.fov) / 2;
   const d = Math.max((MAP_H * 0.5) / Math.tan(fv), (MAP_W * 0.47) / (Math.tan(fv) * aspect));
-  // the felt map is a picture map: looked at more from above (like the reference), the clay one a little more from the side
-  return { target: V(0, 0, aspect < 1 ? 10 : (FELT ? 14 : 22)), dist: d, az: 0, el: THREE.MathUtils.degToRad(aspect < 1 ? (FELT ? 70 : 62) : (FELT ? 68 : 56)) };
+  // the felt map is a museum diorama: seen from a three-quarter overhead angle, the whole display in view so its
+  // height (mountains, trees, houses) reads; the clay map as before
+  if (FELT) { const df = Math.max((MAP_H * 0.62) / Math.tan(fv), (MAP_W * 0.56) / (Math.tan(fv) * aspect)); return { target: V(25, 0, aspect < 1 ? 70 : 60), dist: df, az: 0, el: THREE.MathUtils.degToRad(aspect < 1 ? 58 : 50) }; }
+  return { target: V(0, 0, aspect < 1 ? 10 : 22), dist: d, az: 0, el: THREE.MathUtils.degToRad(aspect < 1 ? 62 : 56) };
 }
 Object.assign(rig, nationalPose());
 const NAT_MIN = 90, STREET_MIN = 6 * S, STREET_MAX = 140 * S;
@@ -199,8 +203,9 @@ renderer.domElement.addEventListener('pointermove', (e) => {
   if (mode === 'national') {                       // pan the map under the finger
     const k = rig.dist / innerHeight * 1.1, c = Math.cos(rig.az), s = Math.sin(rig.az);
     // screen-right on the ground = (cos az, 0, -sin az); screen-up on the ground = (-sin az, 0, -cos az)
-    rig.target.x = clamp(rig.target.x - dx * k * c - dy * k * s, -MAP_W * 0.55, MAP_W * 0.55);
-    rig.target.z = clamp(rig.target.z + dx * k * s - dy * k * c, -MAP_H * 0.55, MAP_H * 0.55);
+    const [bx0, by0, bx1, by1] = geo.board;   // the felt board is bigger (the neighbours); the clay map's board is the US frame
+    rig.target.x = clamp(rig.target.x - dx * k * c - dy * k * s, bx0 - MAP_W / 2 - 20, bx1 - MAP_W / 2 + 20);
+    rig.target.z = clamp(rig.target.z + dx * k * s - dy * k * c, by0 - MAP_H / 2 - 20, by1 - MAP_H / 2 + 20);
   } else {                                         // look around the town
     rig.az -= dx * 0.005; rig.el = clamp(rig.el + dy * 0.004, THREE.MathUtils.degToRad(4), THREE.MathUtils.degToRad(70));
   }

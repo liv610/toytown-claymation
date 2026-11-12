@@ -86,6 +86,23 @@ function farm() {   // a red barn and a windmill
   for (let i = 0; i < 4; i++) mill.push(paint(new THREE.BoxGeometry(0.1, 0.62, 0.02).translate(0, 0.33, 0).rotateZ(i * Math.PI / 2 + 0.3).translate(1.1, 1.62, 0.3), 0xf0e2c4));
   return { body: merge([...barn, ...mill]), glow: new THREE.BoxGeometry(0.16, 0.14, 0.03).translate(0, 0.98, 0.46) };
 }
+function autumnTree(col) {   // a round felt tree in autumn colours
+  return { body: merge([paint(new THREE.CylinderGeometry(0.05, 0.07, 0.4, 6).translate(0, 0.2, 0), 0x6b4a32),
+    paint(lumpy(new THREE.IcosahedronGeometry(0.34, 2).scale(1, 1.1, 1).translate(0, 0.66, 0), 0.05, 4), col),
+    paint(lumpy(new THREE.IcosahedronGeometry(0.2, 1).translate(0.18, 0.5, 0.1), 0.04, 5), col)]) };
+}
+function agave() {   // a rosette of stiff blue-green leaves
+  const parts = [];
+  for (let i = 0; i < 11; i++) { const a = (i / 11) * Math.PI * 2, tilt = 0.5 + (i % 3) * 0.25; parts.push(paint(new THREE.ConeGeometry(0.06, 0.6, 5).translate(0, 0.3, 0).rotateZ(-tilt).rotateY(a), i % 2 ? 0x5f8f80 : 0x6f9f8a)); }
+  return { body: merge(parts) };
+}
+function flowers() {   // embroidered flowers: stems and red / gold blooms, sewn onto the felt
+  const parts = [];
+  for (let i = 0; i < 5; i++) { const a = i * 1.3, d = 0.12 + (i % 3) * 0.1, x = Math.cos(a) * d, z = Math.sin(a) * d, h = 0.3 + (i % 2) * 0.15;
+    parts.push(paint(new THREE.CylinderGeometry(0.012, 0.012, h, 4).translate(x, h / 2, z), 0x3f7a42), paint(new THREE.SphereGeometry(0.065, 8, 5).scale(1, 0.5, 1).translate(x, h, z), i % 3 ? 0xc8302a : 0xe8b440));
+    parts.push(paint(new THREE.SphereGeometry(0.05, 6, 3).scale(1.6, 0.2, 0.7).translate(x + 0.06, h * 0.5, z), 0x4f8a4a)); }
+  return { body: merge(parts) };
+}
 function cactus() {
   const g = 0x4f8a4a, s = (r, h) => new THREE.CapsuleGeometry(r, h, 4, 8);
   return { body: merge([paint(s(0.09, 0.8).translate(0, 0.5, 0), g), paint(s(0.06, 0.26).translate(0, 0.13, 0).rotateZ(-1.2).translate(0.16, 0.42, 0), g), paint(s(0.06, 0.3).translate(0.26, 0.6, 0), g),
@@ -163,9 +180,13 @@ const PLACES = {
   lighthouse: [[-68.6, 44.25], [-124.15, 44.0], [-75.6, 35.25], [-69.95, 41.7], [-124.25, 40.7], [-86.4, 45.9]],
   palm: [[-80.6, 26.4], [-81.7, 28.1], [-117.1, 33.3], [-80.3, 25.6]],
   moose: [[-92.8, 47.6], [-69.4, 45.6]],
-  mission: [[-106.1, 35.6]],
+  mission: [[-106.1, 35.6], [-103.6, 25.2], [-100.4, 21.0]],
+  agave: [[-102.6, 22.6], [-101.2, 23.6], [-104.2, 24.0], [-99.6, 20.4], [-103.0, 26.6], [-97.6, 18.6]],
+  flowers: [[-101.8, 21.8], [-100.2, 22.4], [-98.6, 19.9], [-103.2, 23.0], [-96.8, 18.0]],
+  palmCb: [[-82.0, 22.6], [-77.5, 21.4], [-77.2, 18.2], [-70.6, 19.2], [-87.4, 20.9]],
+  cactusMx: [[-110.4, 29.2], [-112.0, 30.6], [-109.0, 27.4], [-111.2, 28.0], [-105.5, 29.6]],
 };
-const SIZE = { cottage: 22, farm: 26, cactus: 30, mesa: 30, lighthouse: 22, palm: 22, moose: 24, mission: 24 };
+const SIZE = { agave: 16, flowers: 18, palmCb: 20, cactusMx: 28, cottage: 22, farm: 26, cactus: 30, mesa: 30, lighthouse: 22, palm: 22, moose: 24, mission: 24 };
 
 export function buildLandmarks(group, geo, surfaceY, { tier = 'high' } = {}) {
   let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -193,7 +214,7 @@ export function buildLandmarks(group, geo, surfaceY, { tier = 'high' } = {}) {
   const nearSite = (ax, ay, k = 3.2) => Object.values(geo.sites).some((s) => Math.hypot(ax - s.a[0], ay - s.a[1]) < s.flatR * k);
 
   // ---- mountains: massifs of mixed peaks (six shapes) along each big range, overlapping, of different heights
-  const VARIANTS = 6, peaks = Array.from({ length: VARIANTS }, () => []);
+  const VARIANTS = 6, peaks = Array.from({ length: VARIANTS }, () => []), bare = Array.from({ length: VARIANTS }, () => []);
   for (const r of geo.ranges) {
     if (r.P.length < 2 || r.h < 7) continue;   // low ridges (coast, Appalachians): the patchwork and fir clusters carry those
     const line = new THREE.CatmullRomCurve3(r.P.map(([x, y]) => V(x, 0, y))), L = line.getLength(), step = r.h >= 14 ? 23 : 26;
@@ -203,10 +224,11 @@ export function buildLandmarks(group, geo, surfaceY, { tier = 'high' } = {}) {
         const ax = t.x + (rnd() - 0.5) * r.w * 1.1, ay = t.z + (rnd() - 0.5) * r.w * 1.1;
         if (!geo.inside(ax, ay) || nearSite(ax, ay)) continue;
         const hgt = (18 + r.h * 1.3) * (k === 0 ? 1 : 0.5 + rnd() * 0.45) * (0.8 + rnd() * 0.4) * (r.name.startsWith('Brooks') ? 0.5 : 1);
-        peaks[Math.floor(rnd() * VARIANTS)].push([ax, ay, hgt, rnd() * 6.3, 0.85 + rnd() * 0.5, 1]);
+        (ay > 470 ? bare : peaks)[Math.floor(rnd() * VARIANTS)].push([ax, ay, hgt * (ay > 470 ? 0.7 : 1), rnd() * 6.3, 0.85 + rnd() * 0.5, 1]);   // Mexico's sierras: bare rock, a little lower
       }
     }
   }
+  bare.forEach((list, v) => place(mountain(v + 11, false, [0x8a7262, 0x7f6a5c, 0x947a64, 0x806e60, 0x8c7666, 0x7a685a][v]), list, { tint: (i) => [0.08, 0.12, 0.9 + (i % 3) * 0.04] }));
   peaks.forEach((list, v) => place(mountain(v, true, [0x6f6584, 0x675f7c, 0x786c8a, 0x6a6476, 0x736a86, 0x625c72][v]), list,
     { tint: (i) => [0.7 + (i % 3) * 0.03, 0.08, 0.94 + (i % 4) * 0.03] }));
   // ---- clusters of big felt firs in the forested regions (snow on the northern ones)
@@ -227,7 +249,23 @@ export function buildLandmarks(group, geo, surfaceY, { tier = 'high' } = {}) {
   const cot = at('cottage');
   place(cottage(0xe8dcc4, 0x9a3a2e), cot.filter((_, i) => i % 3 === 0)); place(cottage(0xd99a6a, 0x3d5f8a), cot.filter((_, i) => i % 3 === 1)); place(cottage(0x9fb58a, 0x6b3326), cot.filter((_, i) => i % 3 === 2));
   place(farm(), at('farm')); place(cactus(), at('cactus')); place(lighthouse(), at('lighthouse'));
-  place(palm(), at('palm')); place(moose(), at('moose')); place(mission(), at('mission'));
+  place(palm(), [...at('palm'), ...at('palmCb')]); place(moose(), [...at('moose'), ...[[-104.0, 55.0], [-77.0, 49.6]].map(([lo, la]) => [...P(lo, la), 24, 0.4])]); place(mission(), at('mission'));
+  place(cactus(), at('cactusMx')); place(agave(), at('agave')); place(flowers(), at('flowers'));
+  // autumn woods in the East: clusters of round felt trees in rust, orange and gold among the firs
+  const AUT = [0xc8582e, 0xe08a32, 0xd8a83a, 0xb8442a], autumn = AUT.map(() => []);
+  for (let i = 0, made = 0; i < 3000 && made < 22; i++) {
+    const ax = 640 + rnd() * 330, ay = 60 + rnd() * 330; if (!geo.inside(ax, ay) || geo.region(ax, ay) !== 'us' || nearSite(ax, ay, 3.6)) continue; made++;
+    for (let k = 0; k < 4; k++) { const a = rnd() * 6.3, d = 2 + rnd() * 8, x = ax + Math.cos(a) * d, y = ay + Math.sin(a) * d; if (geo.inside(x, y)) autumn[Math.floor(rnd() * 4)].push([x, y, 13 + rnd() * 7, rnd() * 6.3]); }
+  }
+  autumn.forEach((list, i) => place(autumnTree(AUT[i]), list));
+  // houses glowing along the three railroad routes (generic homes, not campaign locations)
+  const along = [];
+  for (const pts of Object.values(geo.lines)) {
+    const c = new THREE.CatmullRomCurve3(pts.map(([x, y]) => V(x, 0, y))), L = c.getLength();
+    for (let s = 50; s < L - 20; s += 110 + rnd() * 40) { const p = c.getPointAt(s / L), t = c.getTangentAt(s / L), side = rnd() < 0.5 ? 1 : -1, ax = p.x - t.z * 9 * side, ay = p.z + t.x * 9 * side;
+      if (geo.inside(ax, ay) && !nearSite(ax, ay, 3.4) && !nearSite(ax, ay, 0) ) along.push([ax, ay, 13 + rnd() * 3, Math.atan2(t.x, t.z) + (side > 0 ? 0 : Math.PI)]); }
+  }
+  place(cottage(0xf0e2c4, 0x8a3a2e), along.filter((_, i) => i % 2 === 0)); place(cottage(0xe8c49a, 0x3d5f8a), along.filter((_, i) => i % 2 === 1));
   // red-rock country: at each place a cluster of 4–6 mixed formations (mesas, stepped mesas, buttes, spires)
   const rocks = [[], [], [], []];
   for (const [ax0, ay0] of (PLACES.mesa || []).map(([lo, la]) => P(lo, la)).filter(Boolean)) {

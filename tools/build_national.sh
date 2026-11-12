@@ -2,20 +2,23 @@
 # Package the national map prototype as a self-contained artifact folder:  tools/build_national.sh OUTDIR
 # On experiment/textile-toytown the Toy Town pin opens the felt journey (Felt Toy Town); TOYTOWN_URL overrides.
 set -euo pipefail
+jsonwrap() { printf "window.TT_DATA = window.TT_DATA || {}; window.TT_DATA[\"%s\"] = " "$(basename "$1")" > "$2.js"; cat "$1" >> "$2.js"; printf ";\n" >> "$2.js"; rm -f "$2"; }   # data as a script file (shareable pages)
+b64wrap() { printf "window.TT_DATA = window.TT_DATA || {}; window.TT_DATA[\"%s\"] = \"" "$2" > "$3"; base64 -w0 "$1" >> "$3"; printf "\";\n" >> "$3"; }   # a model as a JS data file
 cd "$(dirname "$0")/../web"
 OUT=${1:?outdir}; mkdir -p "$OUT/assets"
 npx esbuild national/src/main.js --bundle --format=esm --minify --target=es2022 --outfile="$OUT/national.js" 2>&1 | tail -1
 npx esbuild national/src/main.js --bundle --format=esm --target=es2022 --outfile=national/dist/national.js 2>&1 | tail -1
-cp national/assets/states-albers-10m.json national/assets/maple.json "$OUT/assets/"
+rm -f "$OUT"/assets/*.json "$OUT"/assets/*.json.js
+for f in states-albers-10m maple neighbours-albers; do jsonwrap national/assets/$f.json "$OUT/assets/$f.json"; done
 GLBS="maple marine ch1_parent ch1_child ch1_volunteer ch1_props"
-for f in $GLBS; do base64 -w0 national/assets/$f.glb > "$OUT/assets/$f.glb.txt"; done
+for f in $GLBS; do b64wrap national/assets/$f.glb $f.glb "$OUT/assets/$f.glb.js"; done
 python3 - "$OUT" "${TOYTOWN_URL:-https://claude.ai/artifact/Ajk5aHEBWDgSDXdZ7j5RZG}" <<'PY'
 import sys, re
 s = open('national/index.html').read()
 page = s[s.index('<!--PAGE-START-->') + 17:s.index('<!--PAGE-END-->')]
 names = ['maple', 'marine', 'ch1_parent', 'ch1_child', 'ch1_volunteer', 'ch1_props']
-b64 = ', '.join(f'"{n}.glb": "./assets/{n}.glb.txt"' for n in names)
-boot = f'<script>window.NAT_TOYTOWN_URL = "{sys.argv[2]}"; window.NAT_B64 = {{ {b64} }};</script>\n<script type="module" src="./national.js"></script>\n'
+b64 = ', '.join(f'"{n}.glb": "./assets/{n}.glb.js"' for n in names)
+boot = f'<script>window.TT_DATA_EXT = ".js"; window.NAT_TOYTOWN_URL = "{sys.argv[2]}"; window.NAT_B64 = {{ {b64} }};</script>\n<script type="module" src="./national.js"></script>\n'
 page = re.sub(r'<!--PAGE-SCRIPTS-->.*?<!--PAGE-SCRIPTS-END-->', boot, page, flags=re.S)
 open(sys.argv[1] + '/national.html', 'w').write(page.strip() + '\n')
 PY

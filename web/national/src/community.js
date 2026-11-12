@@ -6,21 +6,26 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { clay as claySurface, LOOK } from './clay.js';
+import { fetchData } from '../../shared/data.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+// packaged models: base64 text, either bare (.glb.txt) or wrapped as a JS data file (.glb.js: window.TT_DATA["x"]="…"),
+// which is what the published pages use (a sharable page may only carry script, style, image, video and audio files)
+const unwrapB64 = (txt) => { const m = txt.match(/"([A-Za-z0-9+/=]{64,})"/); return m ? m[1] : txt.trim(); };
+
 export const S = 0.2;                   // Toy Town units → map units
 const CLAY_KINDS = { clay: 'clay', snow: 'snow', wood: 'wood', cobble: 'cobble', fabric: 'fabric', felt: 'clay' };
 
 export async function loadGLB(url, b64) {
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-  if (b64) { const txt = await (await fetch(b64)).text(); return loader.parseAsync(Uint8Array.from(atob(txt.trim()), (c) => c.charCodeAt(0)).buffer, ''); }
+  if (b64) { const txt = await (await fetch(b64)).text(); return loader.parseAsync(Uint8Array.from(atob(unwrapB64(txt)), (c) => c.charCodeAt(0)).buffer, ''); }
   return loader.loadAsync(url);
 }
 
 export async function createCommunity(scene, siteWorld, { assets = './assets/', b64 = null, tier = 'high' } = {}) {
   const root = new THREE.Group(); root.position.copy(siteWorld); root.scale.setScalar(S); scene.add(root);
   root.visible = false;
-  const [gltf, meta] = await Promise.all([loadGLB(assets + 'maple.glb', b64 && b64['maple.glb']), fetch(assets + 'maple.json').then((r) => r.json())]);
+  const [gltf, meta] = await Promise.all([loadGLB(assets + 'maple.glb', b64 && b64['maple.glb']), fetchData(assets + 'maple.json')]);
 
   // materials by kind: clay family gets the national clay surface; glows and bulbs are driven by dusk
   const glows = [], bulbs = [];

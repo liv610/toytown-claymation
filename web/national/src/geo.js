@@ -4,10 +4,17 @@
 // Landscape features are stylised but placed by real longitude/latitude. Towns are generic regional places
 // (not Toys for Tots campaign locations); story communities are fictional.
 import { feature, mesh } from 'topojson-client';
-import { geoAlbersUsa, geoPath } from 'd3-geo';
+import { geoAlbersUsa, geoAlbers, geoPath } from 'd3-geo';
+import { fetchData } from '../../shared/data.js';
 
 export const MAP_W = 975, MAP_H = 610;
 export const proj = geoAlbersUsa().scale(1300).translate([487.5, 305]);
+// the lower-48 part of Albers USA, defined beyond the border too (the neighbours, the Canadian lake shores)
+export const A48 = geoAlbers().scale(1300).translate([487.5, 305]);
+// the Great Lakes' northern shores (lon, lat), closed through US land: cut out of Canada's felt (approximate)
+export const LAKE_SHORES = [[-92.3, 46.6], [-90.4, 47.8], [-89.3, 48.1], [-88.2, 48.9], [-86.4, 48.8], [-85.0, 47.9], [-84.6, 46.6], [-83.6, 46.25], [-81.6, 46.1],
+  [-80.4, 45.4], [-80.1, 44.6], [-81.3, 44.3], [-81.7, 43.4], [-82.4, 43.0], [-82.5, 42.3], [-81.3, 42.65], [-80.0, 42.75], [-79.1, 42.95],
+  [-79.7, 43.3], [-78.6, 43.95], [-77.2, 44.05], [-76.3, 44.25], [-75.9, 43.9], [-76.3, 43.2], [-79.5, 42.2], [-83.5, 41.4], [-87.5, 41.4], [-88.2, 42.4], [-89.0, 45.4], [-92.6, 46.2]];
 export const P = (lon, lat) => proj([lon, lat]);                     // → [ax, ay] map units
 export const toWorld = (ax, ay) => [ax - MAP_W / 2, ay - MAP_H / 2];  // → [x, z] (y is up)
 
@@ -63,28 +70,75 @@ const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b
 // distance from a point to a polyline (map units)
 function segDist(px, py, ax, ay, bx, by) { const dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(px - ax - t * dx, py - ay - t * dy); }
 
-export async function loadGeography(url) {
-  const topo = await (await fetch(url)).json();
-  const nation = feature(topo, topo.objects.nation);
+// The felt map's board: the United States with Canada, Mexico, Central America and the Caribbean around it, in the same
+// projected units (x0, y0, x1, y1). Alaska and Hawaii stay insets, moved out into the open Pacific (Albers USA puts them
+// where Baja California is).
+export const FELT_BOARD = [-250, -170, 1170, 830];
+const insetShift = (p, lon, lat) => (lat > 45 ? [p[0] - 300, p[1] - 330] : [p[0] - 445, p[1] - 215]);
+// stylised extra ranges for the neighbours (felt map only)
+const NEIGHBOUR_RANGES = [
+  { name: 'Canadian Rockies', w: 30, h: 15, pts: [[-121.5, 54.5], [-119.5, 53.0], [-117.6, 51.6], [-116.0, 50.4], [-114.6, 49.0]] },
+  { name: 'Coast Mountains', w: 16, h: 11, pts: [[-129.5, 55.5], [-127.4, 53.5], [-125.6, 51.6], [-123.4, 49.9]] },
+  { name: 'Sierra Madre Occidental', w: 22, h: 10, pts: [[-109.4, 30.6], [-108.0, 28.2], [-106.4, 25.6], [-104.9, 23.2], [-104.0, 21.4]] },
+  { name: 'Sierra Madre Oriental', w: 16, h: 8, pts: [[-101.6, 26.2], [-100.2, 24.0], [-99.2, 21.8], [-97.9, 19.8]] },
+  { name: 'Volcanic Belt', w: 14, h: 9, pts: [[-104.5, 19.6], [-101.5, 19.4], [-98.6, 19.1], [-97.2, 19.0]] },
+];
+
+export async function loadGeography(url, { neighbours = null } = {}) {
+  const topo = await fetchData(url);
+  const felt = !!neighbours;
+  let nation = feature(topo, topo.objects.nation);
   const borders = mesh(topo, topo.objects.states, (a, b) => a !== b);
-  const ranges = RANGES.map((r) => ({ ...r, P: r.pts.map(([lo, la]) => P(lo, la)).filter(Boolean) }));
-  const blobs = BLOBS.map((b) => ({ ...b, P: P(...b.c) })).filter((b) => b.P);
+  // the felt board: Alaska and Hawaii move out to sea (towns there too), the lower 48 are unchanged
+  const PP = felt ? (lo, la) => { const p = P(lo, la); return p && lo < -140 ? insetShift(p, lo, la) : p; } : P;
+  if (felt) {
+    const g0 = nation.features ? nation.features[0].geometry : nation.geometry;
+    const polys = (g0.type === 'Polygon' ? [g0.coordinates] : g0.coordinates).map((poly) => {
+      const xs = poly[0].map((q) => q[0]), ys = poly[0].map((q) => q[1]), cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+      const ll = proj.invert([cx, cy]);
+      return ll && ll[0] < -140 ? poly.map((ring) => ring.map((q) => insetShift(q, ll[0], ll[1]))) : poly;
+    });
+    nation = { type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: polys } };
+  }
+  const ranges = [...RANGES, ...(felt ? NEIGHBOUR_RANGES : [])].map((r) => ({ ...r, P: r.pts.map(([lo, la]) => (felt && la > 49.2) || (felt && la < 25.5 && lo > -110) || (felt && lo > -110 && lo < -96 && la < 31) ? A48([lo, la]) : PP(lo, la)).filter(Boolean) }));
+  const blobs = BLOBS.map((b) => ({ ...b, P: PP(...b.c) })).filter((b) => b.P);
   const sites = Object.fromEntries(Object.entries(SITES).map(([k, s]) => [k, { ...s, id: k, a: P(...s.lonlat) }]));
 
   // land mask (R) + state borders (G) at K px per map unit, and a blurred copy for the coastal taper
-  const K = 2, W = MAP_W * K, H = MAP_H * K;
+  const [bx0, by0, bx1, by1] = felt ? FELT_BOARD : [0, 0, MAP_W, MAP_H], BWu = bx1 - bx0, BHu = by1 - by0;
+  const K = 2, W = BWu * K, H = BHu * K;
   const c = document.createElement('canvas'); c.width = W; c.height = H;
-  const g = c.getContext('2d'); g.scale(K, K);
+  const g = c.getContext('2d'); g.scale(K, K); g.translate(-bx0, -by0);
   const path = geoPath(null, g);
-  g.fillStyle = '#000'; g.fillRect(0, 0, MAP_W, MAP_H);
+  g.fillStyle = '#000'; g.fillRect(bx0, by0, BWu, BHu);
   g.fillStyle = '#f00'; g.beginPath(); path(nation); g.fill();
+  // the neighbours (felt map): their land, minus the Great Lakes on the Canadian side; their borders with the US
+  let lakesPath = null;
+  if (felt) {
+    g.beginPath(); path(neighbours); g.fill();
+    lakesPath = LAKE_SHORES.map(([lo, la]) => A48([lo, la]));
+    g.globalCompositeOperation = 'source-over'; g.fillStyle = '#000'; g.beginPath(); lakesPath.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.fill();
+    g.fillStyle = '#f00'; g.beginPath(); path(nation); g.fill();   // the US side of the lakes keeps its own shoreline
+  }
   g.globalCompositeOperation = 'lighter'; g.strokeStyle = '#0f0'; g.lineWidth = 0.9; g.lineJoin = 'round';
   g.beginPath(); path(borders); g.stroke(); g.globalCompositeOperation = 'source-over';
+  if (felt) { g.globalCompositeOperation = 'lighter'; g.beginPath(); path(nation); g.stroke(); g.globalCompositeOperation = 'source-over'; }
   const blur = document.createElement('canvas'); blur.width = W / 2; blur.height = H / 2;
   const bg = blur.getContext('2d'); bg.filter = 'blur(7px)'; bg.drawImage(c, 0, 0, W / 2, H / 2);
   const mask = g.getImageData(0, 0, W, H).data, soft = bg.getImageData(0, 0, W / 2, H / 2).data;
-  const inside = (ax, ay) => { const x = Math.round(ax * K), y = Math.round(ay * K); return x >= 0 && y >= 0 && x < W && y < H && mask[(y * W + x) * 4] > 127; };
-  const coast = (ax, ay) => { const x = Math.round(ax), y = Math.round(ay); if (x < 0 || y < 0 || x >= W / 2 || y >= H / 2) return 0; return soft[(y * (W / 2) + x) * 4] / 255; };
+  const inside = (ax, ay) => { const x = Math.round((ax - bx0) * K), y = Math.round((ay - by0) * K); return x >= 0 && y >= 0 && x < W && y < H && mask[(y * W + x) * 4] > 127; };
+  const coast = (ax, ay) => { const x = Math.round(ax - bx0), y = Math.round(ay - by0); if (x < 0 || y < 0 || x >= W / 2 || y >= H / 2) return 0; return soft[(y * (W / 2) + x) * 4] / 255; };
+  // which country a point is in (felt map): 'us', 'ca', 'mx' (Mexico and Central America), 'cb' (the Caribbean)
+  let region = () => 'us';
+  if (felt) {
+    const rc = document.createElement('canvas'); rc.width = BWu; rc.height = BHu; const rg = rc.getContext('2d'); rg.translate(-bx0, -by0); const rp = geoPath(null, rg);
+    const tone = { Canada: '#f00', Mexico: '#0f0', Guatemala: '#0f0', Belize: '#0f0', Honduras: '#0f0', 'El Salvador': '#0f0', Nicaragua: '#0f0' };
+    for (const f of neighbours.features) { rg.fillStyle = tone[f.properties.name] || '#00f'; rg.beginPath(); rp(f); rg.fill(); }
+    rg.fillStyle = '#fff'; rg.beginPath(); rp(nation); rg.fill();
+    const rd = rg.getImageData(0, 0, BWu, BHu).data;
+    region = (ax, ay) => { const x = Math.round(ax - bx0), y = Math.round(ay - by0); if (x < 0 || y < 0 || x >= BWu || y >= BHu) return null; const i = (y * BWu + x) * 4, r = rd[i], gg = rd[i + 1], b = rd[i + 2];
+      return r > 200 && gg > 200 ? 'us' : r > 127 ? 'ca' : gg > 127 ? 'mx' : b > 127 ? 'cb' : null; };
+  }
 
   // height model (map units); story sites are flattened so their dioramas sit level
   function height(ax, ay) {
@@ -134,6 +188,10 @@ export async function loadGeography(url) {
   function forest(ax, ay, h) {
     if (!inside(ax, ay)) return 0;
     let f = 0;
+    if (felt) { const r = region(ax, ay);
+      if (r === 'ca') return (0.75 + 0.25 * fbm(ax * 0.06, ay * 0.06)) * smoothstep(-160, -60, ay);   // the boreal forest, thinning far north
+      if (r === 'mx') return smoothstep(640, 760, ay) * 0.7 + smoothstep(4, 7, h) * 0.4;               // tropical south, pine in the sierras
+      if (r === 'cb') return 0.45; }
     f += smoothstep(175, 110, ax) * smoothstep(230, 120, ay);
     f += smoothstep(560, 620, ax) * smoothstep(215, 165, ay) * smoothstep(780, 700, ax) * 0.8;
     f += smoothstep(800, 860, ax) * smoothstep(210, 120, ay);
@@ -142,6 +200,6 @@ export async function loadGeography(url) {
     return Math.min(1, f) * (0.55 + 0.45 * fbm(ax * 0.08, ay * 0.08 + 9));
   }
 
-  return { topo, nation, borders, maskCanvas: c, inside, height, colour, forest, sites, ranges, siteBase,
-    towns: TOWNS.map((t) => P(...t)).filter(Boolean), lines: Object.fromEntries(Object.entries(LINES).map(([k, v]) => [k, v.map((p) => P(...p)).filter(Boolean)])) };
+  return { topo, nation, borders, maskCanvas: c, inside, height, colour, forest, sites, ranges, siteBase, board: [bx0, by0, bx1, by1], region, neighbours, lakes: lakesPath, P: PP,
+    towns: TOWNS.map((t) => PP(...t)).filter(Boolean), lines: Object.fromEntries(Object.entries(LINES).map(([k, v]) => [k, v.map((p) => P(...p)).filter(Boolean)])) };
 }

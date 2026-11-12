@@ -17,6 +17,7 @@ import { geoPath, geoAlbers } from 'd3-geo';
 const A48 = geoAlbers().scale(1300).translate([487.5, 305]);
 import { felt } from './felt.js';
 import { buildLandmarks } from './landmarks.js';
+import { ecosystem } from './ecosystems.js';
 import { MAP_W, MAP_H, toWorld, fbm } from './geo.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -37,7 +38,12 @@ const RIVERS = [
   [[-110.8, 44.0], [-112.5, 43.0], [-114.8, 42.6], [-116.9, 43.8], [-117.0, 46.4], [-119.0, 46.2]],
 ];
 export const threadScale = { value: 1 };
+// generic places in Canada, Mexico and the Caribbean for the little felt towns (not campaign locations)
+const NEIGHBOUR_TOWNS = [[-123.1, 49.3], [-114.1, 51.0], [-113.5, 53.5], [-104.6, 50.4], [-97.1, 49.9], [-79.4, 43.7], [-75.7, 45.4], [-73.6, 45.5], [-71.2, 46.8],
+  [-63.6, 44.6], [-89.2, 48.4], [-106.6, 52.1], [-66.1, 45.3], [-100.3, 25.7], [-106.1, 28.6], [-110.95, 29.1], [-103.3, 20.7], [-99.1, 19.4], [-89.6, 21.0],
+  [-96.7, 17.1], [-110.3, 24.1], [-103.4, 25.5], [-82.4, 23.1], [-75.8, 20.0], [-90.5, 14.6], [-69.9, 18.5], [-66.1, 18.4]];
 const SLAB = 6, SEA_Y = -2.6, PUFF = 0.9;
+const noiseX = (x, y) => fbm(x * 0.03, y * 0.03) * 2 - 1;
 const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const hash = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
 
@@ -72,76 +78,63 @@ function patchFamily(ax, ay) {
 
 export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
   const group = new THREE.Group(); scene.add(group);
-  const res = tier === 'high' ? [720, 450] : tier === 'medium' ? [480, 300] : [320, 200];
-  const states = feature(geo.topo, geo.topo.objects.states);
-
-  // ---------------- 2D layers: each state's felt colour, and a soft "distance to a seam" for the quilting puff
-  const K = 2, W = MAP_W * K, H = MAP_H * K;
-  const colC = document.createElement('canvas'); colC.width = W; colC.height = H;
-  const cg = colC.getContext('2d'); cg.scale(K, K); const cpath = geoPath(null, cg);
-  cg.fillStyle = '#000'; cg.fillRect(0, 0, MAP_W, MAP_H);
-  states.features.forEach((f, i) => {
-    const [cx, cy] = cpath.centroid(f), id = +f.id || i, j = hash(id), j2 = hash(id * 3.7);
-    // patchwork: each state a piece of felt from its region's family of warm colours (rust, peach, olive, mustard,
-    // sage, terracotta, rose), so neighbours differ but each region keeps its character
-    const fam = patchFamily(cx, cy), pick = fam[Math.floor(j * fam.length) % fam.length];
-    const col = new THREE.Color(pick).lerp(regionColour(cx, cy), 0.06), hsl = {}; col.getHSL(hsl);
-    col.setHSL(hsl.h, Math.min(1, hsl.s * (0.92 + 0.18 * j2)), Math.min(0.74, Math.max(0.3, hsl.l + (j2 - 0.5) * 0.07)));
-    cg.fillStyle = '#' + col.getHexString(); cg.beginPath(); cpath(f); cg.fill();
-  });
-  const colTex = new THREE.CanvasTexture(colC); colTex.colorSpace = THREE.SRGBColorSpace; colTex.anisotropy = 8;
-  // seams: state borders and the coast drawn as lines, blurred (1 on a seam → 0 well inside a state)
-  const seamC = document.createElement('canvas'); seamC.width = MAP_W; seamC.height = MAP_H;
-  const sg = seamC.getContext('2d'), spath = geoPath(null, sg);
-  sg.fillStyle = '#000'; sg.fillRect(0, 0, MAP_W, MAP_H); sg.filter = 'blur(2.5px)'; sg.strokeStyle = '#fff'; sg.lineWidth = 2.2; sg.lineJoin = 'round';
-  sg.beginPath(); spath(geo.borders); spath(geo.nation); sg.stroke();
-  const seamPx = sg.getImageData(0, 0, MAP_W, MAP_H).data;
-  const seam = (ax, ay) => { const x = Math.round(ax), y = Math.round(ay); if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H) return 1; return seamPx[(y * MAP_W + x) * 4] / 255; };
-  // the quilting puff, but none on the levelled ground of the story towns (the dioramas sit exactly on the map)
+  const [bx0, by0, bx1, by1] = geo.board, BW = bx1 - bx0, BH = by1 - by0, BX = (bx0 + bx1) / 2 - MAP_W / 2, BZ = (by0 + by1) / 2 - MAP_H / 2;
+  // the ground under the quilt: gently rolling (the big ranges are the stuffed felt peaks), levelled for the story towns
   const siteFlat = (ax, ay) => { let k = 0; for (const st of Object.values(geo.sites)) k = Math.max(k, sstep(st.flatR * 2.2, st.flatR * 1.4, Math.hypot(ax - st.a[0], ay - st.a[1]))); return k; };
-  // the felt map's ground is gently rolling: the big ranges are drawn by the stuffed felt peaks (landmarks.js)
   const soft = (h) => (h <= 2.4 ? h : 2.4 + (h - 2.4) * 0.22);
-  const surf = (ax, ay) => { const h = soft(geo.height(ax, ay)); return h < 0 ? -6 : h + 0.25 + PUFF * (1 - Math.min(1, seam(ax, ay) * 1.6)) * (1 - siteFlat(ax, ay)); };
-  const snowAt = (ax, ay, h) => { let s = 0; for (const st of Object.values(geo.sites)) s = Math.max(s, sstep(st.flatR * 1.6, st.flatR * 0.8, Math.hypot(ax - st.a[0], ay - st.a[1]))); return s; };
+  const mound = (ax, ay) => { const h = soft(geo.height(ax, ay)); return h < 0 ? 0.2 : h + 0.25; };
+  const surf = (ax, ay) => (geo.inside(ax, ay) ? mound(ax, ay) + 0.15 * (1 - siteFlat(ax, ay)) : -6);   // the felt's top
 
-  // ---------------- the felt slab under the country (cut edge showing), and the surface
+  // ---------------- the backing under the land (the cut edge of the quilt shows round the coast), all countries
   const shapes = [];
   const ng = geo.nation.features ? geo.nation.features[0].geometry : geo.nation.geometry;
   const polys = ng.type === 'Polygon' ? [ng.coordinates] : ng.coordinates;
-  for (const poly of polys) {
+  const nPolys = (geo.neighbours ? geo.neighbours.features : []).flatMap((f) => f.geometry.coordinates);
+  for (const poly of [...polys, ...nPolys]) {
     const ring = (r) => r.map(([x, y]) => new THREE.Vector2(x - MAP_W / 2, MAP_H / 2 - y));
     const s = new THREE.Shape(ring(poly[0])); for (const hole of poly.slice(1)) s.holes.push(new THREE.Path(ring(hole))); shapes.push(s);
   }
   const slab = new THREE.Mesh(new THREE.ExtrudeGeometry(shapes, { depth: SLAB, bevelEnabled: true, bevelThickness: 0.6, bevelSize: 0.6, bevelSegments: 3, curveSegments: 2 }),
-    felt(new THREE.MeshStandardMaterial({ color: 0xe9dcc2 }), 'felt', { key: 'slab' }));   // a cream felt backing, like the cut edge of a quilt
+    felt(new THREE.MeshStandardMaterial({ color: 0xe9dcc2 }), 'felt', { key: 'slab' }));   // a cream backing, like the cut edge of a quilt
   slab.rotation.x = -Math.PI / 2; slab.position.y = -SLAB + 0.1; slab.receiveShadow = slab.castShadow = true; group.add(slab);
 
-  const [nx, ny] = res;
-  const sgeo = new THREE.PlaneGeometry(MAP_W, MAP_H, nx, ny); sgeo.rotateX(-Math.PI / 2);
-  const pos = sgeo.attributes.position, snowA = new Float32Array(pos.count), seamA = new Float32Array(pos.count);
-  for (let i = 0; i < pos.count; i++) {
-    const ax = pos.getX(i) + MAP_W / 2, ay = pos.getZ(i) + MAP_H / 2, h = geo.height(ax, ay);
-    pos.setY(i, surf(ax, ay)); snowA[i] = h < 0 ? 0 : snowAt(ax, ay, h); seamA[i] = seam(ax, ay);
-  }
-  sgeo.setAttribute('aSnow', new THREE.BufferAttribute(snowA, 1)); sgeo.setAttribute('aSeam', new THREE.BufferAttribute(seamA, 1)); sgeo.computeVertexNormals();
+  // ---------------- the land: one continuous felt surface whose colour drifts between ecosystems (boreal forest,
+  // prairie, desert, mountains, tundra, tropics…) — never changing at a state line — woolly and mottled in the shader,
+  // the coast cut per pixel from the land mask
   const maskTex = new THREE.CanvasTexture(geo.maskCanvas); maskTex.colorSpace = THREE.NoColorSpace;
-  const uv = (v) => `vec2((${v}.x + ${(MAP_W / 2).toFixed(1)}) / ${MAP_W.toFixed(1)}, 1.0 - (${v}.z + ${(MAP_H / 2).toFixed(1)}) / ${MAP_H.toFixed(1)})`;
-  const landMat = felt(new THREE.MeshStandardMaterial({ color: 0xffffff }), 'land', { key: 'map', extra: (sh) => {
-    sh.uniforms.uMask = { value: maskTex }; sh.uniforms.uCol = { value: colTex };
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aSnow; attribute float aSeam; varying float vSnow; varying float vSeam;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSnow = aSnow; vSeam = aSeam;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D uMask; uniform sampler2D uCol; varying float vSnow; varying float vSeam;')
+  const uv = (v) => `vec2((${v}.x + ${(MAP_W / 2 - bx0).toFixed(2)}) / ${BW.toFixed(2)}, 1.0 - (${v}.z + ${(MAP_H / 2 - by0).toFixed(2)}) / ${BH.toFixed(2)})`;
+  const ECO = { forest: 0x4f7f4a, boreal: 0x36593f, gold: 0xd8b05a, rust: 0xc26c45, peach: 0xdca07c, olive: 0x8f9c58, mountain: 0x8a8098, snow: 0xeeeae2, autumn: 0xc4743c, tropic: 0x4f9a6a };
+  const ecoCol = Object.fromEntries(Object.entries(ECO).map(([k, v]) => [k, new THREE.Color(v)]));
+  const ecoAt = (ax, ay, out) => {   // the ecosystem colour, averaged over a few nearby points so neighbouring ecosystems blend
+    out.setRGB(0, 0, 0); let n = 0;
+    for (const [dx, dy] of [[0, 0], [9, 4], [-6, 8], [-8, -6], [5, -9]]) {
+      const qx = ax + dx + noiseX(ax, ay) * 14, qy = ay + dy + noiseX(ay + 31, ax) * 14;
+      const mix = ecosystem(geo, geo.inside(qx, qy) ? qx : ax, geo.inside(qx, qy) ? qy : ay, geo.height(ax, ay));
+      for (const [f, w] of Object.entries(mix)) { out.r += ecoCol[f].r * w; out.g += ecoCol[f].g * w; out.b += ecoCol[f].b * w; } n++;
+    }
+    return out.multiplyScalar(1 / n);
+  };
+  const res = tier === 'high' ? [900, 640] : tier === 'medium' ? [600, 430] : [380, 270];
+  const sgeo = new THREE.PlaneGeometry(BW, BH, res[0], res[1]); sgeo.rotateX(-Math.PI / 2); sgeo.translate(BX, 0, BZ);
+  const pos = sgeo.attributes.position, cols = new Float32Array(pos.count * 3), tmp = new THREE.Color(), snowC = new THREE.Color(0xf2efe8);
+  for (let i = 0; i < pos.count; i++) {
+    const ax = pos.getX(i) + MAP_W / 2, ay = pos.getZ(i) + MAP_H / 2, inside = geo.inside(ax, ay);
+    pos.setY(i, inside ? mound(ax, ay) + 0.15 * (1 - siteFlat(ax, ay)) : 0.1);
+    if (inside) { ecoAt(ax, ay, tmp); tmp.lerp(snowC, siteFlat(ax, ay) * 0.9); } else tmp.setRGB(0.2, 0.2, 0.2);
+    cols.set([tmp.r, tmp.g, tmp.b], i * 3);
+  }
+  sgeo.setAttribute('color', new THREE.BufferAttribute(cols, 3)); sgeo.computeVertexNormals();
+  const landMat = felt(new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true }), 'land', { key: 'eco', extra: (sh) => {
+    sh.uniforms.uMask = { value: maskTex };
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D uMask;')
       .replace('#include <color_fragment>', `#include <color_fragment>
-        { vec2 muv = ${uv('vFP')};
-          if (texture2D(uMask, muv).r < 0.5) discard;
-          diffuseColor.rgb = texture2D(uCol, muv).rgb;                                         // the state's felt patch
-          float nub = ffbm(vFP * 0.32) * 0.6 + ffbm(vFP * 1.1) * 0.4;                           // woolly, mottled felt
-          diffuseColor.rgb *= 0.84 + 0.3 * nub;
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.95, 0.93, 0.89), smoothstep(0.15, 0.7, vSnow));   // batting snow
-          diffuseColor.rgb *= 1.0 - 0.26 * smoothstep(0.3, 0.9, vSeam);                     // shade in the seam
+        { if (texture2D(uMask, ${uv('vFP')}).r < 0.5) discard;
+          float nub = ffbm(vFP * 0.3) * 0.6 + ffbm(vFP * 1.1) * 0.4;                 // woolly, mottled felt
+          diffuseColor.rgb *= 0.86 + 0.26 * nub;
+          diffuseColor.rgb *= 1.0 - 0.18 * texture2D(uMask, ${uv('vFP')}).g;        // the state lines pressed in a little
         }`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-        { float hn = ffbm(vFP * 0.32) * 0.55 + ffbm(vFP * 1.1) * 0.22;                              // the nubbly wool, as relief
+        { float hn = ffbm(vFP * 0.3) * 0.5 + ffbm(vFP * 1.1) * 0.2;
           vec3 dpx = dFdx(-vViewPosition), dpy = dFdy(-vViewPosition); float dhx = dFdx(hn), dhy = dFdy(hn);
           vec3 r1 = cross(dpy, normal), r2 = cross(normal, dpx); float det = dot(dpx, r1);
           vec3 nb = abs(det) * normal - sign(det) * (dhx * r1 + dhy * r2); normal = dot(nb, nb) > 1e-12 ? normalize(nb) : normal; }`);
@@ -153,7 +146,8 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
   const addStitch = (list, a, b) => list.push([a, b]);
   const p3 = (ax, ay, lift = 0.12) => { const [x, z] = toWorld(ax, ay); return V(x, Math.max(0.3, surf(ax, ay)) + lift, z); };
   // coast: blanket stitch (a spoke into the felt every ~1.8 units, joined along the edge)
-  for (const poly of polys) for (const ringPts of poly) {
+  const onBoard = (ax, ay) => ax > bx0 + 2 && ax < bx1 - 2 && ay > by0 + 2 && ay < by1 - 2;
+  for (const [poly, us] of [...polys.map((p) => [p, true]), ...nPolys.map((p) => [p, false])]) for (const ringPts of poly) {
     let acc = 0, prev = null;
     for (let i = 0; i < ringPts.length - 1; i++) {
       const [x0, y0] = ringPts[i], [x1, y1] = ringPts[i + 1], L = Math.hypot(x1 - x0, y1 - y0);
@@ -161,7 +155,10 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
       const tx = (x1 - x0) / L, ty = (y1 - y0) / L;
       let nxv = -ty, nyv = tx; if (!geo.inside(x0 + (x1 - x0) / 2 + nxv * 1.2, y0 + (y1 - y0) / 2 + nyv * 1.2)) { nxv = -nxv; nyv = -nyv; }
       for (let s = (3.4 - acc); s <= L; s += 3.4) {
-        const ex = x0 + tx * s, ey = y0 + ty * s, edge = p3(ex, ey, 0.35), spoke = p3(ex + nxv * 2.6, ey + nyv * 2.6, 0.25);
+        const ex = x0 + tx * s, ey = y0 + ty * s;
+        // one stitch line on a land border: the neighbour's ring leaves out what the US ring already sews
+        if (!onBoard(ex, ey) || (!us && geo.region(ex - nxv * 2.5, ey - nyv * 2.5) === 'us')) { prev = null; continue; }
+        const edge = p3(ex, ey, 0.35), spoke = p3(ex + nxv * 2.6, ey + nyv * 2.6, 0.25);
         edge.y = Math.max(edge.y, 0.5); addStitch(threads.coast, edge, spoke);
         if (prev) addStitch(threads.coast, prev, edge);
         prev = edge;
@@ -180,7 +177,7 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
     }
   };
   // state borders: chunky gold stitches, like beads of floss along every seam
-  for (const line of geo.borders.coordinates) dashes(threads.border, line, 1.7, 3.0, 0.2);
+  for (const line of geo.borders.coordinates) dashes(threads.border, line, 1.1, 2.4, 0.2);   // state lines: a light running stitch only
   // rivers: stitched in blue floss (stylised courses, for the picture map — not survey data)
   const rivers = RIVERS.map((r) => r.map(([lo, la]) => A48([lo, la]))).map((r) => r.filter(Boolean));
   threads.river = [];
@@ -200,15 +197,15 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
   };
   // chunky floss, sized for the picture map (a stitch reads at the whole-country view, as in the reference)
   threadMesh(threads.coast, 0.95, 0xebb53e, true);
-  threadMesh(threads.border, 0.72, 0xe8b84e);
+  threadMesh(threads.border, 0.42, 0xefd9a0);
   threadMesh(threads.river, 0.75, 0x5f9cf0);
 
   // ---------------- navy felt sea with wavy running stitches; a wooden frame round it all
-  const lakeC = document.createElement('canvas'); lakeC.width = MAP_W / 2; lakeC.height = MAP_H / 2;
-  { const g = lakeC.getContext('2d'); g.scale(0.5, 0.5); g.fillStyle = '#000'; g.fillRect(0, 0, MAP_W, MAP_H); g.fillStyle = '#fff'; g.beginPath();
+  const lakeC = document.createElement('canvas'); lakeC.width = Math.round(BW / 2); lakeC.height = Math.round(BH / 2);
+  { const g = lakeC.getContext('2d'); g.scale(0.5, 0.5); g.translate(-bx0, -by0); g.fillStyle = '#000'; g.fillRect(bx0, by0, BW, BH); g.fillStyle = '#fff'; g.beginPath();
     LAKES.map(([lo, la]) => A48([lo, la])).filter(Boolean).forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.fill(); }
   const lakeTex = new THREE.CanvasTexture(lakeC);
-  const sea = new THREE.Mesh(new THREE.PlaneGeometry(MAP_W * 1.32, MAP_H * 1.42),
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(BW + 40, BH + 40),
     felt(new THREE.MeshStandardMaterial({ color: 0x1d2a5e }), 'sea', { key: 'sea', extra: (sh) => {
       sh.uniforms.uLake = { value: lakeTex };
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D uLake;').replace('#include <color_fragment>', `#include <color_fragment>
@@ -220,12 +217,15 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
           float th = fstitch(d, vFP.x + 3.0 * floor(wy / sp), mix(0.22, 0.14, lake), mix(2.4, 1.2, lake));
           diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.55, 0.64, 0.82), vec3(0.92, 0.94, 0.98), lake), th * 0.8); }`);
     } }));
-  sea.rotation.x = -Math.PI / 2; sea.position.y = SEA_Y; sea.receiveShadow = true; group.add(sea);
+  sea.rotation.x = -Math.PI / 2; sea.position.set(BX, SEA_Y, BZ); sea.receiveShadow = true; group.add(sea);
   const wood = felt(new THREE.MeshStandardMaterial({ color: 0x6b4a32 }), 'wood', { key: 'frame' });
-  const base = new THREE.Mesh(new THREE.BoxGeometry(MAP_W * 1.36, 10, MAP_H * 1.46), wood); base.position.y = SEA_Y - 5.05; base.receiveShadow = true; group.add(base);
-  for (const [w, d, x, z] of [[MAP_W * 1.38, 6, 0, MAP_H * 0.73], [MAP_W * 1.38, 6, 0, -MAP_H * 0.73], [6, MAP_H * 1.48, MAP_W * 0.69, 0], [6, MAP_H * 1.48, -MAP_W * 0.69, 0]]) {
-    const b = new THREE.Mesh(new THREE.BoxGeometry(w, 4.5, d), wood); b.position.set(x, SEA_Y + 1.2, z); b.castShadow = b.receiveShadow = true; group.add(b);
+  // the display: the quilt on a wooden board with a raised frame, on a plinth (a museum piece)
+  const base = new THREE.Mesh(new THREE.BoxGeometry(BW + 48, 10, BH + 48), wood); base.position.set(BX, SEA_Y - 5.05, BZ); base.receiveShadow = true; group.add(base);
+  for (const [w, d, x, z] of [[BW + 52, 8, 0, BH / 2 + 24], [BW + 52, 8, 0, -BH / 2 - 24], [8, BH + 56, BW / 2 + 24, 0], [8, BH + 56, -BW / 2 - 24, 0]]) {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, 6, d), wood); b.position.set(BX + x, SEA_Y + 1.6, BZ + z); b.castShadow = b.receiveShadow = true; group.add(b);
   }
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(BW + 140, 60, BH + 140), new THREE.MeshStandardMaterial({ color: 0x2a2226, roughness: 0.85 }));
+  plinth.position.set(BX, SEA_Y - 40.1, BZ); plinth.receiveShadow = true; group.add(plinth);
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), new THREE.MeshStandardMaterial({ color: 0x1a1420, roughness: 1 })); floor.rotation.x = -Math.PI / 2; floor.position.y = SEA_Y - 10.2; group.add(floor);
 
   const surfaceY = (ax, ay) => Math.max(0.25, surf(ax, ay));
@@ -237,10 +237,10 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
   const firBody = mergeGeometries([layer(0.66, 0.9, 0.85), layer(0.52, 0.8, 1.35), layer(0.36, 0.7, 1.8), new THREE.CylinderGeometry(0.09, 0.1, 0.5, 5).translate(0, 0.25, 0)]);
   const firSnow = new THREE.SphereGeometry(0.22, 7, 5).scale(1, 0.6, 1).translate(0, 2.15, 0);
   const firs = [];
-  const target = tier === 'low' ? 2200 : tier === 'medium' ? 4200 : 7000;
+  const target = tier === 'low' ? 3000 : tier === 'medium' ? 6000 : 10000;
   for (let i = 0; i < target * 12 && firs.length < target; i++) {
-    const ax = rnd() * MAP_W, ay = rnd() * MAP_H, h = geo.height(ax, ay);
-    if (h < 0.3 || rnd() > geo.forest(ax, ay, h) || seam(ax, ay) > 0.45) continue;   // not on the seams
+    const ax = bx0 + rnd() * BW, ay = by0 + rnd() * BH, h = geo.height(ax, ay);
+    if (h < 0.3 || rnd() > geo.forest(ax, ay, h)) continue;
     let nearSite = false; for (const s of Object.values(geo.sites)) if (Math.hypot(ax - s.a[0], ay - s.a[1]) < s.flatR * 1.3) nearSite = true;
     if (!nearSite) firs.push([ax, ay, 0.6 + rnd() * 0.7, rnd()]);
   }
@@ -267,7 +267,7 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
   const winGeo = mergeGeometries([new THREE.BoxGeometry(0.22, 0.26, 0.04).translate(-0.22, 0.42, 0.46), new THREE.BoxGeometry(0.22, 0.26, 0.04).translate(0.22, 0.42, 0.46)]);
   const houses = [];
   const palette = [0xc8513f, 0x3d6fa8, 0xd98aa0, 0xe2c25a, 0x8fb59a, 0xe8dcc4, 0xb59ad0, 0xe59a5a];
-  for (const [ax, ay] of geo.towns) {
+  for (const [ax, ay] of [...geo.towns, ...NEIGHBOUR_TOWNS.map(([lo, la]) => A48([lo, la]))]) {
     const n = 4 + Math.floor(rnd() * 5);
     for (let k = 0; k < n; k++) { const a = rnd() * 6.3, d = rnd() * 2.6; houses.push([ax + Math.cos(a) * d, ay + Math.sin(a) * d, 0.6 + rnd() * 0.5, rnd() * 6.3, palette[Math.floor(rnd() * palette.length)]]); }
   }
@@ -315,14 +315,14 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
   // ---------------- batting clouds drifting over the map
   const clouds = [];
   const cloudMat = felt(new THREE.MeshStandardMaterial({ color: 0xf7f4ee, transparent: true }), 'snow', { key: 'cloud' });
-  const EDGE = [[-0.47, 0.36], [0.45, 0.33], [-0.5, -0.22], [0.5, -0.05], [0.1, 0.47], [-0.2, -0.47], [0.32, -0.46], [-0.42, 0.05]];
+  const EDGE = [[-0.4, 0.3], [0.44, 0.36], [-0.46, -0.3], [0.47, -0.1], [0.12, 0.47], [-0.15, -0.46], [0.34, -0.42], [-0.3, 0.46]];
   for (let i = 0; i < (tier === 'low' ? 5 : EDGE.length); i++) {
     const parts = []; const n = 4 + Math.floor(rnd() * 3);
     for (let j = 0; j < n; j++) { const r = 8 + rnd() * 7; parts.push(new THREE.SphereGeometry(r, 12, 8).scale(1.4, 0.55, 1).translate((j - n / 2) * 6 + rnd() * 3, rnd() * 2, (rnd() - 0.5) * 7)); }
     const g = mergeGeometries(parts); const p = g.attributes.position;
     for (let k = 0; k < p.count; k++) { const x = p.getX(k), y = p.getY(k), z = p.getZ(k), w = 1 + 0.12 * (fbm(x * 0.2 + i, z * 0.2) - 0.5); p.setXYZ(k, x * w, y * w, z * w); }
     g.computeVertexNormals();
-    const m = new THREE.Mesh(g, cloudMat); m.position.set(EDGE[i][0] * MAP_W + (rnd() - 0.5) * 30, 18 + rnd() * 10, EDGE[i][1] * MAP_H + (rnd() - 0.5) * 20); m.castShadow = false;
+    const m = new THREE.Mesh(g, cloudMat); m.position.set(BX + EDGE[i][0] * BW + (rnd() - 0.5) * 30, 18 + rnd() * 10, BZ + EDGE[i][1] * BH + (rnd() - 0.5) * 20); m.castShadow = false;
     m.userData.y0 = m.position.y; group.add(m); clouds.push(m);
   }
 

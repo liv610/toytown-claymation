@@ -50,6 +50,18 @@ actions are always available without the world.
       clusters, cottages, farms with windmills, cacti, mesas, lighthouses, palms, a moose, a mission; one instanced draw
       per kind; they shrink back on the way down) are done. Session 3: Canada, Mexico and the Caribbean (world-atlas,
       projection change).
+    - **Owner's museum brief (latest):** a handcrafted North American diorama — land of layered felt and fabric that
+      changes with the **ecosystems, not at state borders**; mountains of folded grey felt and batting; houses glowing
+      along the three routes; **Canada and Mexico equally detailed**; a three-quarter overhead camera. Done in this pass:
+      the board now spans Canada, Mexico, Central America and the Caribbean (Alaska and Hawaii stay as insets, moved into
+      the Pacific); continuous felt land coloured by ecosystem (`web/national/src/ecosystems.js`); bare-rock sierras in
+      Mexico; autumn trees in the East; homes along the routes; agave, embroidered flowers and missions in Mexico; moose
+      in Canada; the map on a framed board and plinth in a dim gallery, seen from three-quarter overhead.
+    - **Tried and dropped (owner: "too much"):** a scrap-quilt land after the "Patchwork quilt" technique (patch.gg/blendi,
+      MIT). Removed from the code; nothing of it is shipped.
+    - **Sharing:** published pages may only carry HTML, script, style, image, video and audio files. The packaging scripts
+      therefore ship models as `NAME.glb.js` and data as `NAME.json.js` (read as text by `web/shared/data.js` and the
+      loaders, never run).
     Package: `tools/build_national.sh OUTDIR` (its Toy Town pin opens Felt Toy Town); checks: `tools/tests/felt_national.js`,
     `tools/tests/national_package_smoke.js`.
   - **Not started:** the national map and Maple Hollow in felt (separate project, `experiment/national`).
@@ -210,6 +222,7 @@ New work should branch from `experiment/national` (it contains everything except
 | Item | Licence |
 |---|---|
 | Blender (tool) | GPL |
+| world-atlas 2.0.2 (countries-50m; Natural Earth data): Canada, Mexico, Central America, Caribbean on the felt map (`web/tools_neighbours.mjs` → `web/national/assets/neighbours-albers.json`) | ISC (package); Natural Earth data public domain |
 | three.js | MIT |
 | three-mesh-bvh | MIT |
 | glTF-Transform | MIT |
