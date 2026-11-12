@@ -18,10 +18,10 @@ function noMap(message) {
 
 // resolves true once the 3D map is running, false if the page is working without it
 const world = Q.get('map') === 'off'
-  ? Promise.resolve(false).then(() => { noMap('The 3D map is turned off. The ways to help above still work.'); return false; })
+  ? Promise.resolve(false).then(() => { noMap('The 3D map is turned off. All the ways to help still work.'); return false; })
   : import('./main.js').then(() => true, (e) => {
     console.warn('3D map unavailable:', e);
-    noMap('The 3D map could not load on this device. The ways to help above still work.');
+    noMap('The 3D map could not load on this device. All the ways to help still work.');
     return false;
   });
 

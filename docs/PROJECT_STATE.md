@@ -15,6 +15,23 @@ actions are always available without the world.
 
 ## Where we are now (updated)
 
+**Newest: `experiment/campaign-finder` (from `experiment/textile-toytown` at `1f6a4f1`). Milestone 1, "Find your local
+campaign".** Plan: [Milestone 1 technical plan](https://claude.ai/artifact/K1gtbYErahn9pzdwAvDdVV). The owner approved
+it one step at a time and reviews each step before the next one starts.
+- The state before Milestone 1 is kept as the branch `preserve/pre-m1` on GitHub. That is the same commit as
+  `experiment/textile-toytown`. A `pre-m1` tag exists locally only: this environment's GitHub proxy refuses tag pushes.
+- **Step 1 (done, awaiting review): the national page works before and without the 3D map.**
+  - `web/national/src/app.js` is the new entry (`dist/national.js`, under 1 KB). It wires the ways-to-help bar and the
+    dialogs, then lazily imports `main.js`, which loads the 3D map and three.js as a separate `world-HASH.js` chunk. This
+    is the same split the journey uses.
+  - If the map can't start (no WebGL, network error) or `?map=off` is set, the page says so and stays usable.
+  - Nothing else in `main.js` changed.
+  - Builds (`npm run build:national`, `tools/build_national.sh`) use esbuild code splitting. **Publishing now needs
+    every `.js` file in the output folder** (`national.js` + `world-*.js`).
+  - Check: `tools/tests/national_shell.js OUTDIR`. It covers map off (desktop and phone), WebGL unavailable, actions
+    before the map is ready, drag/zoom, the descent into Chapter 1, skip, look around, replay, and back to the map.
+  - Not yet: the finder itself (step 2), the map link (step 3), events (step 4).
+
 **Newest line of work: `experiment/textile-toytown` (from `experiment/national`). The owner chose a handmade textile direction for the whole project.**
 - **Owner, latest: "I want the whole thing to be the felt, we're moving on from the clay."** Order agreed: regional map and
   descent → station/departure and toy shop → national map and Maple Hollow.
@@ -135,6 +152,7 @@ Toy*, exactly in this order:
 | `experiment/map-scale` | 320 × 260 m regional diorama around the village, validated railway layout (`scripts/tt/layout.py`, `region.py`), trains, continuous descent (`web/region`), `docs/MAP_SCALE_ASSESSMENT.md` | — |
 | `experiment/visual-quality` | Cycles texture-bake experiment on the blue shop and pink house (`scripts/tt/hq.py`, `bake_hq.py`, `export_hq.py`, `web/hq`), before/after images, `docs/VISUAL_QUALITY_EXPERIMENT.md` | [Toy Town Quality Test](https://claude.ai/artifact/3bqaJDnGMco4e3kR83cfXf) |
 | `experiment/journey` (from map-scale) | Journey prototype: drop-off reached three ways (direct / explore / Marine story), the toy shop interior and "send a toy online" with the station departure and ZIP line map, illustrated fallback, local event log + research panel (`web/journey`), `docs/JOURNEY_PROTOTYPE.md`, `docs/JOURNEY_TESTING_GUIDE.md` | [Toy Town Journey Prototype](https://claude.ai/artifact/68VGT1ZJfx3HdZF8vPkQNw) |
+| `experiment/campaign-finder` (from textile-toytown) | **Newest.** Milestone 1, the campaign finder, built step by step. Step 1: national page shell + lazy 3D map (`web/national/src/app.js`), `tools/tests/national_shell.js`. `preserve/pre-m1` = the state before it | — (not republished yet) |
 | `experiment/textile-toytown` (from national) | **Newest.** Textile construction system (`web/textile/`), the textile toy shop corner + puppet Marines in the journey behind `?look=`, split village export (`scripts/tt/corner.py`, `export_region.py --split-corner`), `docs/TEXTILE_SYSTEM.md` | [Textile Toy Town](https://claude.ai/artifact/Ajk5aHEBWDgSDXdZ7j5RZG) |
 | `experiment/textile-storybook`, `experiment/handmade-styles` | The owner's separate style experiments (paper, felt, textile). Source of the textile techniques; not merged | — |
 | `experiment/national` (from storybook) | **Current line of work.** Clay national relief + descent into Maple Hollow + Chapter 1 with townspeople (`web/national`, `scripts/tt/people.py`, `scripts/tt/toys.py`), `docs/NATIONAL_MAP.md`; journey copy revised | [Railroad of Hope National Map](https://claude.ai/artifact/Ljs6JaGJYW1kMGijHRKaZ1) |
