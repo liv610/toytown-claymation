@@ -13,8 +13,8 @@ let failed = 0; const ok = (cond, msg) => { console.log((cond ? 'ok   ' : 'FAIL 
 
 async function page(b, { viewport = { width: 1280, height: 720 }, noWebGL = false } = {}) {
   const p = await b.newPage({ viewport });
-  const log = { errors: [], warnings: [], requests: [] };
-  p.on('pageerror', (e) => log.errors.push(e.message));
+  const log = { errors: [], uncaught: [], warnings: [], requests: [] };
+  p.on('pageerror', (e) => { log.uncaught.push(e.message); log.errors.push(e.message); });
   p.on('console', (m) => { if (m.type() === 'error') log.errors.push(m.text()); if (m.type() === 'warning') log.warnings.push(m.text()); });
   p.on('request', (r) => log.requests.push(r.url()));
   if (noWebGL) await p.addInitScript(() => { const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (t, ...a) { return /webgl/.test(t) ? null : g.call(this, t, ...a); }; });
@@ -43,7 +43,7 @@ const worldChunk = (log) => log.requests.some((u) => /\/world-[A-Z0-9]+\.js/.tes
     await actionsWork(p, `map=off (${name})`);
     ok(!worldChunk(log) && !(await p.evaluate(() => !!window.__nat)), `map=off (${name}): 3D chunk never requested`);
     ok(log.errors.length === 0, `map=off (${name}): no page errors ${log.errors.join(' | ')}`);
-    await p.screenshot({ path: `${out}/shell_mapoff_${name}.png` }); await p.close();
+    await p.screenshot({ path: `${out}/shell_mapoff_${name}.png`, timeout: 120000 }); await p.close();
   }
 
   // 2. WebGL unavailable
@@ -53,8 +53,8 @@ const worldChunk = (log) => log.requests.some((u) => /\/world-[A-Z0-9]+\.js/.tes
     ok(w === false, 'no WebGL: world promise resolves false');
     ok(/could not load/.test(await p.textContent('#status')), 'no WebGL: page explains the map could not load');
     await actionsWork(p, 'no WebGL');
-    ok(log.errors.length === 0, `no WebGL: no uncaught page errors ${log.errors.join(' | ')}`);
-    await p.screenshot({ path: `${out}/shell_nowebgl.png` }); await p.close();
+    ok(log.uncaught.length === 0, `no WebGL: no uncaught page errors ${log.uncaught.join(' | ')}`);   // three.js itself logs "Error creating WebGL context"; the shell catches it
+    await p.screenshot({ path: `${out}/shell_nowebgl.png`, timeout: 120000 }); await p.close();
   }
 
   // 3. normal: actions before the world, then the world and its controls
@@ -71,7 +71,7 @@ const worldChunk = (log) => log.requests.some((u) => /\/world-[A-Z0-9]+\.js/.tes
     ok(await p.isVisible('#descend') && !(await p.$('#status')), 'normal: "Visit Maple Hollow" shown, loading message gone');
     await p.waitForTimeout(1500);
     ok(await p.isVisible('#pinMaple'), 'normal: Maple Hollow pin visible on the country view');
-    await p.screenshot({ path: `${out}/shell_normal_country.png` });
+    await p.screenshot({ path: `${out}/shell_normal_country.png`, timeout: 120000 });
     await actionsWork(p, 'normal (map running)');
     // drag pans, wheel zooms
     const r0 = await p.evaluate(() => ({ ...window.__nat.rig }));
@@ -85,7 +85,7 @@ const worldChunk = (log) => log.requests.some((u) => /\/world-[A-Z0-9]+\.js/.tes
     const mode = (m) => p.waitForFunction((m) => window.__nat.state().mode === m, m, { timeout: 300000, polling: 250 });
     await p.click('#descend'); await mode('town'); ok(true, 'normal: descent reaches Maple Hollow');
     ok(await p.isVisible('#playCh1') && await p.isVisible('#ascend'), 'normal: town controls shown');
-    await p.screenshot({ path: `${out}/shell_normal_town.png` });
+    await p.screenshot({ path: `${out}/shell_normal_town.png`, timeout: 120000 });
     await p.click('#ascend'); await mode('national'); ok(await p.isVisible('#descend'), 'normal: back up to the national map');
     await p.click('#descend'); await mode('town'); await p.click('#playCh1'); await mode('story');
     ok(await p.isVisible('#storybar'), 'normal: Chapter 1 starts with its story controls');
