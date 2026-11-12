@@ -16,6 +16,20 @@ actions are always available without the world.
 ## Where we are now (updated)
 
 **Newest line of work: `experiment/textile-toytown` (from `experiment/national`). The owner chose a handmade textile direction for the whole project.**
+- **Owner, latest: "I want the whole thing to be the felt, we're moving on from the clay."** Order agreed: regional map and
+  descent → station/departure and toy shop → national map and Maple Hollow.
+  - **Done (Toy Town journey):** the felt street (the felt style test's own scene, `web/textile/src/felt_town.js`) plus a
+    felt skin for everything else, switched by one uniform in the journey's surface shader (`feltU` in
+    `web/journey/src/world/diorama.js`): the felt test's wool tile, matte with a grazing sheen, quilted ground with
+    stitched seams, a navy river with running stitches, batting snow. The region is lit like the felt test (deep-blue
+    night, warm key, cool rim, more bloom), so map, descent, street, station and shop share one sky.
+  - **The descent** is one continuous move ending on the felt street's storybook camera; the felt street fades in over
+    the last ~1.4 s (`renders/textile/felt_descent_sheet.jpg`).
+  - **Felt only:** the published build has no look switch and ships felt stills (`web/journey/assets/stills_felt/`).
+    Locally, `?look=felt|textile|clay` still compares.
+  - **Honest limits:** away from the street the region keeps its clay *shapes* (houses, trees, station) under the felt
+    skin; only the hero street is built of real sewn felt pieces. The toy shop interior is the old room in felt.
+  - **Not started:** the national map and Maple Hollow in felt (separate project, `experiment/national`).
 - **Scope:** one cohesive textile world across the national map and Toy Town, at different scales. The national map keeps its routes, geography, stops and navigation, but its look will change. Prove it in Toy Town first.
 - **Built, awaiting review:** the toy shop corner of Toy Town in textile, built from a reusable construction language (`web/textile/`, `docs/TEXTILE_SYSTEM.md`).
   - **The corner:** the shop, the pink house, the tree, the lamps, garlands, five neighbours, firs and the street.
@@ -136,6 +150,11 @@ New work should branch from `experiment/national` (it contains everything except
 
 ## Known issues to carry forward
 
+- **Felt journey:**
+  - region buildings away from the street are clay shapes under a felt skin (no seams or stitches of their own);
+  - the station platform shot still sometimes frames a roof column (as before).
+- **Fixed on `experiment/textile-toytown`:** black blocks in some frames (a non-finite pixel spread by bloom; it happened
+  in clay too, e.g. at 1280×720 mid-descent). A sanitize pass now runs before ambient occlusion and before bloom.
 - **Journey:**
   - the station platform shot can have a roof column at the side of the frame;
   - the story shot is tight on portrait phones;
