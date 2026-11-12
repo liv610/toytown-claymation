@@ -4,7 +4,8 @@
 // 2. WebGL unavailable   the 3D map fails to start; the page says so and the actions still work
 // 3. normal              actions work before the 3D map is ready; then the map comes up and drag, zoom, the descent to
 //                        Maple Hollow, back up, and Chapter 1 still work. Prints load timings (SwiftShader timings
-//                        are not real-device numbers; the shell-vs-world gap is what matters).
+//                        are not real-device numbers; the shell-vs-world gap is what matters). Runs the map at
+//                        q=medium, like national_chapter1.js: live screenshots at "high" stall under SwiftShader.
 // Also checks a phone viewport (390×844) for scenario 1. Exits non-zero on any failure.
 const { chromium } = require('playwright'); const fs = require('fs');
 const out = process.argv[2] || '.'; fs.mkdirSync(out, { recursive: true });
@@ -61,7 +62,7 @@ const worldChunk = (log) => log.requests.some((u) => /\/world-[A-Z0-9]+\.js/.tes
   {
     const { p, log } = await page(b);
     const t0 = Date.now();
-    await p.goto(BASE + '?capture=1', { waitUntil: 'domcontentloaded' });
+    await p.goto(BASE + '?capture=1&q=medium', { waitUntil: 'domcontentloaded' });
     await p.waitForFunction(() => window.__natShell);
     const tShell = Date.now() - t0, early = await p.evaluate(() => !window.__nat);
     await p.click('[data-action="campaign"]'); const open = await p.isVisible('#notyet'); await p.click('#notyet [data-close]');
