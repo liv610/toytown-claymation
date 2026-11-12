@@ -170,7 +170,9 @@ async function bootWorld() {
     if (LOOK && !window.TT_ONLY_LOOK) lookToggle(host);   // the felt build is felt only: no comparison switch
     const { createToyShop } = await import('./world/toyshop.js');
     const { createDeparture } = await import('./world/departure.js');
-    world.shop = createToyShop(host, pins, { windowImage: STILLS + 'village.jpg', onToy: (id) => onToy(id, 'pin') });
+    // the felt look steps into the storybook toy shop (a grand felt hall, much bigger inside than out)
+    const storybook = host.look === 'felt' ? (await import('../../textile/src/storyshop.js')).buildStoryShop : null;
+    world.shop = createToyShop(host, pins, { windowImage: STILLS + 'village.jpg', onToy: (id) => onToy(id, 'pin'), storybook });
     world.departure = createDeparture(host, { onBeat: (i, text) => { $('captionText').textContent = text; log('departure_beat', { i }); }, onEnd: onDepartureEnd });
     world.shop.enter(); host.frame(1 / 60); world.shop.leave();           // compile the room's lighting once, up front
     if (storyAllowed) {

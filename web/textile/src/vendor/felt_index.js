@@ -103,6 +103,7 @@ export function buildFelt({ marine }) {
   const spill = (x, y, z, i, d, c = 0xffb060) => { const p = new THREE.PointLight(c, i, d, 2); p.position.set(x, y, z); scene.add(p); return p; };
   spill(-1.65, 1.7, 0.9, 2.0, 3.2); spill(1.65, 1.7, 0.9, 2.0, 3.2); spill(0, 4.4, 0.9, 1.1, 3.0); spill(PINK.x, 2.5, PINK.z + 1.0, 1.6, 3.2); spill(PINK.x - 0.8, 1.4, PINK.z + 1.4, 1.4, 2.5);
   const inside = spill(0, 2.4, -1.4, 4.0, 4.5, 0xffa458); inside.userData.base = 4.0;
+  spill(-1.65, 2.15, -0.12, 0.9, 1.3, 0xffc070); spill(1.65, 2.15, -0.12, 0.9, 1.3, 0xffc070);   // inside the display shadow boxes
   const lampLight = new THREE.PointLight(0xffb468, 7.0, 10, 2); lampLight.position.copy(lampInfo.light);
   lampLight.castShadow = true; lampLight.shadow.autoUpdate = false; lampLight.shadow.needsUpdate = true; lampLight.shadow.mapSize.set(1024, 1024);   // static: re-rendered only when something near it changes lampLight.shadow.bias = -0.002; lampLight.shadow.radius = 6; scene.add(lampLight);
   spill(TREE.x + 0.4, 1.8, TREE.z + 1.3, 1.6, 3.4, 0xffb070);

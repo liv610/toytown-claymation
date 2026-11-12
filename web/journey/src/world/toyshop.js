@@ -2,18 +2,34 @@
 // Built here from simple clay shapes (no new Blender assets) and placed away from the board so it
 // never collides with the village. Six toys, each with a short "come alive" trick when tapped.
 //
-//   const shop = createToyShop(host, pins, { windowImage, onToy })
+//   const shop = createToyShop(host, pins, { windowImage, onToy, storybook })
+// storybook (the felt look): a builder for the storybook hall (textile/src/storyshop.js). The room below is replaced
+// by that much bigger felt hall; the six interactive toys, their tricks, pins and cards stay exactly the same, set
+// out on the hall's display table and stand (and drawn a little larger so they read in the big room).
 //   await shop.enter() / shop.leave() / shop.focus(id) / shop.overview()
 import { V, clamp, smooth, ramp, patch } from './diorama.js';
 import { TOYS } from '../actions/catalog.js';
 
-export function createToyShop(host, pins, { windowImage, onToy }) {
+export function createToyShop(host, pins, { windowImage, onToy, storybook = null }) {
   const T = host.THREE;
   const O = V(600, 0, 0);                       // room origin, far off the board
   const room = new T.Group(); room.position.copy(O); host.scene.add(room);
   const mat = (color, kind = 'clay', opts = {}) => { const m = new T.MeshStandardMaterial({ color, roughness: 0.75, ...opts }); patch(m, kind, {}, true); return m; };
   const mesh = (g, m, x = 0, y = 0, z = 0, parent = room) => { const me = new T.Mesh(g, m); me.position.set(x, y, z); me.castShadow = me.receiveShadow = true; parent.add(me); return me; };
   const W = 8, D = 6, H = 3.3;
+  const story = storybook ? storybook() : null;
+  if (story) console.debug('storybook shop', story.triangles, 'triangles', Math.round(story.buildMs), 'ms');
+  const wood = mat(0xa86a3e, 'wood'), dark = mat(0x5b3720, 'wood');
+  const twinkles = [];
+  let bell = null, tableTop = 0.82, shelfY = [1.15, 1.7, 2.25];
+  if (story) {
+    room.add(story.group);
+    for (const L of story.lights) {
+      const p = new T.PointLight(L.color, L.intensity, L.distance, 1.2); p.position.set(O.x + L.pos[0], L.pos[1], O.z + L.pos[2]);
+      p.visible = false; host.scene.add(p); host.roomLights.push(p);
+    }
+    tableTop = story.anchors.tableTop;
+  } else {
 
   // ---------------- the room: plank floor, cream plaster above a blue wainscot, beams, window
   const planks = (() => {
@@ -22,7 +38,7 @@ export function createToyShop(host, pins, { windowImage, onToy }) {
     const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(2, 1.5); return t;
   })();
   const floor = mesh(new T.PlaneGeometry(W, D), new T.MeshStandardMaterial({ map: planks, roughness: 0.8 })); floor.rotation.x = -Math.PI / 2;
-  const plaster = mat(0xf6e8cf), wains = mat(0x3d5f93), trim = mat(0xfaf2e2), wood = mat(0xa86a3e, 'wood'), dark = mat(0x5b3720, 'wood'), sage = mat(0x7d9c84);
+  const plaster = mat(0xf6e8cf), wains = mat(0x3d5f93), trim = mat(0xfaf2e2), sage = mat(0x7d9c84);
   mesh(new T.BoxGeometry(W, H, 0.1), plaster, 0, H / 2, -D / 2);                          // back wall
   mesh(new T.BoxGeometry(0.1, H, D), plaster, -W / 2, H / 2, 0);                          // side walls
   mesh(new T.BoxGeometry(0.1, H, D), plaster, W / 2, H / 2, 0);
@@ -40,21 +56,20 @@ export function createToyShop(host, pins, { windowImage, onToy }) {
   mesh(new T.BoxGeometry(0.06, 1.45, 0.08), trim, -W / 2 + 0.08, 1.75, -0.6 - 1.24); mesh(new T.BoxGeometry(0.06, 1.45, 0.08), trim, -W / 2 + 0.08, 1.75, -0.6 + 1.24);
 
   // ---------------- furniture: back shelves, centre display table, counter, a little tree
-  const shelfY = [1.15, 1.7, 2.25];
+  shelfY = [1.15, 1.7, 2.25];
   mesh(new T.BoxGeometry(4.6, 2.5, 0.06), sage, 0.3, 1.4, -D / 2 + 0.18);
   for (const y of shelfY) { mesh(new T.BoxGeometry(4.7, 0.06, 0.5), wood, 0.3, y, -D / 2 + 0.4); mesh(new T.BoxGeometry(4.7, 0.04, 0.04), trim, 0.3, y + 0.04, -D / 2 + 0.66); }
   for (const x of [-2.0, 2.6]) mesh(new T.BoxGeometry(0.08, 2.5, 0.5), dark, x, 1.4, -D / 2 + 0.4);
-  const tableTop = 0.82;
+  tableTop = 0.82;
   mesh(new T.CylinderGeometry(1.05, 1.05, 0.08, 40), wood, 0, tableTop - 0.04, -0.6);
   mesh(new T.CylinderGeometry(0.16, 0.22, tableTop - 0.08, 16), dark, 0, (tableTop - 0.08) / 2, -0.6);
   mesh(new T.CylinderGeometry(0.5, 0.5, 0.04, 24), dark, 0, 0.02, -0.6);
   mesh(new T.BoxGeometry(0.7, 1.0, 2.2), wood, W / 2 - 0.6, 0.5, -0.2);                  // counter
   mesh(new T.BoxGeometry(0.78, 0.06, 2.3), dark, W / 2 - 0.6, 1.03, -0.2);
-  const bell = mesh(new T.SphereGeometry(0.07, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xd9a73a, 'clay', { metalness: 0.5, roughness: 0.35 }), W / 2 - 0.6, 1.06, 0.4);
+  bell = mesh(new T.SphereGeometry(0.07, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xd9a73a, 'clay', { metalness: 0.5, roughness: 0.35 }), W / 2 - 0.6, 1.06, 0.4);
   const treeG = new T.Group(); treeG.position.set(-W / 2 + 0.8, 0, -D / 2 + 0.8); room.add(treeG);
   const needles = mat(0x2f6a45);
   for (let i = 0; i < 4; i++) mesh(new T.ConeGeometry(0.62 - i * 0.13, 0.62, 14), needles, 0, 0.55 + i * 0.38, 0, treeG);
-  const twinkles = [];
   for (let i = 0; i < 22; i++) {
     const a = i * 2.4, h = 0.45 + (i / 22) * 1.35, r = 0.58 - (h - 0.45) * 0.36;
     const b = mesh(new T.SphereGeometry(0.03, 8, 6), new T.MeshStandardMaterial({ color: 0xffd9a0, emissive: 0xffb860, emissiveIntensity: 3 }), Math.cos(a) * r, h, Math.sin(a) * r, treeG);
@@ -76,13 +91,22 @@ export function createToyShop(host, pins, { windowImage, onToy }) {
   }
   const fill = new T.PointLight(0xffd8b0, 6, 11, 1.3); fill.position.set(O.x, 1.6, O.z + 2.4); fill.visible = false; host.scene.add(fill); host.roomLights.push(fill);
   const glowWin = new T.PointLight(0xa8b8ff, 1.2, 4, 2); glowWin.position.set(O.x - W / 2 + 0.6, 1.7, O.z - 0.6); glowWin.visible = false; host.scene.add(glowWin); host.roomLights.push(glowWin);
+  }
 
   // ---------------- the toys (each: build, idle, play)
   const red = mat(0xc8342c), blue = mat(0x2f5f9e), yellow = mat(0xe0b040), green = mat(0x3f8a5a), cream = mat(0xf3e7cf), black = mat(0x2a2220), gold = mat(0xd9a73a, 'clay', { metalness: 0.4, roughness: 0.4 });
   const felt = mat(0x9a6538, 'felt'), feltDark = mat(0x6e4426, 'felt');
   const wheel = (p, r, x, y, z) => { const w = mesh(new T.CylinderGeometry(r, r, 0.03, 18), black, x, y, z, p); w.rotation.x = Math.PI / 2; return w; };
   const toys = {};
-  const place = (id, g, x, y, z, ry = 0) => { g.position.set(x, y, z); g.rotation.y = ry; room.add(g); toys[id] = { id, g, home: g.position.clone(), play: 0, t0: -9 }; return toys[id]; };
+  // in the storybook hall: the table toys keep their places relative to the table, the shelf toys go on the stand
+  const A = story && story.anchors;
+  const spot = (id, x, y, z) => {
+    if (!A) return [x, y, z];
+    const tb = A.table, st = A.stand, ti = A.tiers;
+    return { train: [tb[0] - 0.55, A.tableTop, tb[2] + 0.05], top: [tb[0] + 0.45, A.tableTop, tb[2] - 0.55], truck: [tb[0] + 0.5, A.tableTop, tb[2] + 0.45],
+      blocks: [st[0] + 0.25, ti[0], st[2] + 0.02], teddy: [st[0] - 0.25, ti[1], st[2] - 0.12], drum: [st[0] + 0.05, ti[2], st[2] - 0.24] }[id];
+  };
+  const place = (id, g, x, y, z, ry = 0) => { g.position.set(...spot(id, x, y, z)); g.rotation.y = ry; if (story) g.scale.setScalar(1.5); room.add(g); toys[id] = { id, g, home: g.position.clone(), play: 0, t0: -9 }; return toys[id]; };
 
   // 1. wooden train on a little oval track (display table)
   {
@@ -185,7 +209,8 @@ export function createToyShop(host, pins, { windowImage, onToy }) {
       if (k < 1) t.anim(k, tt); else if (t.played) { t.anim(0, tt); t.played = false; }
       t.idle && t.idle(tt);
     }
-    bell.rotation.z = 0.0;
+    if (bell) bell.rotation.z = 0.0;
+    if (story && mounted) story.update(tt);
   });
   function play(id) { const t = toys[id]; t.t0 = host.time; t.played = true; }
   const pinPos = (id) => () => { const p = (id === 'train' ? toys.train.loco : toys[id].g).getWorldPosition(V()); return p.add(V(0, id === 'teddy' ? 0.55 : id === 'blocks' ? 0.42 : id === 'drum' ? 0.36 : 0.4, 0)); };
@@ -204,8 +229,9 @@ export function createToyShop(host, pins, { windowImage, onToy }) {
   });
 
   const W2 = (x, y, z) => O.clone().add(V(x, y, z));
-  const OVERVIEW = { pos: W2(1.0, 1.95, 2.75), look: W2(-0.15, 1.2, -1.7), fov: 60 };
-  const EXPLORE = { minDistance: 1.4, maxDistance: 3.6, minPolar: 45, maxPolar: 88, box: [O.x - 2.5, O.x + 2.5, O.z - 2.4, O.z + 1.2] };
+  const OVERVIEW = story ? { pos: W2(1.6, 2.3, 7.2), look: W2(-0.4, 3.0, -3.0), fov: 64 } : { pos: W2(1.0, 1.95, 2.75), look: W2(-0.15, 1.2, -1.7), fov: 60 };
+  const EXPLORE = story ? { minDistance: 1.6, maxDistance: 9.5, minPolar: 40, maxPolar: 88, box: [O.x - 8.6, O.x + 8.6, O.z - 6.6, O.z + 7.4] }
+    : { minDistance: 1.4, maxDistance: 3.6, minPolar: 45, maxPolar: 88, box: [O.x - 2.5, O.x + 2.5, O.z - 2.4, O.z + 1.2] };
   let mounted = false;
   return {
     toys, play, origin: O,

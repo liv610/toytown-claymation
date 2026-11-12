@@ -7,6 +7,10 @@ With --split-corner (the textile test, experiment/textile-toytown) it writes ins
   corner_clay_raw.glb   the test corner in clay (so the clay look can be shown side by side)
   corner.json           what the corner contains: roots with positions, background-house and fir parameters
 and leaves static/terrain/protos/region outputs untouched.
+With --split-corner --split-houses (the felt journey) every other background house (bg_house: the town, the square,
+cottages, farmhouses) is also taken out of the base village, into:
+  houses_clay_raw.glb   those houses in clay (for the local clay comparison)
+  houses.json           each house's build parameters, so the browser can sew it in felt at the same footprint
 
 Outputs:
   static.glb    village + station + square + bridges + farms, merged by material
@@ -33,6 +37,7 @@ from tt import corner as CR, trees as TR  # noqa: E402
 
 out = os.path.abspath(sys.argv[sys.argv.index("--") + 1])
 SPLIT = "--split-corner" in sys.argv
+HOUSES = SPLIT and "--split-houses" in sys.argv
 RECORD = {"bg_house": {}, "fir": {}}
 if SPLIT:   # remember how the corner's background houses and firs were made, so the textile versions match
     _bh, _fir = Bld.bg_house, TR.fir
@@ -44,6 +49,7 @@ if SPLIT:   # remember how the corner's background houses and firs were made, so
         RECORD["fir"][name] = {"pos": list(loc), "h": h, "r": r, "color": list(kw.get("color", (0.1, 0.3, 0.2)))}
         return _fir(name, loc, h, r, *a, **kw)
     Bld.bg_house, TR.fir = _rec_bh, _rec_fir
+    region.bg_house = _rec_bh   # region.py imported the function under its own name (square houses, cottages, farmhouses)
 os.makedirs(out, exist_ok=True)
 t0 = time.time()
 street.REGION = True
@@ -87,7 +93,13 @@ def simple_mat(src, cache={}):
     return m
 
 
-def merge(objs, zone_split=False, corner=None):
+def is_house_object(o):
+    t = CR.top(o)
+    n = t.name.split(".")[0]
+    return HOUSES and n in RECORD["bg_house"] and n not in CR.BUILDERS
+
+
+def merge(objs, zone_split=False, corner=None, houses=None):
     """Bake modifiers, merge by material (numpy, low memory). Returns {(mat, is_door): (V, N, T)}.
     corner: a dict that receives the test corner's geometry instead (whole corner objects, and the triangles of
     split objects whose centre lies in the corner's street rectangle)."""
@@ -121,18 +133,19 @@ def merge(objs, zone_split=False, corner=None):
         Nn /= np.linalg.norm(Nn, axis=1, keepdims=True) + 1e-9
         mats = list(me.materials) or [None]
         whole = corner is not None and CR.is_corner_object(o)
-        split = corner is not None and not whole and CR.is_split_object(o)
+        house = houses is not None and not whole and is_house_object(o)
+        split = corner is not None and not whole and not house and CR.is_split_object(o)
         if split:   # per triangle: centre inside the corner's street rectangle → corner
             cen = Pp[tl].mean(axis=1)
             x0, x1, y0, y1 = CR.STREET_RECT
             in_c = (cen[:, 0] >= x0) & (cen[:, 0] <= x1) & (cen[:, 1] >= y0) & (cen[:, 1] <= y1)
         for mi, m in enumerate(mats):
-            for dest, mask in (((corner if whole else groups), None),) if not split else ((groups, ~in_c), (corner, in_c)):
+            for dest, mask in (((corner if whole else houses if house else groups), None),) if not split else ((groups, ~in_c), (corner, in_c)):
                 sel = tl[(tm == mi) & (mask if mask is not None else True)]
                 if not len(sel):
                     continue
                 used, inv = np.unique(sel.ravel(), return_inverse=True)
-                dz = "" if dest is corner else zone
+                dz = "" if (dest is corner or dest is houses) else zone
                 dest.setdefault(((dz + m.name) if m else "none", is_door), []).append((Pp[used], Nn[used], inv.reshape(-1, 3).astype(np.int32)))
         oe.to_mesh_clear()
     return groups
@@ -176,8 +189,8 @@ static_objs = [o for o in all_objs if o.name not in protos and o not in terrain_
 
 # ---- the textile test: base village + clay corner, then stop (nothing else is rewritten)
 if SPLIT:
-    cg = {}
-    g = merge(static_objs, zone_split=True, corner=cg)
+    cg = {}; hg = {} if HOUSES else None
+    g = merge(static_objs, zone_split=True, corner=cg, houses=hg)
     doors_base = [k for k in g if k[1]]
     assert not doors_base, f"door geometry left in the base village: {doors_base}"
     exp = bpy.data.scenes.new("ExportBase"); stats = write_groups(g, exp)
@@ -193,6 +206,13 @@ if SPLIT:
                "triangles": {"base": int(sum(s_[0] for s_ in stats)), "corner": int(sum(s_[0] for s_ in cstats))},
                "door_meshes": sum(1 for k in cg if k[1])}, open(os.path.join(out, "corner.json"), "w"), indent=1)
     print("base triangles:", sum(s_[0] for s_ in stats), "corner triangles:", sum(s_[0] for s_ in cstats), flush=True)
+    if HOUSES:
+        assert not [k for k in hg if k[1]], "door geometry among the houses"
+        exph = bpy.data.scenes.new("ExportHouses"); hstats = write_groups(hg, exph)
+        export_scene(exph, os.path.join(out, "houses_clay_raw.glb"))
+        hs = {k: v for k, v in RECORD["bg_house"].items() if k not in CR.BUILDERS}
+        json.dump({"houses": hs, "triangles": int(sum(s_[0] for s_ in hstats))}, open(os.path.join(out, "houses.json"), "w"), indent=1)
+        print("houses:", len(hs), "triangles:", sum(s_[0] for s_ in hstats), flush=True)
     print(f"done {time.time() - t0:.0f}s")
     sys.exit(0)
 

@@ -1,4 +1,6 @@
-// Copied from experiment/handmade-styles (via experiment/textile-storybook @ d509733), web/handmade/src/felt/. Kept as-is.
+// Copied from experiment/handmade-styles (via experiment/textile-storybook @ d509733), web/handmade/src/felt/.
+// Changed here (owner's request): the shop's display windows are open shadow boxes with the toys standing at depth,
+// like the paper-cut version (displayWindow, feltToys); everything else is as copied.
 // Experiment B — handmade felt and textile village: the two buildings.
 //
 // Construction rules (how a felt-craft maker would build a little house):
@@ -141,12 +143,12 @@ export function shop(k) {
   const { W, D, H, pitch, plinth } = SHOP, hw = W / 2, Mb = M([SHOP.x, 0, SHOP.z]);
   const F = (x = 0, y = 0, z = 0, r = [0, 0, 0]) => Mb.clone().multiply(M([x, y, z], r));
   const dO = [DOOR.x - DOOR.w / 2, DOOR.y0, DOOR.x + DOOR.w / 2, DOOR.y0 + DOOR.h];
-  walls(k, Mb, { W, D, H, ridge: SHOP.ridge, gableFront: true, holes: [rect(...dO)], col: C.blue });
-  // display windows with appliquéd toys, upper windows with shutters and planters, the gable window
+  const disp = (sx) => [sx * 1.65 - 0.66, 0.9, sx * 1.65 + 0.66, 2.3];
+  walls(k, Mb, { W, D, H, ridge: SHOP.ridge, gableFront: true, holes: [rect(...dO), rect(...disp(-1)), rect(...disp(1))], col: C.blue });
+  // display windows: open shadow boxes with the toys standing inside at different depths; upper windows with
+  // shutters and planters; the gable window
   for (const sx of [-1, 1]) {
-    const x0 = sx * 1.65 - 0.66, x1 = sx * 1.65 + 0.66;
-    window(k, F(), x0, 0.9, x1, 2.3, FT, { rows: 2, cols: 3, frame: 0.11 });
-    feltToys(k, F(sx * 1.65, 0.9, FT + 0.04), sx);
+    displayWindow(k, F(), ...disp(sx), sx);
     const u0 = sx * 1.35 - 0.42, u1 = sx * 1.35 + 0.42;
     window(k, F(), u0, 3.9, u1, 4.95, FT, { frame: 0.1 });
     shutter(k, F(), u0 - 0.17, 3.86, 0.38, 1.13, -1, 0.35, C.red, FT + 0.01);
@@ -214,26 +216,76 @@ function embroiderWord(k, F, word, h, z) {
   for (const ch of word) { for (const s of strokes[ch](x)) k.S.satin(F, s, z, C.gold, { width: 0.055, spacing: 0.013, r: 0.0065, slant: 0.4 }); x += w + gap; }
 }
 
-/** appliquéd toys in the display windows: a teddy with an embroidered face, a rocking horse, a drum and a train */
+/**
+ * A display window as a shadow box (the paper-cut version's idea, in felt): the wall is cut open, a felt-lined box
+ * runs back into the shop, its back is a lit golden pane with a little felt scene (snowy hills, firs, stars), and the
+ * toys stand inside at three depths, so they overlap, throw soft shadows on the glow and shift as you move.
+ */
+function displayWindow(k, F, x0, y0, x1, y1, sx) {
+  const depth = 0.62, w = x1 - x0, h = y1 - y0, L = 0.03, lining = 0xe8cfa2, o = { t: L, fuzz: 0.6, amp: 0.003, wave: 0.3 };
+  k.cut(rect(0, -depth, w, 0), null, F.clone().multiply(M([x0, y0 - L, 0], [Math.PI / 2, 0, 0])), C.wood, o);          // floor (a plank shelf)
+  k.cut(rect(0, -depth, w, 0), null, F.clone().multiply(M([x0, y1, 0], [Math.PI / 2, 0, 0])), lining, o);                // ceiling
+  k.cut(rect(-depth, 0, 0, h), null, F.clone().multiply(M([x0, y0, 0], [0, -Math.PI / 2, 0])), lining, o);              // sides
+  k.cut(rect(-depth, 0, 0, h), null, F.clone().multiply(M([x1 + L, y0, 0], [0, -Math.PI / 2, 0])), lining, o);
+  k.cut(rect(x0 - 0.02, y0 - 0.02, x1 + 0.02, y1 + 0.02), null, F.clone().multiply(M([0, 0, -depth - L])), C.glow, { batch: 'glow', t: L, bevel: 0.01, fuzz: 0.4 });
+  // the back-drop: felt hills and firs a little in front of the glow, appliqué stars above
+  const bz = -depth + 0.006, hills = [[x0, y0], [x1, y0], [x1, y0 + 0.36]];
+  for (let i = 12; i >= 0; i--) { const x = x0 + (i / 12) * w; hills.push([x, y0 + 0.28 + 0.1 * Math.sin(i * 0.9 + sx) + 0.05 * Math.sin(i * 2.3)]); }
+  k.cut(hills, null, F.clone().multiply(M([0, 0, bz])), 0xf4ead8, { t: 0.02, bevel: 0.008, fuzz: 0.5, amp: 0.003 });
+  for (const [fx, fh] of [[0.22, 0.42], [0.36, 0.3], [0.8, 0.36]]) {
+    const cx = x0 + fx * w, b0 = y0 + 0.3, fir = [[cx - fh * 0.32, b0], [cx + fh * 0.32, b0], [cx + fh * 0.12, b0 + fh * 0.45], [cx + fh * 0.24, b0 + fh * 0.45],
+      [cx, b0 + fh], [cx - fh * 0.24, b0 + fh * 0.45], [cx - fh * 0.12, b0 + fh * 0.45]];
+    k.cut(fir, null, F.clone().multiply(M([0, 0, bz + 0.012])), 0x3f6b4f, { t: 0.02, bevel: 0.006, fuzz: 0.5, amp: 0.002 });
+  }
+  for (const [u, v, r] of [[0.15, 0.82, 0.04], [0.5, 0.9, 0.05], [0.72, 0.78, 0.035], [0.9, 0.88, 0.03]]) {
+    const st = []; for (let i = 0; i < 10; i++) { const a = Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; st.push([x0 + u * w + Math.cos(a) * rr, y0 + v * h + Math.sin(a) * rr]); }
+    k.cut(st, null, F.clone().multiply(M([0, 0, bz])), C.gold, { t: 0.015, bevel: 0.005, fuzz: 0.3, amp: 0.001 });
+  }
+  feltToys(k, F.clone().multiply(M([(x0 + x1) / 2, y0, 0])), sx);
+  // the frame and glazing bars in front (felt strips, not stitches: there is no pane to sew them onto now)
+  const fr = 0.11, fz = FT;
+  k.cut(roundRect(x0 - fr, y0 - fr, x1 + fr, y1 + fr, 0.05), [roundRect(x0 + 0.005, y0 + 0.005, x1 - 0.005, y1 - 0.005, 0.03)], F.clone().multiply(M([0, 0, fz])), C.cream, { t: 0.05, fuzz: 0.8 });
+  k.S.running(F, rect(x0 - fr * 0.5, y0 - fr * 0.5, x1 + fr * 0.5, y1 + fr * 0.5), fz + 0.05, C.threadD, { closed: true, len: 0.05, gap: 0.035 });
+  const bw = 0.035, ym = y0 + h * 0.62;
+  for (const x of [x0 + w / 3, x0 + 2 * w / 3]) k.cut(rect(x - bw / 2, y0, x + bw / 2, y1), null, F.clone().multiply(M([0, 0, fz])), C.cream, { t: 0.035, bevel: 0.012, fuzz: 0.6, amp: 0.002 });
+  k.cut(rect(x0, ym - bw / 2, x1, ym + bw / 2), null, F.clone().multiply(M([0, 0, fz + 0.004])), C.cream, { t: 0.035, bevel: 0.012, fuzz: 0.6, amp: 0.002 });
+  const sw = w / 2 + fr + 0.08, cx = (x0 + x1) / 2;   // a stuffed sill cushion
+  k.solid(new RoundedBoxGeometry(sw * 2, 0.11, 0.24, 2, 0.045), F.clone().multiply(M([cx, y0 - fr - 0.05, fz + 0.1])), C.cream, { fuzz: 0.8 });
+}
+
+/** felt toys standing in a display shadow box at three depths (z < 0 is inside the box): teddy, rocking horse, drum, train */
 function feltToys(k, F, sx) {
-  const at = (x, y) => F.clone().multiply(M([x, y, 0]));
+  const at = (x, y, z) => F.clone().multiply(M([x, y, z]));
+  const stand = (P, w) => k.cut(rect(-w / 2, 0, w / 2, 0.012), null, P.clone().multiply(M([0, 0, -0.05])), C.wood, { t: 0.05, fuzz: 0.4, amp: 0 });   // a little block it is glued to
   if (sx < 0) {
-    k.cut(ellipse(0, 0.22, 0.17, 0.2, 20), null, at(-0.3, 0.08), 0x9a6a46, { t: 0.04, bevel: 0.015, fuzz: 1.2 });
-    k.cut(circle(0, 0.52, 0.13, 18), null, at(-0.3, 0.08), 0x9a6a46, { t: 0.045, bevel: 0.015, fuzz: 1.2 });
-    for (const e of [-1, 1]) { k.cut(circle(e * 0.1, 0.64, 0.05, 12), null, at(-0.3, 0.08), 0x7a4a2e, { t: 0.04, bevel: 0.012, fuzz: 1.2 }); k.S.cross(at(-0.3, 0.08), e * 0.045, 0.55, 0.05, 0.01, C.threadD, 0.006); }
-    k.cut(ellipse(0, 0.2, 0.09, 0.11, 14), null, at(-0.3, 0.08).multiply(M([0, 0, 0.04])), 0xe2c39a, { t: 0.02, bevel: 0.008, fuzz: 0.8 });
-    k.S.running(at(-0.3, 0.08), [[-0.04, 0.48], [0, 0.46], [0.04, 0.48]], 0.05, C.threadD, { len: 0.02, gap: 0.004, r: 0.005 });
+    const T = at(-0.3, 0.02, -0.36);   // the teddy, at the back
+    k.cut(ellipse(0, 0.22, 0.17, 0.2, 20), null, T, 0x9a6a46, { t: 0.06, bevel: 0.022, fuzz: 1.2 });
+    k.cut(circle(0, 0.52, 0.13, 18), null, T, 0x9a6a46, { t: 0.065, bevel: 0.022, fuzz: 1.2 });
+    for (const e of [-1, 1]) { k.cut(circle(e * 0.1, 0.64, 0.05, 12), null, T, 0x7a4a2e, { t: 0.05, bevel: 0.015, fuzz: 1.2 }); k.S.cross(T, e * 0.045, 0.55, 0.068, 0.01, C.threadD, 0.006); }
+    for (const e of [-1, 1]) k.cut(ellipse(e * 0.17, 0.27, 0.06, 0.09, 12), null, T.clone().multiply(M([0, 0, 0.03])), 0x8a5c3c, { t: 0.05, bevel: 0.016, fuzz: 1.1 });   // arms
+    k.cut(ellipse(0, 0.2, 0.09, 0.11, 14), null, T.clone().multiply(M([0, 0, 0.06])), 0xe2c39a, { t: 0.02, bevel: 0.008, fuzz: 0.8 });
+    k.S.running(T, [[-0.04, 0.48], [0, 0.46], [0.04, 0.48]], 0.07, C.threadD, { len: 0.02, gap: 0.004, r: 0.005 });
+    stand(T, 0.3);
+    const Hs = at(0.25, 0.04, -0.16);   // the rocking horse, in front
     const horse = [[-0.25, 0.05], [0.25, 0.05], [0.18, 0.12], [0.16, 0.32], [0.3, 0.55], [0.22, 0.6], [0.08, 0.44], [-0.14, 0.42], [-0.22, 0.48], [-0.24, 0.3], [-0.16, 0.12]];
-    k.cut(horse, null, at(0.27, 0.06), C.red, { t: 0.05, fuzz: 1 });
-    k.S.running(at(0.27, 0.06), [[-0.2, 0.08], [0.2, 0.08], [0.13, 0.32], [0.24, 0.52]], 0.052, C.thread, { len: 0.035, gap: 0.025, r: 0.006 });
-    k.cut([[-0.32, 0.0], [0.32, 0.0], [0.26, 0.06], [-0.26, 0.06]], null, at(0.27, 0.04), C.wood, { t: 0.05, fuzz: 0.8 });
+    k.cut(horse, null, Hs, C.red, { t: 0.06, fuzz: 1 });
+    k.S.running(Hs, [[-0.2, 0.08], [0.2, 0.08], [0.13, 0.32], [0.24, 0.52]], 0.062, C.thread, { len: 0.035, gap: 0.025, r: 0.006 });
+    k.cut([[-0.3, 0.42], [-0.24, 0.5], [-0.14, 0.44], [-0.2, 0.36]], null, Hs.clone().multiply(M([0, 0, -0.02])), C.cream, { t: 0.03, fuzz: 1 });   // mane / tail tuft
+    k.cut([[-0.32, 0.0], [0.32, 0.0], [0.26, 0.06], [-0.26, 0.06]], null, Hs.clone().multiply(M([0, -0.02, 0])), C.wood, { t: 0.06, fuzz: 0.8 });
   } else {
-    k.cut(roundRect(-0.17, 0, 0.17, 0.26, 0.03), null, at(-0.32, 0.06), C.red, { t: 0.05, fuzz: 1 });
-    k.S.running(at(-0.32, 0.06), [[-0.15, 0.24], [-0.08, 0.04], [0, 0.24], [0.08, 0.04], [0.15, 0.24]], 0.055, C.gold, { len: 0.03, gap: 0.01, r: 0.006 });
+    const Dm = at(-0.32, 0.03, -0.3);    // the drum, at the back
+    k.cut(roundRect(-0.17, 0, 0.17, 0.26, 0.03), null, Dm, C.red, { t: 0.07, bevel: 0.025, fuzz: 1 });
+    k.S.running(Dm, [[-0.15, 0.24], [-0.08, 0.04], [0, 0.24], [0.08, 0.04], [0.15, 0.24]], 0.075, C.gold, { len: 0.03, gap: 0.01, r: 0.006 });
+    for (const y of [0.0, 0.22]) k.cut(rect(-0.18, y, 0.18, y + 0.045), null, Dm.clone().multiply(M([0, 0, 0.01])), C.gold, { t: 0.07, bevel: 0.02, fuzz: 0.6 });
+    for (const e of [-1, 1]) k.cut(rect(-0.012, 0, 0.012, 0.3), null, Dm.clone().multiply(M([e * 0.06, 0.24, 0.05], [0, 0, e * 0.5])), C.wood, { t: 0.02, fuzz: 0.4, amp: 0 });   // drumsticks
+    stand(Dm, 0.38);
+    const Tr = at(0.2, 0.03, -0.12);     // the train, in front
     const train = [[-0.32, 0.06], [0.2, 0.06], [0.2, 0.22], [0.08, 0.22], [0.08, 0.36], [-0.04, 0.36], [-0.04, 0.22], [-0.32, 0.22]];
-    k.cut(train, null, at(0.22, 0.04), C.green, { t: 0.05, fuzz: 1 });
-    k.cut(roundRect(0.2, 0.06, 0.38, 0.26, 0.03), null, at(0.22, 0.04), C.blueD, { t: 0.05, fuzz: 1 });
-    for (const wx of [-0.22, -0.02, 0.24]) k.button(at(0.22, 0.04), wx, 0.07, 0.05, 0.055, C.ink, C.thread);
+    k.cut(train, null, Tr, C.green, { t: 0.06, fuzz: 1 });
+    k.cut(roundRect(0.2, 0.06, 0.38, 0.26, 0.03), null, Tr, C.blueD, { t: 0.06, fuzz: 1 });
+    for (const wx of [-0.22, -0.02, 0.24]) k.button(Tr, wx, 0.07, 0.07, 0.055, C.ink, C.thread);
+    k.cut(circle(0.02, 0.47, 0.05, 12), null, Tr.clone().multiply(M([0, 0, -0.03])), 0xf4ead8, { t: 0.03, fuzz: 1.2 });   // a puff of wool steam
+    k.cut(circle(-0.06, 0.55, 0.065, 12), null, Tr.clone().multiply(M([0, 0, -0.05])), 0xf4ead8, { t: 0.03, fuzz: 1.2 });
   }
 }
 

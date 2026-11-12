@@ -25,9 +25,13 @@ const want = (process.argv[3] || 'map,descent1,descent2,descent3,station').split
         descent2: { pos: B(30, -58, 27), look: B(3, -11, 2.5), fov: 48 },
         descent3: { pos: B(10, -33, 11), look: B(1.5, -4, 3.2), fov: 50 },
         station: { pos: sc.clone().add(new T.Vector3(34, 22, 30)), look: sc.clone().add(new T.Vector3(0, 2, 0)), fov: 48 },
+        hill: { pos: B(2, -14, 12), look: B(2, 14, 4), fov: 50 },            // the hillside houses behind the street
+        square: { pos: B(4, -40, 30), look: B(4, -12, 2), fov: 50 },         // the houses round the square
+        window: h.poses && h.poses.window ? h.poses.window : { pos: B(-1.6, -4.6, 1.9), look: B(-1.65, 0, 1.5), fov: 42 },
+        windowSide: { pos: B(-4.2, -3.6, 1.7), look: B(-1.65, 0.2, 1.55), fov: 34 },   // oblique: the toys shift against the glow
       };
       h.setPose(poses[view]);
-      for (let i = 0; i < 3; i++) h.frame(1 / 60);   // the felt street crossfade settles (it is time based)
+      for (let i = 0; i < 8; i++) h.frame(0.25);   // the felt street crossfade settles (it is time based, ~1.4 s)
       h.renderer.info.reset(); h.frame(1 / 60);
       return { url: h.renderer.domElement.toDataURL('image/jpeg', 0.88), ...h.stats() };
     }, [view, look]);

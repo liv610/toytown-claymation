@@ -230,8 +230,9 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
   const names = ['static.glb', 'static_lo.glb', 'terrain.glb', 'protos.glb', 'protos_lo.glb'];
   const textileBase = window.TT_TEXTILE_ASSETS || '../textile/assets/', loadT = makeLoader(textileBase, b64);
   const tick = (k, b) => { bytes[k] = b; onStatus('Unpacking the miniature world…', 0.1 + 0.8 * (++done / (names.length + (look ? 1 : 0)))); };
-  const [stat, statLo, terr, prot, protLo, cornerClay] = await Promise.all(look
-    ? [loadT('static_base.glb', tick), loadT('static_base_lo.glb', tick), load('terrain.glb', tick), load('protos.glb', tick), load('protos_lo.glb', tick), loadT('corner_clay.glb', tick)]
+  const [stat, statLo, terr, prot, protLo, cornerClay, housesClay] = await Promise.all(look
+    ? [loadT('static_base.glb', tick), loadT('static_base_lo.glb', tick), load('terrain.glb', tick), load('protos.glb', tick), load('protos_lo.glb', tick), loadT('corner_clay.glb', tick),
+      look === 'felt' && window.TT_ONLY_LOOK ? null : loadT('houses_clay.glb', tick)]   // the felt-only build sews every house: no clay houses to load
     : names.map((n) => load(n, tick)));
 
   // ---------------- static set
@@ -255,6 +256,10 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
   scene.add(stat.scene, statLo.scene); statLo.scene.visible = false;
   const clayCornerMeshes = [];
   if (cornerClay) { const n0 = collidables.length; prepStatic(cornerClay.scene, false); clayCornerMeshes.push(...collidables.slice(n0)); scene.add(cornerClay.scene); }
+  // the region's other houses: clay (comparison looks) or sewn felt (felt look), swapped by setLook
+  const clayHouseMeshes = [];
+  if (housesClay) { const n0 = collidables.length; prepStatic(housesClay.scene, false); clayHouseMeshes.push(...collidables.slice(n0)); scene.add(housesClay.scene); }
+  let feltHouses = null;
   terr.scene.traverse((o) => {
     if (!o.isMesh) return;
     o.geometry.computeVertexNormals();
@@ -288,6 +293,16 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
       return (textile.corners[l] = c);
     };
     if (look === 'textile') textile.ensure('textile');   // other corners are built when first shown
+    // the region's houses sewn in felt (houses.json): built when the felt look is first shown
+    const houseSpec = await (await fetch(textileBase + 'houses.json')).json();
+    textile.feltHouses = () => {
+      if (feltHouses) return feltHouses;
+      feltHouses = TX.buildFeltHouses(houseSpec.houses);
+      for (const m of feltHouses.collide) m.geometry.computeBoundsTree();
+      feltHouses.group.visible = false; scene.add(feltHouses.group);
+      console.debug('felt houses', feltHouses.count, feltHouses.triangles, 'triangles', Math.round(feltHouses.buildMs), 'ms');
+      return feltHouses;
+    };
     Object.defineProperty(textile, 'corner', { get: () => textile.corners[host.look] || textile.corners.textile });
   }
   for (const m of collidables) m.geometry.computeBoundsTree();
@@ -724,10 +739,13 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
       const on = l === 'clay' || l === 'felt' ? null : textile.ensure(l);   // felt: the clay set stays for the map; the felt street is its own scene
       for (const [k, c] of Object.entries(textile.corners)) { c.group.visible = k === l; c.door.visible = k === l; }
       cornerClay.scene.visible = l === 'clay' || l === 'felt';
+      const fh = l === 'felt' ? textile.feltHouses() : feltHouses;
+      if (fh) fh.group.visible = l === 'felt';
+      if (housesClay) housesClay.scene.visible = l !== 'felt';
       for (const m of doorParts) m.visible = l === 'clay' || l === 'felt';
       // camera collision and ground probes follow whichever corner is showing
-      const all = [...clayCornerMeshes, ...Object.values(textile.corners).flatMap((c) => c.collide), ...(felt ? felt.collide : [])];
-      const want = on ? on.collide : l === 'felt' && felt ? felt.collide : clayCornerMeshes;
+      const all = [...clayCornerMeshes, ...clayHouseMeshes, ...(feltHouses ? feltHouses.collide : []), ...Object.values(textile.corners).flatMap((c) => c.collide), ...(felt ? felt.collide : [])];
+      const want = [...(on ? on.collide : l === 'felt' && felt ? felt.collide : clayCornerMeshes), ...(l === 'felt' ? feltHouses.collide : clayHouseMeshes)];
       for (const m of all) { const i = collidables.indexOf(m); if (i >= 0) collidables.splice(i, 1); }
       for (const m of want) collidables.push(m);
       const handmade = l === 'textile', wasHandmade = prev === 'textile';

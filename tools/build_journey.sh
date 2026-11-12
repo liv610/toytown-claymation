@@ -14,7 +14,7 @@ base64 -w0 sequence/assets/gift.glb > "$OUT/assets/gift.glb.txt"
 cp region/assets/region.json "$OUT/assets/"; cp journey/assets/stills/*.jpg "$OUT/assets/stills/"
 if [ "${TEXTILE:-0}" = 1 ]; then
   for f in static_base static_base_lo corner_clay; do base64 -w0 textile/assets/$f.glb > "$OUT/assets/$f.glb.txt"; done
-  cp textile/assets/corner.json "$OUT/assets/"
+  cp textile/assets/corner.json textile/assets/houses.json "$OUT/assets/"
   cp journey/assets/stills_felt/*.jpg "$OUT/assets/stills/"   # felt stills (backdrop, fallback, toys, shop window)
 fi
 python3 - "$OUT" "${TEXTILE:-0}" <<'PY'

@@ -121,3 +121,20 @@ export function buildCorner(spec) {
     lampMaterial: materials().lamp, update(t) { timeU.value = t; },
   };
 }
+
+/**
+ * The region's other houses (houses.json, written by export_region.py --split-houses: the hillside behind the street,
+ * the square, cottages and farmhouses), each sewn in felt at the footprint, height, pitch and colour the clay village
+ * used. Background detail: bigger roof tabs, coarser stuffing, no shutters or stitching (house() detail 0).
+ */
+export function buildFeltHouses(specs) {
+  const t0 = performance.now(), k = extendKit(makeKit(77)), group = new THREE.Group();
+  group.name = 'felt houses';
+  let i = 0;
+  for (const h of Object.values(specs)) house(k, h, { detail: 0, seed: 11 + i++, style: 'felt' });
+  const meshes = kitMeshes(k);
+  for (const m of meshes) group.add(m);
+  const collide = meshes.filter((m) => !m.isInstancedMesh && m.material && !/glow/i.test(m.material.name || ''));
+  let triangles = 0; for (const m of meshes) if (m.geometry && m.geometry.index) triangles += m.geometry.index.count / 3 * (m.isInstancedMesh ? m.count : 1);
+  return { group, collide, count: i, triangles: Math.round(triangles), buildMs: performance.now() - t0 };
+}
