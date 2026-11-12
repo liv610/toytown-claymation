@@ -41,7 +41,7 @@ export function createDioramaMap(host, pins) {
     // ~5 s glide from the board down to the square (skippable: the village can start from any pose)
     async enter(placeId, { reducedMotion } = {}) {
       mounted = false; pins.setVisible('map-toytown', false);
-      const A = VILLAGE_POSES.arrival;
+      const A = (host.poses && host.poses.arrival) || VILLAGE_POSES.arrival;   // the look's own arrival (felt: the storybook hero camera)
       const keys = [
         [0.00, host.cur.pos.clone(), host.cur.look.clone(), host.cur.fov],
         [0.35, B(42, -150, 85), B(6, -12, 0.5), 47],

@@ -15,6 +15,7 @@ export function createDeparture(host, { onBeat, onEnd }) {
   const gift = new T.Group(); host.scene.add(gift); gift.visible = false;
   const paper = new T.MeshStandardMaterial({ color: 0xc8342c, roughness: 0.55 }); patch(paper, 'clay', {}, true);
   const ribbon = new T.MeshStandardMaterial({ color: 0xf2d27a, roughness: 0.35, metalness: 0.3 });
+  if (host.onLook) host.onLook((l) => { ribbon.metalness = l === 'felt' ? 0 : 0.3; ribbon.roughness = l === 'felt' ? 0.9 : 0.35; });   // felt: a cloth ribbon, not foil
   const S = 0.55;
   const box = new T.Mesh(new T.BoxGeometry(S, S * 0.8, S), paper); box.castShadow = true; gift.add(box);
   gift.add(new T.Mesh(new T.BoxGeometry(S * 1.02, S * 0.82, S * 0.16), ribbon), new T.Mesh(new T.BoxGeometry(S * 0.16, S * 0.82, S * 1.02), ribbon));

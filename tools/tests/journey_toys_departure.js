@@ -4,7 +4,7 @@ const stills = process.argv[2], rev = process.argv[3];
   const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const p = await b.newPage({ viewport: { width: 800, height: 600 } });
   p.on('pageerror', (e) => console.log('PAGEERROR ' + e.message)); p.on('console', (m) => { if (/departure/.test(m.text())) console.log(m.text()); });
-  await p.goto((process.env.TT_URL || 'http://localhost:8765') + '/journey/index.html?capture=1&q=high&variant=explore');
+  await p.goto((process.env.TT_URL || 'http://localhost:8765') + '/journey/index.html?capture=1&q=high&variant=explore' + (process.env.QS ? '&' + process.env.QS : ''));
   await p.waitForFunction(() => window.__journey.world.departure, null, { timeout: 500000, polling: 1000 });
   await p.evaluate(() => { const w = window.__journey.world; w.host.setPaused(true); w.map.unmount(); w.village.leave(); w.shop.enter(); });
   const grab = (q = 0.85) => p.evaluate((q) => window.__journey.world.host.renderer.domElement.toDataURL('image/jpeg', q), q);

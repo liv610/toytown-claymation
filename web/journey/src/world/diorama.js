@@ -15,6 +15,8 @@ import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { computeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
+import { sanitizePass } from './sanitize_pass.js';
+import { feltTexture } from '../../../textile/src/vendor/felt_materials.js';
 
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
@@ -41,23 +43,63 @@ float cells(vec3 p){ vec3 i=floor(p), f=fract(p); float d=1.0;
 `;
 const KINDS = { clay: 0, wood: 0, cobble: 0, snow: 1, fabric: 2, felt: 3, terrain: 4, water: 5 };
 export const timeU = { value: 0 };
+// 1 = the felt look: the same world re-skinned as soft wool felt (no fibres), quilted ground, batting snow, stitched
+// water. One shared uniform, so every patched material switches at once and nothing has to be rebuilt.
+export const feltU = { value: 0 };
+const feltTexU = { value: null };   // the felt test's own wool tile (vendor feltTexture), made on first use
+const FELT_GLSL = /* glsl */`
+// distance (m) to the nearest quilting seam of a diamond grid, and the position along that seam
+vec2 quilt(vec2 xz, float S){ vec2 q = vec2(xz.x + xz.y, xz.x - xz.y) / (S * 1.4142);
+  vec2 f = abs(fract(q) - 0.5); float du = (0.5 - f.x), dv = (0.5 - f.y);
+  return du < dv ? vec2(du * S * 1.4142, q.y * S * 1.4142) : vec2(dv * S * 1.4142, q.x * S * 1.4142); }
+// a running stitch along a seam: 1 on the thread, anti-aliased, fading out when it gets thinner than a pixel
+vec4 triplanar(sampler2D t, vec3 p, vec3 n, float s){
+  vec3 w = pow(abs(n), vec3(4.0)); w /= (w.x + w.y + w.z + 1e-5);
+  return texture2D(t, p.yz * s) * w.x + texture2D(t, p.xz * s + 0.37) * w.y + texture2D(t, p.xy * s + 0.71) * w.z; }
+float stitch(float d, float along, float w, float dash){
+  float px = fwidth(d) + 1e-4, ww = max(w, px);
+  float on = smoothstep(ww + px, ww, d) * step(fract(along / dash), 0.58);
+  return on * clamp(w / ww, 0.0, 1.0); }
+`;
 export function patch(mat, kind, extras = {}, local = false) {
   const c2 = extras.color2 ? new THREE.Color().fromArray(extras.color2) : null;
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uKind = { value: KINDS[kind] ?? 0 };
     sh.uniforms.uC2 = { value: c2 || new THREE.Color(1, 1, 1) };
-    sh.uniforms.uT = timeU;
+    sh.uniforms.uT = timeU; sh.uniforms.uFelt = feltU; sh.uniforms.tFelt = feltTexU;
     const src = local ? 'vec4(position, 1.0)' : '(modelMatrix * vec4(transformed, 1.0))';
     const srcI = local ? 'vec4(position, 1.0)' : '(modelMatrix * instanceMatrix * vec4(transformed, 1.0))';
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
       .replace('#include <worldpos_vertex>', `#include <worldpos_vertex>\n#ifdef USE_INSTANCING\nvWPos = ${srcI}.xyz;\n#else\nvWPos = ${src}.xyz;\n#endif`);
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform int uKind; uniform vec3 uC2; uniform float uT;\n' + NOISE)
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform int uKind; uniform vec3 uC2; uniform float uT; uniform float uFelt; uniform sampler2D tFelt;\n' + NOISE + FELT_GLSL)
       .replace('#include <color_fragment>', `#include <color_fragment>
         if (uKind == 4) { float m = fbm(vWPos * 0.09) * 0.6 + fbm(vWPos * 0.6) * 0.4; diffuseColor.rgb *= 0.82 + 0.36 * m; }
         else {
           float drift = fbm(vWPos * 0.9);
           if (uKind == 2) { float st = step(0.5, fract((vWPos.x + 0.025*fbm(vWPos*4.0)) / 0.64)); diffuseColor.rgb = mix(diffuseColor.rgb, uC2, st); }
           diffuseColor.rgb *= uKind == 3 ? 0.92 + 0.16 * drift : 0.86 + 0.28 * drift;
+        }
+        float fThread = 0.0; vec4 ftx = vec4(0.5);
+        if (uFelt > 0.5) {
+          // wool: the felt test's fibre tile (lighter and darker hairs, clumps), mapped in world space
+          ftx = triplanar(tFelt, vWPos, normalize(cross(dFdx(vWPos), dFdy(vWPos))), 3.0);
+          diffuseColor.rgb *= (0.9 + 0.16 * ftx.b) * (0.9 + 0.2 * ftx.g) * (0.96 + 0.08 * fbm(vWPos * 0.7));
+          float lum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+          diffuseColor.rgb = max(mix(vec3(lum), diffuseColor.rgb, 1.18), 0.0);   // dyed wool: a touch richer than clay
+          if (uKind == 4) {             // the ground is a quilt: puffs between stitched seams
+            vec2 qs = quilt(vWPos.xz, 26.0);
+            diffuseColor.rgb *= 0.8 + 0.2 * smoothstep(0.0, 4.5, qs.x);
+            fThread = stitch(qs.x, qs.y, 0.11, 1.1);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.84, 0.62), fThread * 0.85);
+          } else if (uKind == 5) {      // navy felt water with wavy running stitches
+            float wy = vWPos.z + 0.9 * sin(vWPos.x * 0.35) + 0.5 * sin(vWPos.x * 0.11 + 1.7);
+            float d = abs(fract(wy / 7.0) - 0.5) * 7.0;
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09, 0.15, 0.36), 0.7);
+            fThread = stitch(d, vWPos.x, 0.07, 0.8);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.8, 0.62), fThread * 0.8);
+          } else if (uKind == 1) {      // batting snow: bright, a little uneven
+            diffuseColor.rgb *= 0.95 + 0.07 * fbm(vWPos * 0.8);
+          }
         }`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         {
@@ -67,16 +109,34 @@ export function patch(mat, kind, extras = {}, local = false) {
           else if (uKind == 1) { h = -0.9*cells(vWPos*11.0) - 0.35*cells(vWPos*34.0) + 0.6*fbm(vWPos*6.0); amp = 0.035; }
           else if (uKind == 3) { h = 0.5*fbm(vWPos*60.0) + 0.5*fbm(vWPos*160.0) + 0.4*cells(vWPos*9.0); amp = 0.006; }
           else { h = 0.9*cells(vWPos*3.5 + fbm(vWPos*1.2)) + 0.6*fbm(vWPos*7.0) + 0.15*fbm(vWPos*90.0); amp = 0.025; }
+          if (uFelt > 0.5) {          // felt: soft stuffed puffs and a fine wool nap, no thumbprints
+            if (uKind == 4) { vec2 qs = quilt(vWPos.xz, 26.0); h = 1.6 * smoothstep(0.0, 6.0, qs.x) + 0.3 * fbm(vWPos * 0.15) + 0.05 * fbm(vWPos * 5.0); amp = 0.45; }
+            else if (uKind == 1) { h = fbm(vWPos * 0.9) + 0.25 * fbm(vWPos * 7.0); amp = 0.05; }
+            else if (uKind == 5) { h = 0.4 * fbm(vWPos * 0.5) + 0.1 * fbm(vWPos * 8.0); amp = 0.05; }
+            else { h = 0.7 * fbm(vWPos * 1.6) + 0.3 * (ftx.r + 0.5 * ftx.a); amp = 0.012; }
+          }
           float far = clamp(length(vViewPosition) / (uKind == 4 ? 900.0 : 160.0), 0.0, 1.0);
           amp *= 1.0 - 0.85 * far;
           vec3 dpx = dFdx(-vViewPosition), dpy = dFdy(-vViewPosition);
           float dhx = dFdx(h)*amp, dhy = dFdy(h)*amp;
           vec3 r1 = cross(dpy, normal), r2 = cross(normal, dpx);
           float det = dot(dpx, r1);
-          normal = normalize(abs(det) * normal - sign(det) * (dhx * r1 + dhy * r2));
-        }`);
+          vec3 nb = abs(det) * normal - sign(det) * (dhx * r1 + dhy * r2);
+          normal = dot(nb, nb) > 1e-12 ? normalize(nb) : normal;
+        }`)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+        if (uFelt > 0.5 && uKind != 5) roughnessFactor = max(roughnessFactor, 0.93);
+        if (uFelt > 0.5 && uKind == 5) roughnessFactor = 0.9;`)
+      .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
+        if (uFelt > 0.5) metalnessFactor = 0.0;`)
+      .replace('#include <opaque_fragment>', `
+        if (uFelt > 0.5) {   // felt sheen: loose surface fibres catch the light at grazing angles
+          float g = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.0);
+          outgoingLight += g * 0.55 * totalDiffuse * vec3(1.0, 0.97, 0.92);
+        }
+        #include <opaque_fragment>`);
   };
-  mat.customProgramCacheKey = () => 'tt-' + kind + (local ? '-l' : '');
+  mat.customProgramCacheKey = () => 'tt2-' + kind + (local ? '-l' : '');
 }
 
 // ------------------------------------------------------------------ quality tiers
@@ -142,6 +202,15 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; scene.background = t;
   }
   const fogNear = new THREE.Color(0x2a2030), fogFar = new THREE.Color(0x2b3346);
+  // the felt look lights the whole region like the felt style test: a deep-blue night, warm key, cool rim, more bloom
+  const RL = { exposure: 1.25, key: 2.6, hemiK: 1 };
+  const nightSky = (() => {
+    const c = document.createElement('canvas'); c.width = 4; c.height = 256;
+    const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
+    gr.addColorStop(0, '#0a0c1f'); gr.addColorStop(0.55, '#12183a'); gr.addColorStop(0.82, '#26315e'); gr.addColorStop(1, '#141a32');
+    g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
   scene.fog = new THREE.FogExp2(fogNear.clone(), 0.018);
   const camera = new THREE.PerspectiveCamera(45, W() / H(), 0.2, 2500);
   let fovH = 45;
@@ -386,13 +455,14 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
   const smoke = new THREE.Points(smokeGeo, smokeMat); smoke.frustumCulled = false; scene.add(smoke);
 
   // ---------------- post
-  let composer = null, bokeh = null;
+  let composer = null, bokeh = null, bloomPass = null;
   if (cfg.post) {
     composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
+    composer.addPass(new RenderPass(scene, camera)); composer.addPass(sanitizePass());
     if (cfg.ao) { const ao = new GTAOPass(scene, camera, W(), H()); ao.blendIntensity = 0.8; composer.addPass(ao); }
     if (cfg.dof) { bokeh = new BokehPass(scene, camera, { focus: 10, aperture: 0.0006, maxblur: 0.006 }); composer.addPass(bokeh); }
-    composer.addPass(new UnrealBloomPass(new THREE.Vector2(W(), H()), 0.22, 0.45, 0.92));
+    composer.addPass(sanitizePass());   // AO and depth of field can carry a bad pixel on; bloom would spread it
+    bloomPass = new UnrealBloomPass(new THREE.Vector2(W(), H()), 0.22, 0.45, 0.92); composer.addPass(bloomPass);
     composer.addPass(new OutputPass());
   }
 
@@ -414,7 +484,8 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     const at = (u) => {
       const e = smoother(u); let i = 0; while (i < keys.length - 2 && e > keys[i + 1][0]) i++;
       const k = clamp((e - keys[i][0]) / (keys[i + 1][0] - keys[i][0]));
-      return { pos: pc.getPointAt(e), look: lc.getPointAt(e), fov: lerp(keys[i][3], keys[i + 1][3], smooth(k)) };
+      const ee = Math.min(e, 1 - 1e-6);   // getPointAt(1) can round past the curve's end and return nothing
+      return { pos: pc.getPointAt(ee), look: lc.getPointAt(ee), fov: lerp(keys[i][3], keys[i + 1][3], smooth(k)) };
     };
     if (dur <= 0) { const f = at(1); setPose(f); return Promise.resolve('done'); }
     return new Promise((resolve) => { move = { kind: 'fly', t: 0, dur, at, resolve }; });
@@ -444,6 +515,24 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     if (camera.position.y < 0.45) camera.position.y = 0.45;
   }
 
+  // ---------------- region light: clay dusk or the felt night (felt style test: felt_index.js lights)
+  const clayLight = { bg: scene.background, fogNear: fogNear.clone(), fogFar: fogFar.clone(), sky: hemi.color.clone(), ground: hemi.groundColor.clone(),
+    key: keyLight.color.clone(), outdoor: outdoor.map((d) => ({ d, c: d.color.clone(), base: d.userData.base })) };
+  function regionLight(night) {
+    scene.background = night ? nightSky : clayLight.bg;
+    fogNear.copy(night ? new THREE.Color(0x161b36) : clayLight.fogNear); fogFar.copy(night ? new THREE.Color(0x1e2648) : clayLight.fogFar);
+    hemi.color.copy(night ? new THREE.Color(0x6670b0) : clayLight.sky); hemi.groundColor.copy(night ? new THREE.Color(0x3a2a30) : clayLight.ground);
+    keyLight.color.copy(night ? new THREE.Color(0xffd6a6) : clayLight.key);
+    for (const o of clayLight.outdoor) {      // rim: cool blue moonlight, as in the felt test; fill unchanged
+      const rim = o.base > 1; o.d.color.copy(night && rim ? new THREE.Color(0x9fb0ff) : o.c);
+      o.d.userData.base = night && rim ? 0.9 : o.base; if (!interior) o.d.intensity = o.d.userData.base;
+    }
+    Object.assign(RL, night ? { exposure: 1.1, key: 2.3, hemiK: 1.15 } : { exposure: 1.25, key: 2.6, hemiK: 1 });
+    if (!interior) keyLight.intensity = RL.key;
+    renderer.toneMappingExposure = RL.exposure;
+    if (bloomPass) bloomPass.strength = night ? 0.32 : 0.22;
+  }
+
   // ---------------- scale-dependent atmosphere
   const VC = B(5, -12, 0);
   function atmosphere(alt, dist) {
@@ -458,7 +547,7 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     const far = smooth((alt - 15) / 160);
     scene.fog.density = clamp(0.36 / Math.max(dist, 1), 0.0009, 0.018);
     scene.fog.color.copy(fogNear).lerp(fogFar, far);
-    hemi.intensity = lerp(0.4, 0.55, far);
+    hemi.intensity = lerp(0.4, 0.55, far) * RL.hemiK;
     const size = clamp(dist * 0.75, 22, 300), sc = keyLight.shadow.camera;
     sc.left = -size; sc.right = size; sc.top = size * 0.8; sc.bottom = -size * 0.6; sc.near = 1; sc.far = 120 + size * 2.2; sc.updateProjectionMatrix();
     keyLight.target.position.copy(cur.look);
@@ -475,7 +564,7 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     stat.scene.visible = !lo && !feltNear; statLo.scene.visible = lo && !feltNear;
     if (feltNear) { const L = baseHidden.light; scene.fog.color.setHex(L.fog); scene.fog.density = L.fogDensity; hemi.intensity = L.hemi[2]; smoke.visible = false; }
     if (baseHidden) baseHidden.group.visible = feltNear;    // the felt hills and sky only belong down in the town
-    if (textile) { for (const [l, c] of Object.entries(textile.corners)) c.group.visible = !lo && host.look === l; if (cornerClay) cornerClay.scene.visible = !lo && host.look === 'clay'; }
+    if (textile) { for (const [l, c] of Object.entries(textile.corners)) c.group.visible = !lo && host.look === l; if (cornerClay) cornerClay.scene.visible = !lo && (host.look === 'clay' || host.look === 'felt'); }   // felt: the clay corner is the map-scale stand-in until the felt street fades in
     snowPts.visible = !feltNear && alt < 22 && dist < 45;
     if (bokeh) {
       bokeh.uniforms.focus.value = dist;
@@ -566,14 +655,14 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
         const tB = felt.render(dt, dist, k >= 1);
         for (const o of felt.shared) scene.add(o);
         if (k < 1) {
-          renderer.toneMappingExposure = 1.25;
+          renderer.toneMappingExposure = RL.exposure;
           let tA;
           if (composer) { composer.renderToScreen = false; composer.render(dt); tA = composer.readBuffer.texture; composer.renderToScreen = true; }
           else { renderer.setRenderTarget(felt.clayRT); renderer.render(scene, camera); renderer.setRenderTarget(null); tA = felt.clayRT.texture; }
           const u = felt.blend.material.uniforms; u.tA.value = tA; u.tB.value = tB; u.uK.value = k;
           renderer.toneMappingExposure = 1; renderer.render(felt.blendScene, felt.blendCam);
         }
-        renderer.toneMappingExposure = 1.25;
+        renderer.toneMappingExposure = RL.exposure;
         return;
       }
     }
@@ -605,7 +694,7 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     // rooms (the toy shop interior) switch the outdoor lighting off and their own lamps on
     setInterior(room) {
       interior = room;
-      keyLight.intensity = room ? 0 : (feltNear ? baseHidden.light.key[1] : 2.6); hemi.intensity = room ? 0.32 : 0.4;
+      keyLight.intensity = room ? 0 : (feltNear ? baseHidden.light.key[1] : RL.key); hemi.intensity = room ? 0.32 : 0.4;
       if (room) hemi.color.setRGB(1.0, 0.82, 0.66); else hemi.color.set(feltNear ? baseHidden.light.hemi[0] : 0x8a90c8);
       for (const d of outdoor) d.intensity = room ? 0 : d.userData.base;
       for (const l of host.roomLights) l.visible = !!room;
@@ -616,6 +705,7 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     get moving() { return !!move; },
     fps: () => perf.ms.length ? 1000 / (perf.ms.reduce((s, x) => s + x, 0) / perf.ms.length) : 0,
     get composer() { return composer; },
+    get feltMix() { return felt ? felt.mix : null; },   // 0 clay map … 1 felt street (tests)
     stats: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, tier: cfg.tier }),
     warm(poses) { for (const p of poses) { setPose(p); frame(1 / 60); } },
     dofBoost: 1,
@@ -628,6 +718,9 @@ export async function createDiorama({ container, base, b64, quality = 'high', on
     setLook(l) {
       if (!textile || !['clay', 'textile', 'felt'].includes(l) || l === host.look) return;
       const prev = host.look; host.look = l;
+      if (l === 'felt' && !feltTexU.value) feltTexU.value = feltTexture();
+      feltU.value = l === 'felt' ? 1 : 0;
+      regionLight(l === 'felt');   // the whole region (map, descent, station) re-skins as felt
       const on = l === 'clay' || l === 'felt' ? null : textile.ensure(l);   // felt: the clay set stays for the map; the felt street is its own scene
       for (const [k, c] of Object.entries(textile.corners)) { c.group.visible = k === l; c.door.visible = k === l; }
       cornerClay.scene.visible = l === 'clay' || l === 'felt';

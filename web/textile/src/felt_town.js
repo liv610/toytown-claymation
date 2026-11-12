@@ -10,6 +10,7 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { sanitizePass } from '../../journey/src/world/sanitize_pass.js';
 import { buildFelt } from './vendor/felt_index.js';
 import { fuzzU } from './vendor/felt_materials.js';
 import { LAMP, CAMS } from './vendor/layout.js';
@@ -43,12 +44,13 @@ export function buildFeltTown({ marine, renderer, camera, width, height, dpr = 1
   // the test page's post-processing, sized for this canvas
   const rt = new THREE.WebGLRenderTarget(width * dpr, height * dpr, { type: THREE.HalfFloatType, samples: 4 });
   const composer = new EffectComposer(renderer, rt);
-  composer.addPass(new RenderPass(s.scene, camera));
+  composer.addPass(new RenderPass(s.scene, camera)); composer.addPass(sanitizePass());
   let bokeh = null;
   if (post) {
     const ao = new GTAOPass(s.scene, camera, width, height); ao.blendIntensity = s.ao ?? 0.9; ao.updateGtaoMaterial({ radius: s.aoRadius ?? 0.35, distanceExponent: 1.5, thickness: 1.0, scale: 1.0 }); composer.addPass(ao);
     bokeh = new BokehPass(s.scene, camera, { focus: 15, aperture: s.bokeh ?? 0.0003, maxblur: 0.009 }); composer.addPass(bokeh);
   }
+  composer.addPass(sanitizePass());   // no bad pixel reaches bloom (it would spread into black blocks)
   composer.addPass(new UnrealBloomPass(new THREE.Vector2(width, height), s.bloom ?? 0.32, 0.55, 0.88));
   composer.addPass(new OutputPass());
 

@@ -115,18 +115,20 @@ export function createVillage(host, pins, { onHotspot, allowPin = () => true }) 
   showPins(false);
 
   let mounted = false;
+  const same = (a, b) => a.pos.distanceTo(b.pos) < 0.01 && a.look.distanceTo(b.look) < 0.01;
   async function enter(handoff = { kind: 'pose' }, { reducedMotion } = {}) {
     mounted = true;
     host.explore(null);
     if (handoff.kind === 'screen') {           // from a 2D map: start in the sky above town and settle
       host.setPose(VILLAGE_POSES.sky);
-      await host.tweenTo(VILLAGE_POSES.arrival, reducedMotion ? 0 : 2.6);
+      await host.tweenTo(pose('arrival'), reducedMotion ? 0 : 2.6);
     } else if (handoff.pose) {
+      // the map's descent ends on this look's arrival pose (one continuous move); a skipped descent settles here
       host.setPose(handoff.pose);
-      if (handoff.pose !== VILLAGE_POSES.arrival) await host.tweenTo(VILLAGE_POSES.arrival, reducedMotion ? 0 : 1.2);
-    } else host.setPose(VILLAGE_POSES.arrival);
+      if (!same(handoff.pose, pose('arrival'))) await host.tweenTo(pose('arrival'), reducedMotion ? 0 : 1.2);
+    } else host.setPose(pose('arrival'));
     if (!mounted) return;
-    await host.tweenTo(pose('overview'), reducedMotion ? 0 : 1.6);
+    if (!same(pose('arrival'), pose('overview'))) await host.tweenTo(pose('overview'), reducedMotion ? 0 : 1.6);
     freeLook();
   }
   // a look can bring its own camera (the felt world's storybook poses); otherwise the village's own
