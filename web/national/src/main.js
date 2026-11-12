@@ -11,7 +11,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { timeU, LOOK } from './clay.js';
 import { loadGeography, toWorld, MAP_W, MAP_H } from './geo.js';
 import { buildRelief } from './relief.js';
-import { buildFeltRelief } from './felt_relief.js';
+import { buildFeltRelief, threadScale } from './felt_relief.js';
 import { createCommunity, S } from './community.js';
 import { createChapter1, CH1 } from './chapter1.js';
 
@@ -63,7 +63,11 @@ const ttSite = geo.sites.toytown, [tx, tz] = toWorld(...ttSite.a);
 const toyTownWorld = V(tx, geo.siteBase(ttSite) + 0.25, tz);
 // Toy Town's place on the map: a little glowing hub where the lines meet (the real Toy Town is its own experience)
 const hubGlow = new THREE.PointLight(0xffc070, 0, 40, 2); hubGlow.position.copy(toyTownWorld).add(V(0, 6, 0)); scene.add(hubGlow);
-const star = new THREE.Mesh(new THREE.OctahedronGeometry(2.2), new THREE.MeshStandardMaterial({ color: 0xffe08a, emissive: 0xffc040, emissiveIntensity: 1.6 }));
+const star = FELT ? (() => {   // a stuffed gold felt star, glowing, where the routes meet
+  const pts = []; for (let i = 0; i < 10; i++) { const a = Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 1.5 : 3.6; pts.push(new THREE.Vector2(Math.cos(a) * r, Math.sin(a) * r)); }
+  const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: 0.8, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.45, bevelSegments: 3 }); g.center();
+  return new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0xffd060, emissive: 0xffb030, emissiveIntensity: 1.4, roughness: 0.9 }));
+})() : new THREE.Mesh(new THREE.OctahedronGeometry(2.2), new THREE.MeshStandardMaterial({ color: 0xffe08a, emissive: 0xffc040, emissiveIntensity: 1.6 }));
 star.position.copy(toyTownWorld).add(V(0, 7, 0)); scene.add(star);
 
 // ------------------------------------------------------------------ lights: golden hour over the map → blue hour in the street
@@ -88,7 +92,8 @@ const rig = { target: V(0, 0, 18), dist: 1000, az: 0, el: THREE.MathUtils.degToR
 function nationalPose() {
   const aspect = innerWidth / innerHeight, fv = THREE.MathUtils.degToRad(camera.fov) / 2;
   const d = Math.max((MAP_H * 0.5) / Math.tan(fv), (MAP_W * 0.47) / (Math.tan(fv) * aspect));
-  return { target: V(0, 0, aspect < 1 ? 10 : 22), dist: d, az: 0, el: THREE.MathUtils.degToRad(aspect < 1 ? 62 : 56) };
+  // the felt map is a picture map: looked at more from above (like the reference), the clay one a little more from the side
+  return { target: V(0, 0, aspect < 1 ? 10 : (FELT ? 14 : 22)), dist: d, az: 0, el: THREE.MathUtils.degToRad(aspect < 1 ? (FELT ? 70 : 62) : (FELT ? 68 : 56)) };
 }
 Object.assign(rig, nationalPose());
 const NAT_MIN = 90, STREET_MIN = 6 * S, STREET_MAX = 140 * S;
@@ -210,9 +215,11 @@ renderer.domElement.addEventListener('wheel', (e) => { e.preventDefault(); if (m
 function atmosphere(t) {
   const k = smooth((Math.log(rig.dist) - Math.log(4)) / (Math.log(260) - Math.log(4)));   // 0 = street, 1 = national
   const dusk = 1 - k;
-  key.intensity = lerp(0.55, 2.4, k); key.color.setRGB(lerp(0.75, 1.0, k), lerp(0.8, 0.88, k), lerp(1.0, 0.72, k));
-  hemi.intensity = lerp(0.42, 0.72, k); hemi.color.setRGB(lerp(0.55, 0.88, k), lerp(0.62, 0.9, k), lerp(0.95, 1.0, k));
-  renderer.toneMappingExposure = lerp(1.25, 1.1, k);
+  // the felt picture map is warmly lit from above, like the reference; the clay map keeps its golden hour
+  const W_ = FELT ? 1 : 0;
+  key.intensity = lerp(0.55, 2.4 + 0.3 * W_, k); key.color.setRGB(lerp(0.75, 1.0, k), lerp(0.8, 0.88 + 0.04 * W_, k), lerp(1.0, 0.72 + 0.06 * W_, k));
+  hemi.intensity = lerp(0.42, 0.72 + 0.28 * W_, k); hemi.color.setRGB(lerp(0.55, 0.88 + 0.12 * W_, k), lerp(0.62, 0.9 + 0.02 * W_, k), lerp(0.95, 1.0 - 0.18 * W_, k));
+  renderer.toneMappingExposure = lerp(1.25, 1.1 + 0.1 * W_, k);
   scene.fog.color.setRGB(lerp(0.32, 0.42, k), lerp(0.33, 0.38, k), lerp(0.45, 0.42, k));
   scene.fog.density = 0.32 / (rig.dist * 7);
   const size = clamp(rig.dist * 0.85, 2.5, 640), sc = key.shadow.camera;
@@ -224,7 +231,8 @@ function atmosphere(t) {
   town.root.visible = rig.dist < 220;
   relief.setLineFade(smooth((Math.log(rig.dist) - Math.log(14)) / (Math.log(60) - Math.log(14))));
   town.setDusk(smooth((dusk - 0.35) / 0.65), t, px);
-  hubGlow.intensity = lerp(0, 900, k); star.rotation.y = t * 0.6;
+  hubGlow.intensity = lerp(0, FELT ? 160 : 900, k); star.rotation.y = t * 0.6;
+  threadScale.value = lerp(0.05, 1, smooth((Math.log(rig.dist) - Math.log(12)) / (Math.log(420) - Math.log(12))));   // felt: floss slims on the way down
   // up close, lit windows fill much of the frame: keep their bloom from washing the scene out
   bloom.strength = lerp(0.12, 0.35, smooth((Math.log(rig.dist) - Math.log(0.4)) / (Math.log(6) - Math.log(0.4))));
 }

@@ -6,14 +6,36 @@
 //   * mountains are soft wool roving with batting snow on the peaks; snowy ground round the story towns;
 //   * felt firs, little felt houses with lit windows, rail routes as padded cords with a running stitch on top;
 //   * batting clouds drifting over the map (they thin out as the camera comes down).
+// Session 1 of the owner's picture-map reference (warm patchwork, chunky gold stitching on every state and the coast,
+// routes as bold dashed stitching meeting at Toy Town, blue felt lakes with wave stitching, stitched rivers, woolly
+// mottled felt, big batting clouds at the edges). Landmarks and Canada / Mexico come in later sessions.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { feature } from 'topojson-client';
-import { geoPath } from 'd3-geo';
+import { geoPath, geoAlbers } from 'd3-geo';
+// the lower-48 part of Albers USA (identical there), defined beyond the border too (lake shores, later Canada)
+const A48 = geoAlbers().scale(1300).translate([487.5, 305]);
 import { felt } from './felt.js';
 import { MAP_W, MAP_H, toWorld, fbm } from './geo.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+// the Great Lakes' northern shores (lon, lat), closed through US land (which covers it): the lakes are drawn as brighter
+// blue felt. Approximate; replaced by real shorelines once Canada is part of the map.
+const LAKES = [[-92.3, 46.6], [-90.4, 47.8], [-89.3, 48.1], [-88.2, 48.9], [-86.4, 48.8], [-85.0, 47.9], [-84.6, 46.6], [-83.6, 46.25], [-81.6, 46.1],
+  [-80.4, 45.4], [-80.1, 44.6], [-81.3, 44.3], [-81.7, 43.4], [-82.4, 43.0], [-82.5, 42.3], [-81.3, 42.65], [-80.0, 42.75], [-79.1, 42.95],
+  [-79.7, 43.3], [-78.6, 43.95], [-77.2, 44.05], [-76.3, 44.25], [-75.9, 43.9], [-76.3, 43.2], [-79.5, 42.2], [-83.5, 41.4], [-87.5, 41.4], [-88.2, 42.4], [-89.0, 45.4], [-92.6, 46.2]];
+// stylised river courses (lon, lat): Mississippi, Missouri, Ohio, Colorado, Columbia, Rio Grande, Arkansas, Snake
+const RIVERS = [
+  [[-95.2, 47.2], [-93.3, 44.9], [-91.2, 43.0], [-90.6, 41.5], [-91.3, 40.2], [-90.2, 38.6], [-89.2, 37.0], [-90.0, 35.1], [-91.1, 33.0], [-91.4, 31.0], [-90.1, 30.0], [-89.4, 29.2]],
+  [[-111.5, 47.5], [-108.0, 47.7], [-104.0, 48.0], [-101.0, 47.4], [-100.4, 44.4], [-97.5, 42.8], [-96.0, 41.3], [-94.6, 39.1], [-92.2, 38.6], [-90.3, 38.8]],
+  [[-80.0, 40.4], [-81.6, 39.3], [-82.6, 38.6], [-84.5, 39.1], [-85.8, 38.3], [-87.6, 37.9], [-89.1, 37.0]],
+  [[-105.9, 40.2], [-107.6, 39.5], [-109.6, 38.6], [-111.2, 37.0], [-112.5, 36.1], [-114.0, 36.0], [-114.6, 34.5], [-114.7, 32.7]],
+  [[-117.5, 48.9], [-118.0, 47.6], [-119.2, 46.2], [-121.0, 45.7], [-122.7, 45.7], [-123.9, 46.2]],
+  [[-106.6, 37.5], [-106.7, 35.0], [-106.5, 31.8], [-104.5, 29.6], [-101.4, 29.8], [-99.5, 27.5], [-97.2, 25.9]],
+  [[-106.2, 38.9], [-104.6, 38.2], [-101.0, 37.9], [-97.3, 37.7], [-95.4, 35.8], [-92.3, 34.7], [-91.1, 33.9]],
+  [[-110.8, 44.0], [-112.5, 43.0], [-114.8, 42.6], [-116.9, 43.8], [-117.0, 46.4], [-119.0, 46.2]],
+];
+export const threadScale = { value: 1 };
 const SLAB = 6, SEA_Y = -2.6, PUFF = 0.9;
 const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const hash = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
@@ -33,6 +55,20 @@ function regionColour(ax, ay) {
   return c;
 }
 
+// families of felt colours by region (after the owner's reference picture map)
+function patchFamily(ax, ay) {
+  const west = ax < 300, mtn = ax >= 230 && ax < 420, plains = ax >= 400 && ax < 600, south = ay > 360, north = ay < 200, east = ax >= 760;
+  if (west && ay < 180) return [0x6f8a4a, 0x9a5a3c, 0xc98a5a, 0x7d9a5a];                 // Pacific Northwest: olive, rust, peach
+  if (west) return [0xb8553a, 0xd8956a, 0x8a9a5a, 0xc87a55];                             // California / Nevada: rust, peach, sage
+  if (mtn && south) return [0xd9a05a, 0xc8673f, 0xe0b878, 0xb85a3a];                     // Southwest: mustard, terracotta
+  if (mtn) return [0x9a8a9a, 0xd8956a, 0x8a9a5a, 0xc8a066];                              // mountain states: heather, peach, sage
+  if (plains && south) return [0xd9873f, 0xc9a24e, 0xb8573a, 0xe0b878, 0x8a9a52];        // Texas / Oklahoma: orange, mustard, rust, olive
+  if (plains) return [0xe0b25a, 0xd98a7a, 0x9aa858, 0xc87a4a, 0xe8c27a];                 // plains: mustard, rose-peach, olive, rust, wheat
+  if (east && north) return [0x9a6a5a, 0x7d9a5a, 0xc8826e, 0x8aa06a];                    // New England: rose-brown, sage
+  if (south) return [0x6f9a4a, 0x9aa858, 0x5f8a4a, 0xc8a066, 0xd8956a];                  // the South: greens, olive, peach
+  return [0x8aa058, 0xd8a070, 0x5f8a4a, 0xc9a24e, 0xc87060, 0xa8b468];                   // Midwest / mid-Atlantic: olive, peach, green, mustard, rose
+}
+
 export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
   const group = new THREE.Group(); scene.add(group);
   const res = tier === 'high' ? [720, 450] : tier === 'medium' ? [480, 300] : [320, 200];
@@ -44,10 +80,12 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
   const cg = colC.getContext('2d'); cg.scale(K, K); const cpath = geoPath(null, cg);
   cg.fillStyle = '#000'; cg.fillRect(0, 0, MAP_W, MAP_H);
   states.features.forEach((f, i) => {
-    const [cx, cy] = cpath.centroid(f), base = regionColour(cx, cy), hsl = {}; base.getHSL(hsl);
-    const id = +f.id || i, j = hash(id), j2 = hash(id * 3.7);
-    // patchwork: each state its own piece of felt, clearly different from its neighbours but in the region's family
-    const col = new THREE.Color().setHSL((hsl.h + (j - 0.5) * 0.11 + 1) % 1, Math.min(1, hsl.s * (0.75 + 0.5 * j2)), Math.min(0.78, Math.max(0.28, hsl.l + (((id * 7) % 3) - 1) * 0.07 + (j2 - 0.5) * 0.08)));
+    const [cx, cy] = cpath.centroid(f), id = +f.id || i, j = hash(id), j2 = hash(id * 3.7);
+    // patchwork: each state a piece of felt from its region's family of warm colours (rust, peach, olive, mustard,
+    // sage, terracotta, rose), so neighbours differ but each region keeps its character
+    const fam = patchFamily(cx, cy), pick = fam[Math.floor(j * fam.length) % fam.length];
+    const col = new THREE.Color(pick).lerp(regionColour(cx, cy), 0.06), hsl = {}; col.getHSL(hsl);
+    col.setHSL(hsl.h, Math.min(1, hsl.s * (0.92 + 0.18 * j2)), Math.min(0.74, Math.max(0.3, hsl.l + (j2 - 0.5) * 0.07)));
     cg.fillStyle = '#' + col.getHexString(); cg.beginPath(); cpath(f); cg.fill();
   });
   const colTex = new THREE.CanvasTexture(colC); colTex.colorSpace = THREE.SRGBColorSpace; colTex.anisotropy = 8;
@@ -94,9 +132,16 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
         { vec2 muv = ${uv('vFP')};
           if (texture2D(uMask, muv).r < 0.5) discard;
           diffuseColor.rgb = texture2D(uCol, muv).rgb;                                         // the state's felt patch
+          float nub = ffbm(vFP * 0.32) * 0.6 + ffbm(vFP * 1.1) * 0.4;                           // woolly, mottled felt
+          diffuseColor.rgb *= 0.84 + 0.3 * nub;
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.95, 0.93, 0.89), smoothstep(0.15, 0.7, vSnow));   // batting snow
           diffuseColor.rgb *= 1.0 - 0.26 * smoothstep(0.3, 0.9, vSeam);                     // shade in the seam
-        }`);
+        }`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        { float hn = ffbm(vFP * 0.32) * 0.55 + ffbm(vFP * 1.1) * 0.22;                              // the nubbly wool, as relief
+          vec3 dpx = dFdx(-vViewPosition), dpy = dFdy(-vViewPosition); float dhx = dFdx(hn), dhy = dFdy(hn);
+          vec3 r1 = cross(dpy, normal), r2 = cross(normal, dpx); float det = dot(dpx, r1);
+          vec3 nb = abs(det) * normal - sign(det) * (dhx * r1 + dhy * r2); normal = dot(nb, nb) > 1e-12 ? normalize(nb) : normal; }`);
   } });
   const land = new THREE.Mesh(sgeo, landMat); land.receiveShadow = land.castShadow = true; group.add(land);
 
@@ -112,43 +157,65 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
       if (L < 1e-6) continue;
       const tx = (x1 - x0) / L, ty = (y1 - y0) / L;
       let nxv = -ty, nyv = tx; if (!geo.inside(x0 + (x1 - x0) / 2 + nxv * 1.2, y0 + (y1 - y0) / 2 + nyv * 1.2)) { nxv = -nxv; nyv = -nyv; }
-      for (let s = (1.8 - acc); s <= L; s += 1.8) {
-        const ex = x0 + tx * s, ey = y0 + ty * s, edge = p3(ex, ey, 0.2), spoke = p3(ex + nxv * 1.25, ey + nyv * 1.25, 0.18);
+      for (let s = (3.4 - acc); s <= L; s += 3.4) {
+        const ex = x0 + tx * s, ey = y0 + ty * s, edge = p3(ex, ey, 0.35), spoke = p3(ex + nxv * 2.6, ey + nyv * 2.6, 0.25);
         edge.y = Math.max(edge.y, 0.5); addStitch(threads.coast, edge, spoke);
         if (prev) addStitch(threads.coast, prev, edge);
         prev = edge;
       }
-      acc = (acc + L) % 1.8;
+      acc = (acc + L) % 3.4;
     }
   }
-  // state borders: dashed running stitch
-  for (const line of geo.borders.coordinates) {
-    let acc = 0;
+  // a dashed stitch along any polyline of map points (ax, ay): dash length, period, lift
+  const dashes = (list, line, dash, period, lift = 0.12, phase = 0) => {
+    let acc = phase;
     for (let i = 0; i < line.length - 1; i++) {
       const [x0, y0] = line[i], [x1, y1] = line[i + 1], L = Math.hypot(x1 - x0, y1 - y0); if (L < 1e-6) continue;
       const tx = (x1 - x0) / L, ty = (y1 - y0) / L;
-      for (let s = (1.5 - acc) % 1.5; s + 0.85 <= L + 0.4; s += 1.5) addStitch(threads.border, p3(x0 + tx * s, y0 + ty * s, 0.1), p3(x0 + tx * Math.min(L, s + 0.85), y0 + ty * Math.min(L, s + 0.85), 0.1));
-      acc = (acc + L) % 1.5;
+      for (let s = (period - acc) % period; s <= L; s += period) { const e = Math.min(L, s + dash); if (e - s > dash * 0.35) addStitch(list, p3(x0 + tx * s, y0 + ty * s, lift), p3(x0 + tx * e, y0 + ty * e, lift)); }
+      acc = (acc + L) % period;
     }
-  }
+  };
+  // state borders: chunky gold stitches, like beads of floss along every seam
+  for (const line of geo.borders.coordinates) dashes(threads.border, line, 1.7, 3.0, 0.2);
+  // rivers: stitched in blue floss (stylised courses, for the picture map — not survey data)
+  const rivers = RIVERS.map((r) => r.map(([lo, la]) => A48([lo, la]))).map((r) => r.filter(Boolean));
+  threads.river = [];
+  for (const r of rivers) { const sm = new THREE.CatmullRomCurve3(r.map(([x, y]) => V(x, 0, y)), false, 'centripetal'); const pts = sm.getSpacedPoints(Math.ceil(sm.getLength() / 1.5)).map((p) => [p.x, p.z]); dashes(threads.river, pts, 1.6, 2.5, 0.15); }
+  // thread thickness follows the camera (threadScale, set by the page): chunky picture-map floss over the whole
+  // country, slimming to real stitches as the camera comes down to a town
   const threadMesh = (list, radius, color, cast = false) => {
-    const g = new THREE.CylinderGeometry(radius, radius, 1, 5, 1); g.translate(0, 0.5, 0);
-    const m = felt(new THREE.MeshStandardMaterial({ color }), 'felt', { key: 'thread' });
+    const g = new THREE.CylinderGeometry(radius, radius, 1, 8, 1); g.translate(0, 0.5, 0);
+    const m = felt(new THREE.MeshStandardMaterial({ color }), 'felt', { key: 'thread', extra: (sh) => {
+      sh.uniforms.uThick = threadScale;
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uThick;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed.xz *= uThick; transformed.y = mix(transformed.y, 0.5, 0.0);');
+    } });
     const im = new THREE.InstancedMesh(g, m, list.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = V(0, 1, 0);
     list.forEach(([a, b], i) => { const d = b.clone().sub(a), L = d.length(); q.setFromUnitVectors(up, d.normalize()); m4.compose(a, q, V(1, L, 1)); im.setMatrixAt(i, m4); });
     im.castShadow = cast; im.receiveShadow = true; group.add(im); return im;
   };
-  threadMesh(threads.coast, 0.2, 0xe0b04a, true);
-  threadMesh(threads.border, 0.14, 0xf3e7d2);
+  // chunky floss, sized for the picture map (a stitch reads at the whole-country view, as in the reference)
+  threadMesh(threads.coast, 0.95, 0xebb53e, true);
+  threadMesh(threads.border, 0.72, 0xe8b84e);
+  threadMesh(threads.river, 0.75, 0x5f9cf0);
 
   // ---------------- navy felt sea with wavy running stitches; a wooden frame round it all
+  const lakeC = document.createElement('canvas'); lakeC.width = MAP_W / 2; lakeC.height = MAP_H / 2;
+  { const g = lakeC.getContext('2d'); g.scale(0.5, 0.5); g.fillStyle = '#000'; g.fillRect(0, 0, MAP_W, MAP_H); g.fillStyle = '#fff'; g.beginPath();
+    LAKES.map(([lo, la]) => A48([lo, la])).filter(Boolean).forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.fill(); }
+  const lakeTex = new THREE.CanvasTexture(lakeC);
   const sea = new THREE.Mesh(new THREE.PlaneGeometry(MAP_W * 1.32, MAP_H * 1.42),
-    felt(new THREE.MeshStandardMaterial({ color: 0x1f2c58 }), 'sea', { key: 'sea', extra: (sh) => {
-      sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
-        { float wy = vFP.z + 2.2 * sin(vFP.x * 0.05) + 1.1 * sin(vFP.x * 0.13 + 1.7);
-          float d = abs(fract(wy / 16.0) - 0.5) * 16.0;
-          float th = fstitch(d, vFP.x + 3.0 * floor(wy / 16.0), 0.22, 2.4);
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.55, 0.64, 0.82), th * 0.75); }`);
+    felt(new THREE.MeshStandardMaterial({ color: 0x1d2a5e }), 'sea', { key: 'sea', extra: (sh) => {
+      sh.uniforms.uLake = { value: lakeTex };
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D uLake;').replace('#include <color_fragment>', `#include <color_fragment>
+        { float lake = texture2D(uLake, ${uv('vFP')}).r;
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.13, 0.32, 0.66), lake);                    // the Great Lakes: brighter blue felt
+          float sp = mix(16.0, 4.5, lake);
+          float wy = vFP.z + mix(2.2, 0.6, lake) * sin(vFP.x * mix(0.05, 0.3, lake)) + 1.1 * sin(vFP.x * 0.13 + 1.7);
+          float d = abs(fract(wy / sp) - 0.5) * sp;
+          float th = fstitch(d, vFP.x + 3.0 * floor(wy / sp), mix(0.22, 0.14, lake), mix(2.4, 1.2, lake));
+          diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.55, 0.64, 0.82), vec3(0.92, 0.94, 0.98), lake), th * 0.8); }`);
     } }));
   sea.rotation.x = -Math.PI / 2; sea.position.y = SEA_Y; sea.receiveShadow = true; group.add(sea);
   const wood = felt(new THREE.MeshStandardMaterial({ color: 0x6b4a32 }), 'wood', { key: 'frame' });
@@ -208,7 +275,7 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
   imH.castShadow = imH.receiveShadow = true; group.add(imH, imW);
 
   // ---------------- rail routes: padded felt cords with a running stitch along the top, meeting at Toy Town
-  const COLS = { red: 0xb8322a, blue: 0x2f5f9e, green: 0x3a7a52 };
+  const COLS = { red: 0xc8302a, blue: 0x2f5fb8, green: 0x2f8a46 };
   const lines = {};
   for (const [name, pts] of Object.entries(geo.lines)) {
     const ctrl = new THREE.CatmullRomCurve3(pts.map(([ax, ay]) => { const [x, z] = toWorld(ax, ay); return V(x, 0, z); }), false, 'centripetal');
@@ -216,13 +283,15 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
     const dense = []; for (let i = 0; i <= N; i++) { const p = ctrl.getPointAt(i / N); const ax = p.x + MAP_W / 2, ay = p.z + MAP_H / 2; p.y = Math.max(surfaceY(ax, ay), 0.3) + 0.45; dense.push(p); }
     for (let pass = 0; pass < 3; pass++) for (let i = 1; i < dense.length - 1; i++) dense[i].y = Math.max(dense[i].y, (dense[i - 1].y + dense[i + 1].y) / 2 - 0.2);
     const curve = new THREE.CatmullRomCurve3(dense, false, 'centripetal');
-    const tube = new THREE.TubeGeometry(curve, N * 2, 0.55, 8, false); tube.scale(1, 1, 1);
-    const m = felt(new THREE.MeshStandardMaterial({ color: COLS[name], transparent: true }), 'felt', { key: 'cord' });
-    const mesh = new THREE.Mesh(tube, m); mesh.castShadow = mesh.receiveShadow = true; group.add(mesh);
-    // the stitch along the cord's crown
-    const st = []; const CL = curve.getLength();
-    for (let s = 0.4; s + 0.9 < CL; s += 1.6) { const a = curve.getPointAt(s / CL), b = curve.getPointAt((s + 0.9) / CL); a.y += 0.52; b.y += 0.52; st.push([a, b]); }
-    const sm = threadMesh(st, 0.12, 0xf6eedc); sm.material.transparent = true;
+    // bold stitches in the route's colour, a small white stitch in each gap (like the reference's dashed routes)
+    const cst = [], wst = []; const CL = curve.getLength();
+    for (let s = 0.2; s + 3.6 < CL; s += 5.4) {
+      const a = curve.getPointAt(s / CL), b = curve.getPointAt((s + 3.6) / CL), c = curve.getPointAt((s + 4.2) / CL), d = curve.getPointAt(Math.min(1, (s + 4.9) / CL));
+      for (const p of [a, b, c, d]) p.y -= 0.1;
+      cst.push([a, b]); wst.push([c, d]);
+    }
+    const mesh = threadMesh(cst, 1.05, COLS[name]); mesh.material.transparent = true;
+    const sm = threadMesh(wst, 0.62, 0xf6eedc); sm.material.transparent = true;
     lines[name] = { curve, L: curve.getLength(), color: COLS[name], mesh, stitch: sm };
   }
   // little felt trains (engine + two cars) shuttle along each line
@@ -243,14 +312,15 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
   // ---------------- batting clouds drifting over the map
   const clouds = [];
   const cloudMat = felt(new THREE.MeshStandardMaterial({ color: 0xf7f4ee, transparent: true }), 'snow', { key: 'cloud' });
-  for (let i = 0; i < (tier === 'low' ? 8 : 16); i++) {
-    const parts = []; const n = 4 + Math.floor(rnd() * 4);
-    for (let j = 0; j < n; j++) { const r = 5 + rnd() * 6; parts.push(new THREE.SphereGeometry(r, 12, 8).scale(1.4, 0.55, 1).translate((j - n / 2) * 6 + rnd() * 3, rnd() * 2, (rnd() - 0.5) * 7)); }
+  const EDGE = [[-0.47, 0.36], [0.45, 0.33], [-0.5, -0.22], [0.5, -0.05], [0.1, 0.47], [-0.2, -0.47], [0.32, -0.46], [-0.42, 0.05]];
+  for (let i = 0; i < (tier === 'low' ? 5 : EDGE.length); i++) {
+    const parts = []; const n = 4 + Math.floor(rnd() * 3);
+    for (let j = 0; j < n; j++) { const r = 8 + rnd() * 7; parts.push(new THREE.SphereGeometry(r, 12, 8).scale(1.4, 0.55, 1).translate((j - n / 2) * 6 + rnd() * 3, rnd() * 2, (rnd() - 0.5) * 7)); }
     const g = mergeGeometries(parts); const p = g.attributes.position;
     for (let k = 0; k < p.count; k++) { const x = p.getX(k), y = p.getY(k), z = p.getZ(k), w = 1 + 0.12 * (fbm(x * 0.2 + i, z * 0.2) - 0.5); p.setXYZ(k, x * w, y * w, z * w); }
     g.computeVertexNormals();
-    const m = new THREE.Mesh(g, cloudMat); m.position.set((rnd() - 0.5) * MAP_W * 0.95, 55 + rnd() * 30, (rnd() - 0.5) * MAP_H * 0.9); m.castShadow = false;
-    m.userData.v = 1.5 + rnd() * 2; group.add(m); clouds.push(m);
+    const m = new THREE.Mesh(g, cloudMat); m.position.set(EDGE[i][0] * MAP_W + (rnd() - 0.5) * 30, 18 + rnd() * 10, EDGE[i][1] * MAP_H + (rnd() - 0.5) * 20); m.castShadow = false;
+    m.userData.y0 = m.position.y; group.add(m); clouds.push(m);
   }
 
   function update(dt, t) {
@@ -262,7 +332,7 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
         const tg = tr.ln.curve.getTangentAt(k); p.rotation.set(0, Math.atan2(-tg.z, tg.x) + (fwd ? 0 : Math.PI), 0);
       });
     }
-    for (const c of clouds) { c.position.x += c.userData.v * dt; if (c.position.x > MAP_W * 0.6) c.position.x = -MAP_W * 0.6; }
+    clouds.forEach((c, i) => { c.position.y = c.userData.y0 + 1.2 * Math.sin(t * 0.25 + i); });   // a gentle bob, they stay at the edges
   }
   // the symbolic lines (and the clouds) belong to the map view: they fade away as the camera comes down into a town
   function setLineFade(k) {
