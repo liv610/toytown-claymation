@@ -4,7 +4,7 @@
 // SwiftShader (no GPU): not real-device frame rates.
 const { chromium } = require('playwright'); const fs = require('fs');
 const out = process.argv[2]; fs.mkdirSync(out, { recursive: true });
-const want = (process.argv[3] || 'country,mid,low,street,story').split(',');
+const want = (process.argv[3] || 'country,mid,low,street,story').split(',');   // also: rockies, southwest
 (async () => {
   const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   for (const look of (process.env.LOOKS || 'felt,clay').split(',')) {
@@ -19,6 +19,11 @@ const want = (process.argv[3] || 'country,mid,low,street,story').split(',');
         if (v === 'mid') return N.shot(0.55);
         if (v === 'low') return N.shot(0.82);
         if (v === 'street') return N.shot(1);
+        const T = (x, z) => ({ x, y: 0, z, clone() { return this; } });
+        if (v === 'rockies' || v === 'southwest') {   // close looks at the mountains and the red-rock country
+          const [x, z] = v === 'rockies' ? [-168.7, -51.1] : [-236.3, 21.0];
+          const rig = N.rig; rig.target.set(x, 0, z); return N.pose({ target: rig.target.clone().set(x, 4, z), dist: v === 'rockies' ? 150 : 110, az: 0.35, el: 0.62 });
+        }
         return N.story(N.beats().hold + 1.2, true);
       }, v);
       fs.writeFileSync(`${out}/${v}_${look}.jpg`, Buffer.from(url.split(',')[1], 'base64')); console.log(look, v);
