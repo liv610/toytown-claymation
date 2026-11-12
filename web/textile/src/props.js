@@ -6,24 +6,24 @@ import { rect, roundRect, star, M, V, TAU, rng, prim } from './vendor/kit.js';
 import { C, holly, wreath, bow } from './buildings.js';
 
 /** the town Christmas tree: a felt-branch fir in a painted crate, wooden-button ornaments, bows, warm beads, a yarn garland, a stuffed star */
-export function christmasTree(k, sk, x, z, h = 3.2) {
+export function christmasTree(k, sk, x, z, h = 3.2, { R: Rw = 1.2, ornaments = 30, lights = 40, orn = 1 } = {}) {   // (R, counts, ornament scale: the storybook shop's giant tree)
   const base = M([x, 0, z]), r = rng(4);
   k.solid(new THREE.BoxGeometry(0.72, 0.42, 0.72), base.clone().multiply(M([0, 0.21, 0])), C.red, { batch: 'paint', smooth: false });
   for (const y of [0.08, 0.34]) k.solid(new THREE.BoxGeometry(0.74, 0.05, 0.74), base.clone().multiply(M([0, y, 0])), 0x8a2a2a, { batch: 'paint', smooth: false });
-  const H = h - 0.3, R = 1.2;
+  const H = h - 0.3, R = Rw;
   k.feltFir(x, 0.3, z, H, { R, tiers: 10, col: 0x1d5233, col2: 0x245c3a, light: 0x2f6e45, seed: 11, snow: 0.25, dowel: true });
   // ornaments hang from branch tips (ring by ring, the radius of each tier)
   const tierR = (t) => R * (1 - t * 0.8) + 0.06, tierY = (t) => 0.3 + H * 0.2 + t * H * 0.72;
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < ornaments; i++) {
     const t = 0.05 + 0.85 * r(), a = r() * TAU, d = tierR(t) * 0.8, y = tierY(t) - 0.42 * tierR(t) * 0.55, p = V(x + Math.cos(a) * d, y, z + Math.sin(a) * d);
     const F = new THREE.Matrix4().lookAt(V(0, 0, 0), V(-Math.cos(a), 0, -Math.sin(a)), V(0, 1, 0)).setPosition(p);
-    if (i % 6 === 5) bow(k, F, [C.berry, C.gold, 0x3d6fb0][i % 3], 0.75);
-    else { k.button(F, 0, 0, 0, 0.055, [C.berry, C.gold, 0x3d6fb0, C.cream, 0x2f7a4c][i % 5]); k.S.add(p.clone().add(V(0, 0.05, 0)), p.clone().add(V(0, 0.13, 0)), C.thread, 0.005); }
+    if (i % 6 === 5) bow(k, F, [C.berry, C.gold, 0x3d6fb0][i % 3], 0.75 * orn);
+    else { k.button(F, 0, 0, 0, 0.055 * orn, [C.berry, C.gold, 0x3d6fb0, C.cream, 0x2f7a4c][i % 5]); k.S.add(p.clone().add(V(0, 0.05, 0)), p.clone().add(V(0, 0.13, 0)), C.thread, 0.005); }
   }
-  for (let i = 0; i < 40; i++) { const t = r() * 0.95, a = r() * TAU, d = tierR(t) * (0.6 + 0.3 * r()); sk.lights.add(new THREE.SphereGeometry(0.03, 6, 4), M([x + Math.cos(a) * d, tierY(t) - 0.3 * d * 0.5, z + Math.sin(a) * d]), i % 3 ? 0xffd28a : 0xffb070, { vary: 0.03, extra: (i * 0.37) % 1 }); }
+  for (let i = 0; i < lights; i++) { const t = r() * 0.95, a = r() * TAU, d = tierR(t) * (0.6 + 0.3 * r()); sk.lights.add(new THREE.SphereGeometry(0.03 * Math.sqrt(orn), 6, 4), M([x + Math.cos(a) * d, tierY(t) - 0.3 * d * 0.5, z + Math.sin(a) * d]), i % 3 ? 0xffd28a : 0xffb070, { vary: 0.03, extra: (i * 0.37) % 1 }); }
   const pts = []; for (let u = 0; u <= 1.0001; u += 0.025) { const t = 0.08 + u * 0.78, a = u * TAU * 2.6, d = tierR(t) * 0.78; pts.push(V(x + Math.cos(a) * d, tierY(t) - 0.12 - 0.08 * Math.abs(Math.sin(u * TAU * 5.2)), z + Math.sin(a) * d)); }
-  k.yarn(pts, 0.016, 0xc23a3a);
-  const st = star(0, 0, 0.27, 0.12, 5), SP = M([x, 0.3 + H + 0.12, z]);
+  k.yarn(pts, 0.016 * orn, 0xc23a3a);
+  const st = star(0, 0, 0.27 * Math.sqrt(orn), 0.12 * Math.sqrt(orn), 5), SP = M([x, 0.3 + H + 0.12, z]);
   k.pillow(st, 0.05, SP, C.gold, { flat: 2.5, rings: 3, step: 0.03, amp: 0.004 });
   k.S.blanket(SP, st, 0.0, 0x9a6a20, { step: 0.045, depth: 0.03, r: 0.006 });
   return { top: V(x, h + 0.2, z) };

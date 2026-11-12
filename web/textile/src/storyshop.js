@@ -140,7 +140,7 @@ export function buildStoryShop() {
 
   // ---------------- the giant felt Christmas tree under the windows, presents round it
   const treeX = 0, treeZ = -hd + 3.2;
-  christmasTree(k, sk, treeX, treeZ, 7.6);
+  christmasTree(k, sk, treeX, treeZ, 7.6, { R: 2.9, ornaments: 110, lights: 220, orn: 2.2 });
   for (let i = 0; i < 14; i++) {
     const a = (i / 14) * TAU + r() * 0.2, d = 1.4 + r() * 0.8, w = 0.4 + r() * 0.45, h = 0.3 + r() * 0.4, col = [C.red, 0x3d6fb0, C.gold, C.green, 0x8a5aa0, C.cream][i % 6];
     const F = M([treeX + Math.cos(a) * d, h / 2, treeZ + Math.sin(a) * d], [0, r() * TAU, 0]);
@@ -203,7 +203,7 @@ export function buildStoryShop() {
   // ---------------- the shop counter and display table for the interactive toys (anchors returned to the journey)
   const tableTop = 0.86, table = [1.4, tableTop, 3.2];
   k.solid(new THREE.CylinderGeometry(1.25, 1.25, 0.1, 40), M([table[0], tableTop - 0.05, table[2]]), 0x8a5a36, { batch: 'paint' });
-  k.drape(M([table[0], tableTop + 0.002, table[2]], [-Math.PI / 2, 0, 0]), -1.15, 1.15, -1.15, 1.15, { thick: 0.04, edge: 0.05, rag: 0.03, res: 0.08, color: 0xf0e2c4 });
+  k.drape(M([table[0], tableTop + 0.002, table[2]], [-Math.PI / 2, 0, 0]), -1.15, 1.15, -1.15, 1.15, { thick: 0.04, edge: 0.05, rag: 0.03, res: 0.08, color: 0xd9c4a0 });
   k.solid(new THREE.CylinderGeometry(0.18, 0.26, tableTop - 0.1, 16), M([table[0], (tableTop - 0.1) / 2, table[2]]), 0x6a3f22, { batch: 'paint' });
   k.solid(new THREE.CylinderGeometry(0.6, 0.6, 0.06, 24), M([table[0], 0.03, table[2]]), 0x6a3f22, { batch: 'paint' });
   // a low three-tier display stand beside it (teddy, blocks, drum)
@@ -239,12 +239,12 @@ export function buildStoryShop() {
   let triangles = 0; group.traverse((o) => { if (o.isMesh && o.geometry.index) triangles += (o.geometry.index.count / 3) * (o.isInstancedMesh ? o.count : 1); });
   // the room's own lights (the journey switches them on inside): warm lamps, the tree's glow, cool window light
   const lights = [
-    { pos: [0, H - 1.2, 2.5], color: 0xffc488, intensity: 60, distance: 22 },
-    { pos: [treeX, 3.2, treeZ + 2.2], color: 0xffb060, intensity: 40, distance: 12 },
-    { pos: [-6.5, 4.5, 2.5], color: 0xffd0a0, intensity: 26, distance: 14 },
-    { pos: [6.5, 4.5, 2.5], color: 0xffd0a0, intensity: 26, distance: 14 },
-    { pos: [0, 5.5, -hd + 1.0], color: 0x9fb0ff, intensity: 10, distance: 10 },
-    { pos: [table[0], 2.6, table[2] + 1.2], color: 0xffe0b8, intensity: 9, distance: 5 },
+    { pos: [0, H - 1.5, 2.5], color: 0xffbf80, intensity: 20, distance: 20 },
+    { pos: [treeX + 2.5, 2.2, treeZ + 3.6], color: 0xffd0a0, intensity: 7, distance: 9 },
+    { pos: [-6.5, 4.5, 2.5], color: 0xffc890, intensity: 9, distance: 12 },
+    { pos: [6.5, 4.5, 2.5], color: 0xffc890, intensity: 9, distance: 12 },
+    { pos: [0, 5.5, -hd + 1.0], color: 0x8fa0ff, intensity: 6, distance: 9 },
+    { pos: [table[0] - 1.4, 2.6, table[2] + 1.4], color: 0xffd8a8, intensity: 2.5, distance: 5 },
   ];
   const mats = materials();
   return {

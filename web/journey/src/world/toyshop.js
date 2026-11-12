@@ -229,7 +229,7 @@ export function createToyShop(host, pins, { windowImage, onToy, storybook = null
   });
 
   const W2 = (x, y, z) => O.clone().add(V(x, y, z));
-  const OVERVIEW = story ? { pos: W2(1.6, 2.3, 7.2), look: W2(-0.4, 3.0, -3.0), fov: 64 } : { pos: W2(1.0, 1.95, 2.75), look: W2(-0.15, 1.2, -1.7), fov: 60 };
+  const OVERVIEW = story ? { pos: W2(3.4, 3.1, 7.3), look: W2(-1.2, 2.6, -2.0), fov: 72 } : { pos: W2(1.0, 1.95, 2.75), look: W2(-0.15, 1.2, -1.7), fov: 60 };
   const EXPLORE = story ? { minDistance: 1.6, maxDistance: 9.5, minPolar: 40, maxPolar: 88, box: [O.x - 8.6, O.x + 8.6, O.z - 6.6, O.z + 7.4] }
     : { minDistance: 1.4, maxDistance: 3.6, minPolar: 45, maxPolar: 88, box: [O.x - 2.5, O.x + 2.5, O.z - 2.4, O.z + 1.2] };
   let mounted = false;

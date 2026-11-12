@@ -17,9 +17,9 @@ const out = process.argv[2]; fs.mkdirSync(out, { recursive: true });
   };
   await p.evaluate(() => { const w = window.__journey.world; w.host.setPose(w.shop.poses.overview); });
   await grab('overview');
-  await p.evaluate(() => { const w = window.__journey.world, h = w.host, O = w.shop.origin, T = h.THREE; h.setPose({ pos: new T.Vector3(O.x - 6.5, 4.2, O.z + 6.8), look: new T.Vector3(O.x + 1.5, 3.4, O.z - 4.5), fov: 66 }); });
+  await p.evaluate(() => { const w = window.__journey.world, h = w.host, O = w.shop.origin, T = h.THREE; h.explore(null); h.setPose({ pos: new T.Vector3(O.x - 6.5, 4.2, O.z + 6.8), look: new T.Vector3(O.x + 1.5, 3.4, O.z - 4.5), fov: 66 }); });
   await grab('wide');
-  await p.evaluate(() => { const w = window.__journey.world, h = w.host, O = w.shop.origin, T = h.THREE; h.setPose({ pos: new T.Vector3(O.x + 0.5, 1.6, O.z + 3.5), look: new T.Vector3(O.x - 0.5, 6.0, O.z - 6.0), fov: 70 }); });
+  await p.evaluate(() => { const w = window.__journey.world, h = w.host, O = w.shop.origin, T = h.THREE; h.explore(null); h.setPose({ pos: new T.Vector3(O.x + 0.5, 1.6, O.z + 3.5), look: new T.Vector3(O.x - 0.5, 6.0, O.z - 6.0), fov: 70 }); });
   await grab('up');
   for (const id of ['train', 'teddy']) {
     await p.evaluate(async (id) => { const w = window.__journey.world; await w.shop.focus(id, { reducedMotion: true }); const h = w.host; for (let i = 0; i < 12; i++) h.frame(0.1); }, id);
