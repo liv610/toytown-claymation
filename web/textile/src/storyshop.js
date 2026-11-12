@@ -207,9 +207,9 @@ export function buildStoryShop() {
   k.solid(new THREE.CylinderGeometry(0.18, 0.26, tableTop - 0.1, 16), M([table[0], (tableTop - 0.1) / 2, table[2]]), 0x6a3f22, { batch: 'paint' });
   k.solid(new THREE.CylinderGeometry(0.6, 0.6, 0.06, 24), M([table[0], 0.03, table[2]]), 0x6a3f22, { batch: 'paint' });
   // a low three-tier display stand beside it (teddy, blocks, drum)
-  const stand = [-1.6, 0, 2.6], tiers = [0.55, 1.05, 1.55];
+  const stand = [-1.6, 0, 2.6], tiers = [0.5, 1.18, 1.86];
   for (const [i, y] of tiers.entries()) k.solid(new THREE.BoxGeometry(1.5 - i * 0.2, 0.08, 0.6), M([stand[0], y - 0.04, stand[2] - i * 0.12]), 0x8a5a36, { batch: 'paint', smooth: false });
-  for (const x of [-0.72, 0.72]) k.solid(new THREE.BoxGeometry(0.08, 1.6, 0.6), M([stand[0] + x, 0.8, stand[2]]), 0x6a3f22, { batch: 'paint', smooth: false });
+  for (const x of [-0.72, 0.72]) k.solid(new THREE.BoxGeometry(0.08, 1.9, 0.6), M([stand[0] + x, 0.95, stand[2]]), 0x6a3f22, { batch: 'paint', smooth: false });
   for (const y of tiers) { const L = 1.4, n = 7, val = [[0, 0], [L, 0]]; for (let i = n; i >= 0; i--) val.push([(i / n) * L, -0.08 - 0.04 * Math.abs(Math.sin(i * Math.PI / 2))]); k.cut(val, null, M([stand[0] - 0.7, y - 0.02, stand[2] + 0.31]), C.red, { t: 0.02, amp: 0.003 }); }
   // the counter, with a brass bell and a felt cash box, by the entrance
   k.solid(new THREE.BoxGeometry(3.2, 1.05, 0.9), M([6.6, 0.52, 5.2]), 0x7a4b2a, { batch: 'paint', smooth: false });

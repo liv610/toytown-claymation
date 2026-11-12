@@ -104,7 +104,7 @@ export function createToyShop(host, pins, { windowImage, onToy, storybook = null
     if (!A) return [x, y, z];
     const tb = A.table, st = A.stand, ti = A.tiers;
     return { train: [tb[0] - 0.55, A.tableTop, tb[2] + 0.05], top: [tb[0] + 0.45, A.tableTop, tb[2] - 0.55], truck: [tb[0] + 0.5, A.tableTop, tb[2] + 0.45],
-      blocks: [st[0] + 0.25, ti[0], st[2] + 0.02], teddy: [st[0] - 0.25, ti[1], st[2] - 0.12], drum: [st[0] + 0.05, ti[2], st[2] - 0.24] }[id];
+      blocks: [st[0] + 0.1, ti[0], st[2] + 0.02], drum: [st[0] - 0.1, ti[1], st[2] - 0.12], teddy: [st[0], ti[2], st[2] - 0.24] }[id];   // teddy on top: nothing above it
   };
   const place = (id, g, x, y, z, ry = 0) => { g.position.set(...spot(id, x, y, z)); g.rotation.y = ry; if (story) g.scale.setScalar(1.5); room.add(g); toys[id] = { id, g, home: g.position.clone(), play: 0, t0: -9 }; return toys[id]; };
 
