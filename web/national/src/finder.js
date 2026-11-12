@@ -4,8 +4,11 @@
 //
 // createFinder(root, { directory, officialUrl, collapsed }) → { open(), collapse(), showCampaign(id, context?) }
 //   directory: a promise of loadDirectory()'s result (shared/campaigns.js)
-//   showCampaign(id) opens the same card from anywhere (the map will use it in step 3).
+//   showCampaign(id) opens the same card from anywhere (the map will use it).
+// The card always shows the shared selection (selection.js): choosing a campaign selects it, the card follows, and
+// "Back" clears it. The 3D map follows the same selection; the finder never talks to the map directly.
 import { normalizeZip, zipProblem, lookupZip } from '../../shared/campaigns.js';
+import { selection } from './selection.js';
 
 const el = (tag, props = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -29,8 +32,10 @@ export function createFinder(root, { directory, officialUrl, collapsed = false }
   const say = (t) => { live.textContent = ''; setTimeout(() => { live.textContent = t; }, 30); };
   const busy = (on) => document.body.classList.toggle('finder-busy', on);
 
+  const PILL = pill.textContent;
   function setCollapsed(c) {
     root.hidden = c; pill.hidden = !c;
+    const cur = selection.get(); pill.textContent = c && cur ? `Show: ${cur.campaign.name}` : PILL;   // reopen the card, no new search
     pill.setAttribute('aria-expanded', String(!c)); hideBtn.setAttribute('aria-expanded', String(!c));
     dispatchEvent(new Event('finderlayout'));
   }
@@ -62,6 +67,7 @@ export function createFinder(root, { directory, officialUrl, collapsed = false }
     clearError();
     if (!dir) { await directory; if (!dir) return; }
     const zip = normalizeZip(input.value); input.value = zip;
+    quiet = true; selection.clear(); quiet = false;   // a new search replaces any open card
     showResults(lookupZip(dir, zip));
   });
   root.querySelectorAll('[data-try]').forEach((b) => b.addEventListener('click', () => { input.value = b.dataset.try; form.requestSubmit(); }));
@@ -69,7 +75,7 @@ export function createFinder(root, { directory, officialUrl, collapsed = false }
   function row(c, note, ctx) {
     const b = el('button', { type: 'button', class: 'finder-row-btn' },
       el('span', { class: 'finder-row-name', text: c.name }), el('span', { class: 'finder-row-note', text: note }));
-    b.addEventListener('click', () => { opener = b; card(c, ctx); });
+    b.addEventListener('click', () => { opener = b; selection.select(c, { via: 'search', ...ctx }); });
     return el('li', {}, b);
   }
   function showResults(r) {
@@ -103,32 +109,43 @@ export function createFinder(root, { directory, officialUrl, collapsed = false }
     const relation = ctx && ctx.kind === 'serving' ? el('p', { class: 'finder-rel serving', text: `Serves ZIP code ${ctx.zip}` })
       : ctx && ctx.kind === 'nearby' ? el('p', { class: 'finder-rel nearby', text: `Nearby: about ${Math.round(ctx.miles)} miles from ZIP code ${ctx.zip}. It may not serve that ZIP code.` }) : null;
     const back = el('button', { type: 'button', class: 'btn finder-back', text: last ? '← Back to results' : '← Back to search' });
-    back.addEventListener('click', goBack);
+    back.addEventListener('click', () => selection.clear());
     const head = el('h3', { class: 'finder-h', tabIndex: -1, id: 'finderCardName' }, c.name, dir.test ? testTag() : null);
     out.replaceChildren(el('article', { class: 'finder-card', 'aria-labelledby': 'finderCardName' },
       back, head, relation,
       el('dl', {},
         el('dt', { text: 'Area served' }), el('dd', { text: c.serves.label }),
         el('dt', { text: 'Based in' }), el('dd', { text: c.location.label })),
-      el('a', { class: 'btn primary finder-site', href: c.website, target: '_blank', rel: 'noopener noreferrer' },
-        'Visit the campaign’s website', el('span', { class: 'sr', text: ` (${host}, opens in a new tab)` })),
+      el('div', { class: 'finder-card-actions' },
+        el('a', { class: 'btn primary finder-site', href: c.website, target: '_blank', rel: 'noopener noreferrer' },
+          'Visit the campaign’s website', el('span', { class: 'sr', text: ` (${host}, opens in a new tab)` })),
+        seeMap()),
       el('p', { class: 'finder-fine', text: dir.test ? `Fictional campaign for testing. Its link goes to ${host}, a placeholder address.` : host })));
     head.focus();
+  }
+  // the card follows the shared selection
+  let quiet = false;
+  selection.subscribe((cur) => { if (cur) card(cur.campaign, cur); else if (!quiet && out.querySelector('.finder-card')) goBack(); });
+  // narrow screens with the map running: tuck the finder away to see the campaign on the map (the pill brings it back)
+  function seeMap() {
+    const b = el('button', { type: 'button', class: 'btn finder-seemap', text: 'See it on the map' });
+    b.addEventListener('click', () => { setCollapsed(true); pill.focus(); });
+    return b;
   }
   function goBack() {
     if (last) { const o = opener && opener.querySelector('.finder-row-name').textContent; showResults(last);
       const again = o && [...out.querySelectorAll('.finder-row-btn')].find((b) => b.querySelector('.finder-row-name').textContent === o); if (again) again.focus(); }
     else { out.replaceChildren(); busy(false); input.focus(); }
   }
-  root.addEventListener('keydown', (e) => { if (e.key === 'Escape' && out.querySelector('.finder-card')) { e.preventDefault(); goBack(); } });
+  root.addEventListener('keydown', (e) => { if (e.key === 'Escape' && out.querySelector('.finder-card')) { e.preventDefault(); selection.clear(); } });
 
   if (collapsed) setCollapsed(true); else dispatchEvent(new Event('finderlayout'));
   return {
     open() { setCollapsed(false); if (!form.hidden) input.focus(); else out.querySelector('a')?.focus(); },
     collapse() { setCollapsed(true); },
-    async showCampaign(id, ctx = null) {
+    async showCampaign(id, ctx = {}) {
       await directory; const c = dir && dir.byId.get(id); if (!c) return false;
-      setCollapsed(false); opener = null; card(c, ctx); return true;
+      setCollapsed(false); opener = null; selection.select(c, { via: 'link', ...ctx }); return true;
     },
   };
 }

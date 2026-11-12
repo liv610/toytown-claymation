@@ -5,6 +5,7 @@
 // lazily imported world chunks).
 import { loadDirectory } from '../../shared/campaigns.js';
 import { createFinder } from './finder.js';
+import { selection } from './selection.js';
 
 const $ = (id) => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
@@ -53,5 +54,7 @@ const world = Q.get('map') === 'off'
     return false;
   });
 
+world.then((ok) => { if (ok) document.body.classList.add('map-ready'); });   // map-only extras (e.g. "See it on the map")
+
 // test hooks (no effect for visitors)
-window.__natShell = { world, finder, directory };
+window.__natShell = { world, finder, directory, selection };

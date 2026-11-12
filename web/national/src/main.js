@@ -15,6 +15,7 @@ import { buildFeltRelief, threadScale } from './felt_relief.js';
 import { createCommunity, S } from './community.js';
 import { createChapter1, CH1 } from './chapter1.js';
 import { fetchData } from '../../shared/data.js';
+import { attachCampaignFocus } from './campaign_focus.js';
 
 const $ = (id) => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
@@ -102,13 +103,13 @@ function nationalPose() {
 Object.assign(rig, nationalPose());
 const NAT_MIN = 90, STREET_MIN = 6 * S, STREET_MAX = 140 * S;
 let mode = 'national';                 // national | flying | town | story
+// a wider lens near the ground, like a miniature-set camera; a longer one over the country
+function fovFor(dist) { return lerp(innerWidth < innerHeight ? 64 : 50, 32, smooth((Math.log(dist) - Math.log(4)) / (Math.log(260) - Math.log(4)))); }
 function applyRig() {
   const ce = Math.cos(rig.el);
   camera.position.set(rig.target.x + rig.dist * ce * Math.sin(rig.az), rig.target.y + rig.dist * Math.sin(rig.el), rig.target.z + rig.dist * ce * Math.cos(rig.az));
   camera.lookAt(rig.target);
-  // a wider lens near the ground, like a miniature-set camera; a longer one over the country
-  const k = smooth((Math.log(rig.dist) - Math.log(4)) / (Math.log(260) - Math.log(4)));
-  camera.fov = lerp(innerWidth < innerHeight ? 64 : 50, 32, k);
+  camera.fov = fovFor(rig.dist);
   camera.near = Math.max(0.004, rig.dist * 0.01); camera.far = Math.max(60, rig.dist * 8); camera.updateProjectionMatrix();
 }
 
@@ -127,8 +128,9 @@ function makeFlight(from, to, dur, onDone) {
   } };
 }
 function snapshot() { return { target: rig.target.clone(), dist: rig.dist, az: rig.az, el: rig.el }; }
+const campaignFlight = () => mode === 'flying' && flight && flight.campaign;   // a short move to a selected campaign
 function descend() {
-  if (mode === 'flying') return;
+  if (mode === 'flying' && !campaignFlight()) return;
   mode = 'flying'; ui('flying-down');
   // land where Chapter 1 opens, then the chapter plays by itself (pause, skip and the help actions are always there)
   flight = makeFlight(snapshot(), rigFrom(ch1.shotWorld(0, REDUCED)), 7.5, () => startStory());
@@ -139,7 +141,7 @@ function rigFrom({ pos, look }) {
   return { target: look.clone(), dist, az: Math.atan2(d.x, d.z), el: Math.asin(d.y / dist) };
 }
 function ascend() {
-  if (mode === 'flying') return;
+  if (mode === 'flying' && !campaignFlight()) return;
   endStory();
   mode = 'flying'; ui('flying-up');
   flight = makeFlight(snapshot(), nationalPose(), 5.5, () => { mode = 'national'; ui('national'); });
@@ -270,6 +272,15 @@ $('descend').onclick = descend; $('pinMaple').onclick = descend; $('ascend').onc
 $('pinToy').onclick = () => window.open(TOYTOWN_URL, '_blank', 'noopener');
 // the ways-to-help bar and the dialogs' Close buttons are wired by the page shell (app.js), before the 3D map loads
 
+// ------------------------------------------------------------------ campaign selection (Milestone 1): the finder selects, the map follows
+// Only over the country view: during the descent, in Maple Hollow or in the story the selection is kept (the card stays
+// open) but the camera does not move and the pin is not shown.
+const campaigns = attachCampaignFocus({ scene, geo, relief, rig, camera, reduced: REDUCED,
+  regionalDist: () => nationalPose().dist, fovFor,
+  canMove: () => mode === 'national' || campaignFlight(),
+  fly: (pose) => { mode = 'flying'; flight = makeFlight(snapshot(), pose, 1.4, () => { mode = 'national'; }); flight.campaign = true; },
+  showing: () => mode === 'national' || campaignFlight(), flying: () => !!campaignFlight() });
+
 // ------------------------------------------------------------------ loop
 let last = performance.now(), paused = false;
 function frame(dt) {
@@ -280,7 +291,7 @@ function frame(dt) {
     if (flight.t >= 1) { const f = flight; flight = null; f.onDone(); }
   }
   if (mode === 'story' && story) storyStep(dt);
-  applyRig(); atmosphere(timeU.value); relief.update(dt, timeU.value); placePins();
+  applyRig(); atmosphere(timeU.value); relief.update(dt, timeU.value); placePins(); campaigns.update();
   composer.render(dt);
 }
 addEventListener('resize', () => { if (story) story.promptAt = null; camera.aspect = innerWidth / innerHeight; renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); if (mode === 'national') Object.assign(rig, nationalPose()); });
@@ -310,5 +321,6 @@ window.__nat = {
   },
   beats: () => ch1.beats,
   state: () => ({ mode, t: story && story.t, given: story && story.given, waited: story && story.waited, ended: story && story.ended }),
+  campaign: () => campaigns.state(),
   rig, siteWorld, S,
 };
