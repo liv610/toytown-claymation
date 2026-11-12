@@ -2,7 +2,11 @@
 // Same look as Toy Town's shader (world-space Voronoi lumps, fbm thumbprints, mottled colour), with one change
 // that matters across a 1000× zoom range: the sculpted detail fades out once it gets smaller than a pixel
 // (screen-space derivative), so nothing sparkles or turns to noise at middle distances.
+import { felt } from './felt.js';
 export const timeU = { value: 0 };
+// the felt look (default; ?look=clay shows the clay map): every clay surface becomes felt instead
+export const LOOK = { felt: false };
+const FELT_KIND = { clay: 'felt', snow: 'snow', terrain: 'land', water: 'sea', wood: 'wood', cobble: 'felt', fabric: 'felt' };
 const NOISE = /* glsl */`
 varying vec3 vCP;
 float h3(vec3 p){ p = fract(p*0.3183099+.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
@@ -17,6 +21,7 @@ float cells(vec3 p){ vec3 i=floor(p), f=fract(p); float d=1.0;
 // per kind: [base frequency of the lumps, bump amplitude, colour mottling]
 const KINDS = { clay: [3.5, 0.025, 0.28], snow: [11.0, 0.03, 0.12], terrain: [0.35, 0.16, 0.34], water: [0.6, 0.05, 0.1], wood: [3.5, 0.02, 0.3], cobble: [3.0, 0.03, 0.3], fabric: [3.5, 0.015, 0.2] };
 export function clay(mat, kind = 'clay', local = false, scale = 1) {   // scale: world units per local unit (miniature dioramas)
+  if (LOOK.felt) return felt(mat, FELT_KIND[kind] || 'felt', { scale: LOOK.townScale && !local ? LOOK.townScale : scale });
   const [F, A, M] = KINDS[kind] || KINDS.clay;
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uT = timeU;

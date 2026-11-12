@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { loadGLB, S } from './community.js';
-import { clay as claySurface } from './clay.js';
+import { clay as claySurface, LOOK } from './clay.js';
 
 // DRAFT copy, for the organisation to review. It describes this fictional family only: no statistics and no claims
 // about how toys are collected or where they go.
@@ -93,7 +93,7 @@ export async function createChapter1(town, { assets = './assets/', b64 = null } 
   props.traverse((o) => {
     if (!o.isMesh) return;
     o.castShadow = true; o.receiveShadow = true;
-    claySurface(o.material, 'clay', false);
+    if (LOOK.felt) LOOK.townScale = S; claySurface(o.material, 'clay', false); if (LOOK.felt) LOOK.townScale = null;
   });
   const take = (name) => { const o = props.getObjectByName(name); o.removeFromParent(); group.add(o); return o; };
   const truck = take('Truck'), carton = take('Carton'), wagon = take('Wagon');

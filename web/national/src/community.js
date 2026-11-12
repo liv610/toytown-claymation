@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { clay as claySurface } from './clay.js';
+import { clay as claySurface, LOOK } from './clay.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 export const S = 0.2;                   // Toy Town units → map units
@@ -24,6 +24,7 @@ export async function createCommunity(scene, siteWorld, { assets = './assets/', 
 
   // materials by kind: clay family gets the national clay surface; glows and bulbs are driven by dusk
   const glows = [], bulbs = [];
+  if (LOOK.felt) LOOK.townScale = S;   // felt look: the wool keeps its real size on the miniature town
   gltf.scene.traverse((o) => {
     if (!o.isMesh) return;
     o.geometry.computeVertexNormals();
@@ -35,6 +36,7 @@ export async function createCommunity(scene, siteWorld, { assets = './assets/', 
     else if (CLAY_KINDS[kind]) { claySurface(m, CLAY_KINDS[kind], false); if (kind === 'snow') m.roughness = 0.8; }
   });
   root.add(gltf.scene);
+  if (LOOK.felt) LOOK.townScale = null;   // (the town's felt was sized to the town below)
 
   // street lamps: light in world units (distance × S, intensity × S²)
   const lamps = meta.lamps.map(([x, y, z]) => { const L = new THREE.PointLight(0xffb468, 0, 9 * S, 2); L.position.set(x, y, z); root.add(L); return L; });

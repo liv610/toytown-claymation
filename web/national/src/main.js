@@ -8,9 +8,10 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { timeU } from './clay.js';
+import { timeU, LOOK } from './clay.js';
 import { loadGeography, toWorld, MAP_W, MAP_H } from './geo.js';
 import { buildRelief } from './relief.js';
+import { buildFeltRelief } from './felt_relief.js';
 import { createCommunity, S } from './community.js';
 import { createChapter1, CH1 } from './chapter1.js';
 
@@ -26,6 +27,9 @@ const smoother = (x) => { x = clamp(x); return x * x * x * (x * (x * 6 - 15) + 1
 const lerp = (a, b, k) => a + (b - a) * k;
 const tier = ['high', 'medium', 'low'].includes(Q.get('q')) ? Q.get('q') : (matchMedia('(pointer: coarse)').matches || Math.min(innerWidth, innerHeight) < 700) ? 'medium' : 'high';
 const status = (t) => { const s = $('status'); if (s) s.textContent = t; };
+// the look: felt (the project's direction, default) or the original clay map (?look=clay, for comparison)
+const FELT = (Q.get('look') || window.NAT_LOOK || 'felt') !== 'clay';
+LOOK.felt = FELT;
 
 // ------------------------------------------------------------------ renderer + scene
 const renderer = new THREE.WebGLRenderer({ antialias: tier !== 'high', powerPreference: 'high-performance', preserveDrawingBuffer: Q.get('capture') === '1', logarithmicDepthBuffer: true });
@@ -37,17 +41,18 @@ renderer.domElement.setAttribute('aria-hidden', 'true');
 $('stage').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const sky = (() => { const c = document.createElement('canvas'); c.width = 4; c.height = 256; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
-  gr.addColorStop(0, '#1a2140'); gr.addColorStop(0.55, '#3a3552'); gr.addColorStop(0.85, '#8a5a50'); gr.addColorStop(1, '#2a1e1a'); g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
+  if (FELT) { gr.addColorStop(0, '#0d1230'); gr.addColorStop(0.55, '#1c2450'); gr.addColorStop(0.85, '#4a3e62'); gr.addColorStop(1, '#1a1428'); }
+  else { gr.addColorStop(0, '#1a2140'); gr.addColorStop(0.55, '#3a3552'); gr.addColorStop(0.85, '#8a5a50'); gr.addColorStop(1, '#2a1e1a'); } g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
 scene.background = sky;
 scene.fog = new THREE.FogExp2(0x6a6070, 0.0001);
 const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.01, 8000);
 
 // ------------------------------------------------------------------ world
-status('Sculpting the country…');
+status(FELT ? 'Sewing the country…' : 'Sculpting the country…');
 const geo = await loadGeography(ASSETS + 'states-albers-10m.json');
 await new Promise((r) => setTimeout(r, 0));
-const relief = buildRelief(scene, geo, { tier });
+const relief = (FELT ? buildFeltRelief : buildRelief)(scene, geo, { tier });
 const site = geo.sites.maple, [sx, sz] = toWorld(...site.a);
 const siteWorld = V(sx, geo.siteBase(site) + 0.25, sz);
 status('Building Maple Hollow…');
@@ -235,7 +240,7 @@ function placePins() {
   }
 }
 const CAPTIONS = {
-  national: 'A miniature United States, sculpted in clay. Three symbolic lines connect communities across the country.',
+  national: FELT ? 'A miniature United States, sewn in felt. Three symbolic lines connect communities across the country.' : 'A miniature United States, sculpted in clay. Three symbolic lines connect communities across the country.',
   'flying-down': 'Maple Hollow, Ohio — a small town getting ready for the holidays.',
   town: 'Maple Hollow at dusk.',
   story: '',
