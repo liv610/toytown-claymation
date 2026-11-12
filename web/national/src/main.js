@@ -268,8 +268,7 @@ function ui(m) {
 }
 $('descend').onclick = descend; $('pinMaple').onclick = descend; $('ascend').onclick = ascend;
 $('pinToy').onclick = () => window.open(TOYTOWN_URL, '_blank', 'noopener');
-document.querySelectorAll('[data-action]').forEach((b) => b.addEventListener('click', () => { $('nyTitle').textContent = b.textContent; $('notyet').showModal(); }));
-document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => b.closest('dialog').close()));
+// the ways-to-help bar and the dialogs' Close buttons are wired by the page shell (app.js), before the 3D map loads
 
 // ------------------------------------------------------------------ loop
 let last = performance.now(), paused = false;
