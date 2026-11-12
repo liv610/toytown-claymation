@@ -10,6 +10,9 @@ b64wrap() { printf "window.TT_DATA = window.TT_DATA || {}; window.TT_DATA[\"%s\"
 cd "$(dirname "$0")/../web"
 OUT=${1:?outdir}; mkdir -p "$OUT/assets/stills"; rm -f "$OUT"/*.js "$OUT"/assets/*.glb.txt "$OUT"/assets/*.glb.js
 npx esbuild journey/src/main.js --bundle --splitting --format=esm --minify --target=es2020 --outdir="$OUT" --entry-names=journey --chunk-names=world-[hash] 2>&1 | tail -2
+# three.js' GLTFLoader carries a 1-px AVIF test image (EXT_texture_avif support check). AVIF is not a type a shareable
+# page may carry, and no model here uses AVIF textures: blank it (the check then reports "not supported").
+sed -i -E 's#data:image/avif;base64,[A-Za-z0-9+/=]+##g' "$OUT"/*.js
 BASE="static static_lo"; [ "${TEXTILE:-0}" = 1 ] && BASE=""   # the textile comparison loads the split village instead
 for f in $BASE terrain protos protos_lo marine; do b64wrap region/assets/$f.glb $f.glb "$OUT/assets/$f.glb.js"; done
 b64wrap sequence/assets/gift.glb gift.glb "$OUT/assets/gift.glb.js"

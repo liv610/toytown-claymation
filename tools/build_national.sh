@@ -7,6 +7,9 @@ b64wrap() { printf "window.TT_DATA = window.TT_DATA || {}; window.TT_DATA[\"%s\"
 cd "$(dirname "$0")/../web"
 OUT=${1:?outdir}; mkdir -p "$OUT/assets"
 npx esbuild national/src/main.js --bundle --format=esm --minify --target=es2022 --outfile="$OUT/national.js" 2>&1 | tail -1
+# three.js' GLTFLoader carries a 1-px AVIF test image (EXT_texture_avif support check). AVIF is not a type a shareable
+# page may carry, and no model here uses AVIF textures: blank it (the check then reports "not supported").
+sed -i -E 's#data:image/avif;base64,[A-Za-z0-9+/=]+##g' "$OUT"/national.js
 npx esbuild national/src/main.js --bundle --format=esm --target=es2022 --outfile=national/dist/national.js 2>&1 | tail -1
 rm -f "$OUT"/assets/*.json "$OUT"/assets/*.json.js
 for f in states-albers-10m maple neighbours-albers; do jsonwrap national/assets/$f.json "$OUT/assets/$f.json"; done

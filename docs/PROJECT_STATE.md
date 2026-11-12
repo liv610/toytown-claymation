@@ -61,7 +61,8 @@ actions are always available without the world.
       MIT). Removed from the code; nothing of it is shipped.
     - **Sharing:** published pages may only carry HTML, script, style, image, video and audio files. The packaging scripts
       therefore ship models as `NAME.glb.js` and data as `NAME.json.js` (read as text by `web/shared/data.js` and the
-      loaders, never run).
+      loaders, never run). The packaging also blanks three.js GLTFLoader's built-in 1-px AVIF test image (AVIF is not
+      an accepted type; no model uses AVIF textures).
     Package: `tools/build_national.sh OUTDIR` (its Toy Town pin opens Felt Toy Town); checks: `tools/tests/felt_national.js`,
     `tools/tests/national_package_smoke.js`.
   - **Not started:** the national map and Maple Hollow in felt (separate project, `experiment/national`).
