@@ -20,17 +20,46 @@ campaign".** Plan: [Milestone 1 technical plan](https://claude.ai/artifact/K1gtb
 it one step at a time and reviews each step before the next one starts.
 - The state before Milestone 1 is kept as the branch `preserve/pre-m1` on GitHub. That is the same commit as
   `experiment/textile-toytown`. A `pre-m1` tag exists locally only: this environment's GitHub proxy refuses tag pushes.
-- **Step 1 (done, awaiting review): the national page works before and without the 3D map.**
+- **Step 1 (done, approved): the national page works before and without the 3D map.**
   - `web/national/src/app.js` is the new entry (`dist/national.js`, under 1 KB). It wires the ways-to-help bar and the
-    dialogs, then lazily imports `main.js`, which loads the 3D map and three.js as a separate `world-HASH.js` chunk. This
+    dialogs, then lazily imports `main.js`, which loads the 3D map and three.js as a separate `main-HASH.js` chunk (shared code goes in `chunk-HASH.js`). This
     is the same split the journey uses.
   - If the map can't start (no WebGL, network error) or `?map=off` is set, the page says so and stays usable.
   - Nothing else in `main.js` changed.
   - Builds (`npm run build:national`, `tools/build_national.sh`) use esbuild code splitting. **Publishing now needs
-    every `.js` file in the output folder** (`national.js` + `world-*.js`).
+    every `.js` file in the output folder** (`national.js`, `main-*.js`, `chunk-*.js`).
   - Check: `tools/tests/national_shell.js OUTDIR`. It covers map off (desktop and phone), WebGL unavailable, actions
     before the map is ready, drag/zoom, the descent into Chapter 1, skip, look around, replay, and back to the map.
-  - Not yet: the finder itself (step 2), the map link (step 3), events (step 4).
+- **Step 2 (done, awaiting review): the campaign finder, with fictional test data.**
+  - **Where it appears:** a felt panel under the top bar. It is the right-hand column on wide screens (1100 px and
+    up) and a full-width strip on tablets and phones. It is open when the page loads and works before and without the
+    3D map.
+    - "Find Local Campaign" opens it and focuses the ZIP field. The other three actions keep their placeholder dialog.
+    - It tucks into a "Find your local campaign" button when the visitor heads into Maple Hollow, or with "Hide".
+  - **Data model:** `web/shared/campaigns.js` holds the directory format, validation, ZIP normalising and the lookup.
+    It has no DOM and no three.js.
+    - A campaign *serves* a ZIP code only if its `serves.zips` lists it, never because it is near.
+    - *Nearby* campaigns (within 60 miles of the ZIP's point, at most 3) are a separate list with a caution.
+    - Inactive campaigns are never shown.
+  - **Test data:** `web/national/assets/campaigns.test.json`.
+    - Six fictional campaigns. Websites are on example.org. ZIP codes are 00101–00401, which USPS has not assigned.
+    - The file is marked `"test": true`.
+    - Every result, card and the panel carries a "Test data" label.
+  - **Safety:** the page declares its source on `#finder` (`data-campaigns="test"` on this prototype).
+    - An `official` source refuses test data.
+    - A missing, broken or unconnected directory shows a link to the official site instead of results:
+      `data-official-url` is currently `https://www.toysfortots.org/` (to be confirmed).
+    - `?campaigns=official` previews that production fallback today.
+  - **UI:** `web/national/src/finder.js`.
+    - Covers search, validation, results, the reusable campaign card (`finder.showCampaign(id)`, for the map in
+      step 3) and focus handling. The Escape key leaves a card.
+    - Campaign text is always inserted as text, never HTML.
+  - **Checks:**
+    - `node tools/tests/finder_unit.mjs` (30 checks, no browser);
+    - `node tools/tests/finder_e2e.js OUTDIR` (69 checks: validation, outcomes, card, outbound link, keyboard-only,
+      phone and tablet, official fallback, before and while the map loads);
+    - `tools/tests/national_shell.js` (updated).
+  - Not yet: the map link (step 3), events (step 4).
 
 **Newest line of work: `experiment/textile-toytown` (from `experiment/national`). The owner chose a handmade textile direction for the whole project.**
 - **Owner, latest: "I want the whole thing to be the felt, we're moving on from the clay."** Order agreed: regional map and
@@ -152,7 +181,7 @@ Toy*, exactly in this order:
 | `experiment/map-scale` | 320 × 260 m regional diorama around the village, validated railway layout (`scripts/tt/layout.py`, `region.py`), trains, continuous descent (`web/region`), `docs/MAP_SCALE_ASSESSMENT.md` | — |
 | `experiment/visual-quality` | Cycles texture-bake experiment on the blue shop and pink house (`scripts/tt/hq.py`, `bake_hq.py`, `export_hq.py`, `web/hq`), before/after images, `docs/VISUAL_QUALITY_EXPERIMENT.md` | [Toy Town Quality Test](https://claude.ai/artifact/3bqaJDnGMco4e3kR83cfXf) |
 | `experiment/journey` (from map-scale) | Journey prototype: drop-off reached three ways (direct / explore / Marine story), the toy shop interior and "send a toy online" with the station departure and ZIP line map, illustrated fallback, local event log + research panel (`web/journey`), `docs/JOURNEY_PROTOTYPE.md`, `docs/JOURNEY_TESTING_GUIDE.md` | [Toy Town Journey Prototype](https://claude.ai/artifact/68VGT1ZJfx3HdZF8vPkQNw) |
-| `experiment/campaign-finder` (from textile-toytown) | **Newest.** Milestone 1, the campaign finder, built step by step. Step 1: national page shell + lazy 3D map (`web/national/src/app.js`), `tools/tests/national_shell.js`. `preserve/pre-m1` = the state before it | — (not republished yet) |
+| `experiment/campaign-finder` (from textile-toytown) | **Newest.** Milestone 1, the campaign finder, built step by step. Step 1: national page shell + lazy 3D map (`web/national/src/app.js`). Step 2: the finder with fictional test data (`web/shared/campaigns.js`, `web/national/src/finder.js`, `web/national/assets/campaigns.test.json`). Tests: `national_shell.js`, `finder_unit.mjs`, `finder_e2e.js`. `preserve/pre-m1` = the state before it | — (not republished yet) |
 | `experiment/textile-toytown` (from national) | **Newest.** Textile construction system (`web/textile/`), the textile toy shop corner + puppet Marines in the journey behind `?look=`, split village export (`scripts/tt/corner.py`, `export_region.py --split-corner`), `docs/TEXTILE_SYSTEM.md` | [Textile Toy Town](https://claude.ai/artifact/Ajk5aHEBWDgSDXdZ7j5RZG) |
 | `experiment/textile-storybook`, `experiment/handmade-styles` | The owner's separate style experiments (paper, felt, textile). Source of the textile techniques; not merged | — |
 | `experiment/national` (from storybook) | **Current line of work.** Clay national relief + descent into Maple Hollow + Chapter 1 with townspeople (`web/national`, `scripts/tt/people.py`, `scripts/tt/toys.py`), `docs/NATIONAL_MAP.md`; journey copy revised | [Railroad of Hope National Map](https://claude.ai/artifact/Ljs6JaGJYW1kMGijHRKaZ1) |
@@ -213,6 +242,15 @@ New work should branch from `experiment/national` (it contains everything except
 4. Publish `<outdir>/journey.html` with its files to the artifact link above.
 
 ## Known issues to carry forward
+
+- **Campaign finder (Milestone 1), open questions for the owner and the organisation:**
+  - The exact URL of the official campaign finder. The fallback link points to the official homepage because the site
+    refuses automated fetches from here.
+  - The format of the official campaign directory. `web/shared/campaigns.js` documents the shape the finder expects.
+  - Where ZIP code locations for "nearby" come from in production.
+  - Whether nearby campaigns should be shown at all when no campaign serves a ZIP code.
+- **Campaign finder while the 3D map is being built:** a search can wait until the browser is free. Under SwiftShader
+  that was about 1.3–1.5 s; real devices are expected to be faster, but this hasn't been measured.
 
 - **Felt journey:**
   - region buildings away from the street are clay shapes under a felt skin (no seams or stitches of their own);
