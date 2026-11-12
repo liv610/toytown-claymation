@@ -157,6 +157,16 @@ New work should branch from `experiment/national` (it contains everything except
 
   The web prototypes use the committed, already-optimised assets in `web/*/assets`.
 
+## Publishing the felt journey (so it can be rebuilt from the repo alone)
+
+1. Assets: `blender -b --factory-startup --python scripts/export_region.py -- <tmp> --split-corner --split-houses`, then
+   optimise with `web/tools_optimize.mjs` (commands in `docs/TEXTILE_SYSTEM.md`; houses: `houses_clay_raw.glb →
+   houses_clay.glb 0.1 0.001`). The optimised files and `corner.json` / `houses.json` are committed; raw files are not.
+2. Felt stills: `QS=look=felt node tools/tests/journey_stills.js web/journey/assets/stills_felt` and
+   `QS=look=felt node tools/tests/journey_toys_departure.js web/journey/assets/stills_felt <review dir>`.
+3. Package: `TEXTILE=1 tools/build_journey.sh <outdir>`; check it with `tools/tests/felt_package_smoke.js`.
+4. Publish `<outdir>/journey.html` with its files to the artifact link above.
+
 ## Known issues to carry forward
 
 - **Felt journey:**
