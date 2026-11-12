@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Package the national map prototype as a self-contained artifact folder:  tools/build_national.sh OUTDIR
+# On experiment/textile-toytown the Toy Town pin opens the felt journey (Felt Toy Town); TOYTOWN_URL overrides.
 set -euo pipefail
 cd "$(dirname "$0")/../web"
 OUT=${1:?outdir}; mkdir -p "$OUT/assets"
@@ -8,7 +9,7 @@ npx esbuild national/src/main.js --bundle --format=esm --target=es2022 --outfile
 cp national/assets/states-albers-10m.json national/assets/maple.json "$OUT/assets/"
 GLBS="maple marine ch1_parent ch1_child ch1_volunteer ch1_props"
 for f in $GLBS; do base64 -w0 national/assets/$f.glb > "$OUT/assets/$f.glb.txt"; done
-python3 - "$OUT" "${TOYTOWN_URL:-https://claude.ai/artifact/68VGT1ZJfx3HdZF8vPkQNw}" <<'PY'
+python3 - "$OUT" "${TOYTOWN_URL:-https://claude.ai/artifact/Ajk5aHEBWDgSDXdZ7j5RZG}" <<'PY'
 import sys, re
 s = open('national/index.html').read()
 page = s[s.index('<!--PAGE-START-->') + 17:s.index('<!--PAGE-END-->')]

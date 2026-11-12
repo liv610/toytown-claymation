@@ -38,6 +38,14 @@ actions are always available without the world.
       toys, gallery train, giant tree, castle, balloon, mobiles, starry ceiling, sparkles). The six interactive toys,
       their tricks, pins and cards are unchanged (`journey/src/world/toyshop.js`, `storybook` option).
   - **Honest limits:** the region's trees, barns, chapel and station keep their clay *shapes* under the felt skin.
+  - **The national map in felt (first version):** [Felt National Map](https://claude.ai/artifact/McR8crJFroPL2dhZJikDTF)
+    (a new page; the clay national map link is unchanged). `web/national/src/felt_relief.js` + `felt.js`: each state a
+    felt patch in a regional colour, puffed and seamed, dashed running stitch on state borders, gold blanket stitch on
+    the coast, navy felt sea with wavy stitching, wool-roving mountains with batting snow, felt firs, felt houses with lit
+    windows, padded-cord rail routes, batting clouds. Felt is the default; `?look=clay` shows the clay map. Maple Hollow
+    and the Chapter 1 cast and props wear the felt surface but keep their clay shapes (not yet sewn).
+    Package: `tools/build_national.sh OUTDIR` (its Toy Town pin opens Felt Toy Town); checks: `tools/tests/felt_national.js`,
+    `tools/tests/national_package_smoke.js`.
   - **Not started:** the national map and Maple Hollow in felt (separate project, `experiment/national`).
 - **Scope:** one cohesive textile world across the national map and Toy Town, at different scales. The national map keeps its routes, geography, stops and navigation, but its look will change. Prove it in Toy Town first.
 - **Built, awaiting review:** the toy shop corner of Toy Town in textile, built from a reusable construction language (`web/textile/`, `docs/TEXTILE_SYSTEM.md`).
