@@ -5,7 +5,7 @@
 // 3. normal              actions work before the 3D map is ready; then the map comes up and drag, zoom, the descent to
 //                        Maple Hollow, back up, and Chapter 1 still work. Prints load timings (SwiftShader timings
 //                        are not real-device numbers; the shell-vs-world gap is what matters). Runs the map at
-//                        q=medium, like national_chapter1.js: live screenshots at "high" stall under SwiftShader.
+//                        q=medium, like national_chapter1.js.
 // Also checks a phone viewport (390×844) for scenario 1. Exits non-zero on any failure.
 const { chromium } = require('playwright'); const fs = require('fs');
 const out = process.argv[2] || '.'; fs.mkdirSync(out, { recursive: true });
@@ -29,6 +29,9 @@ async function actionsWork(p, label) {
     ok(open && title.trim().length > 0 && closed, `${label}: "${title.trim()}" opens its dialog and closes`);
   }
 }
+// a frame of the live 3D map (?capture=1 keeps the drawing buffer). Page screenshots of the running map stall under
+// SwiftShader (the same on the build before this change), so the normal scenario grabs the canvas instead.
+const canvasShot = async (p, path) => fs.writeFileSync(path, Buffer.from((await p.evaluate(() => document.querySelector('#stage canvas').toDataURL('image/jpeg', 0.85))).split(',')[1], 'base64'));
 const worldChunk = (log) => log.requests.some((u) => /\/world-[A-Z0-9]+\.js/.test(u));
 
 (async () => {
@@ -72,7 +75,7 @@ const worldChunk = (log) => log.requests.some((u) => /\/world-[A-Z0-9]+\.js/.tes
     ok(await p.isVisible('#descend') && !(await p.$('#status')), 'normal: "Visit Maple Hollow" shown, loading message gone');
     await p.waitForTimeout(1500);
     ok(await p.isVisible('#pinMaple'), 'normal: Maple Hollow pin visible on the country view');
-    await p.screenshot({ path: `${out}/shell_normal_country.png`, timeout: 120000 });
+    await canvasShot(p, `${out}/shell_normal_country.jpg`);
     await actionsWork(p, 'normal (map running)');
     // drag pans, wheel zooms
     const r0 = await p.evaluate(() => ({ ...window.__nat.rig }));
@@ -86,7 +89,7 @@ const worldChunk = (log) => log.requests.some((u) => /\/world-[A-Z0-9]+\.js/.tes
     const mode = (m) => p.waitForFunction((m) => window.__nat.state().mode === m, m, { timeout: 300000, polling: 250 });
     await p.click('#descend'); await mode('town'); ok(true, 'normal: descent reaches Maple Hollow');
     ok(await p.isVisible('#playCh1') && await p.isVisible('#ascend'), 'normal: town controls shown');
-    await p.screenshot({ path: `${out}/shell_normal_town.png`, timeout: 120000 });
+    await canvasShot(p, `${out}/shell_normal_town.jpg`);
     await p.click('#ascend'); await mode('national'); ok(await p.isVisible('#descend'), 'normal: back up to the national map');
     await p.click('#descend'); await mode('town'); await p.click('#playCh1'); await mode('story');
     ok(await p.isVisible('#storybar'), 'normal: Chapter 1 starts with its story controls');
