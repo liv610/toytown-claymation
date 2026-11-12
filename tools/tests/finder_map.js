@@ -33,6 +33,7 @@ const pinState = (p) => p.evaluate(() => window.__nat.campaign());
 const sel = (p) => p.evaluate(() => { const s = window.__natShell.selection.get(); return s && { id: s.id, via: s.via, zip: s.zip, kind: s.kind }; });
 const inArea = (s) => s.x >= s.area.left && s.x <= s.area.right && s.y >= s.area.top && s.y <= s.area.bottom;
 const underFinder = (p, s) => p.evaluate(({ x, y }) => { const f = document.getElementById('finder'); if (f.hidden) return false; const r = f.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; }, s);
+// a posed still: __nat.pose() stops the map's animation loop, so take it only after the last check that needs the map moving
 const still = async (p, path) => { const u = await p.evaluate(() => window.__nat.pose({ ...window.__nat.rig })); await p.screenshot({ path, timeout: 300000 }); return u; };
 
 (async () => {
@@ -52,7 +53,6 @@ const still = async (p, path) => { const u = await p.evaluate(() => window.__nat
     ok(s.visible && inArea(s) && !(await underFinder(p, s)), `1: pin shown at (${Math.round(s.x)}, ${Math.round(s.y)}), inside the open area (x ${Math.round(s.area.left)}–${Math.round(s.area.right)}), not under the finder`);
     ok(Math.abs(s.x - (s.area.left + s.area.right) / 2) < 30 && Math.abs(s.y - (s.area.top + s.area.bottom) / 2) < 30, '1: framed at the centre of the open area');
     ok(await p.evaluate(() => window.__nat.rig.dist) < dist0 * 0.6, '1: the camera moved in from the country view to the region');
-    await still(p, `${out}/1_desktop_maple.png`);
     await p.click('.finder-back');
     s = await pinState(p);
     ok(await sel(p) === null && s.selected === false && (await p.$('.finder-card')) === null, '1: "Back to results" clears the selection: card closed, pin gone');
