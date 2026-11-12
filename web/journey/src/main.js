@@ -167,7 +167,7 @@ async function bootWorld() {
     world.map.onSelect((place) => { log('map_select', { place }); enterTown('map-pin'); });
     const load = (n) => host.load(n === 'gift.glb' ? GIFT : n);
     world.story = await createMarineStory(host, world.village, { load, onBeat: onStoryBeat, onEnd: onStoryEnd });
-    if (LOOK) lookToggle(host);
+    if (LOOK && !window.TT_ONLY_LOOK) lookToggle(host);   // the felt build is felt only: no comparison switch
     const { createToyShop } = await import('./world/toyshop.js');
     const { createDeparture } = await import('./world/departure.js');
     world.shop = createToyShop(host, pins, { windowImage: STILLS + 'village.jpg', onToy: (id) => onToy(id, 'pin') });

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Package the journey prototype as a self-contained artifact folder.
 #   tools/build_journey.sh OUTDIR
-#   TEXTILE=1 tools/build_journey.sh OUTDIR   the textile comparison (experiment/textile-toytown): adds the split village,
-#                                             the clay corner and corner.json, and opens in the textile look
+#   TEXTILE=1 tools/build_journey.sh OUTDIR   the felt journey (experiment/textile-toytown): adds the split village,
+#                                             the clay corner and corner.json, the felt stills; felt only (no look switch)
 # The page loads the action layer first (small chunk); three.js and the world load lazily in their own chunk.
 set -euo pipefail
 cd "$(dirname "$0")/../web"
@@ -15,6 +15,7 @@ cp region/assets/region.json "$OUT/assets/"; cp journey/assets/stills/*.jpg "$OU
 if [ "${TEXTILE:-0}" = 1 ]; then
   for f in static_base static_base_lo corner_clay; do base64 -w0 textile/assets/$f.glb > "$OUT/assets/$f.glb.txt"; done
   cp textile/assets/corner.json "$OUT/assets/"
+  cp journey/assets/stills_felt/*.jpg "$OUT/assets/stills/"   # felt stills (backdrop, fallback, toys, shop window)
 fi
 python3 - "$OUT" "${TEXTILE:-0}" <<'PY'
 import sys, re
@@ -24,12 +25,12 @@ page = s[s.index('<!--PAGE-START-->') + 17:s.index('<!--PAGE-END-->')]
 names = (['terrain', 'protos', 'protos_lo', 'marine', 'gift', 'static_base', 'static_base_lo', 'corner_clay'] if textile
          else ['static', 'static_lo', 'terrain', 'protos', 'protos_lo', 'marine', 'gift'])
 b64 = ', '.join(f"'{n}.glb': './assets/{n}.glb.txt'" for n in names)
-extra = " window.TT_TEXTILE_ASSETS = './assets/'; window.TT_LOOK = 'felt';" if textile else ''
+extra = " window.TT_TEXTILE_ASSETS = './assets/'; window.TT_LOOK = 'felt'; window.TT_ONLY_LOOK = true;" if textile else ''
 boot = ("<script>window.TT_ASSETS = './assets/'; window.TT_GIFT = 'gift.glb'; window.TT_STILLS = './assets/stills/';" + extra + "\n"
         f"  window.TT_B64 = {{ {b64} }};</script>\n<script type=\"module\" src=\"./journey.js\"></script>\n")
 if textile:
     page = page.replace('<title>Toy Town Journey Prototype</title>', '<title>Felt Toy Town</title>')
-    page = page.replace('<span class="badge">Prototype · placeholder data</span>', '<span class="badge">Prototype · felt look test</span>')
+    page = page.replace('<span class="badge">Prototype · placeholder data</span>', '<span class="badge">Prototype · placeholder data · felt</span>')
 page = re.sub(r'<!--PAGE-SCRIPTS-->.*?<!--PAGE-SCRIPTS-END-->', boot, page, flags=re.S)
 open(f'{out}/journey.html', 'w').write(page.strip() + '\n')
 PY
