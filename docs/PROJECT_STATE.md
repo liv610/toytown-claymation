@@ -60,7 +60,7 @@ it one step at a time and reviews each step before the next one starts.
       phone and tablet, official fallback, before and while the map loads);
     - `tools/tests/national_shell.js` (updated).
   - Not yet: the map link (step 3), events (step 4).
-- **Step 3, first part (done, awaiting review): ZIP search drives the map.** The owner asked for Step 3 in increments.
+- **Step 3, first part (done, approved): ZIP search drives the map.** The owner asked for Step 3 in increments.
   This is the first; selecting campaigns from the map waits for review.
   - **One source of truth:** `web/national/src/selection.js` (no DOM, no three.js). The page and the lazily loaded map
     share one instance through esbuild's shared chunk.
@@ -79,6 +79,26 @@ it one step at a time and reviews each step before the next one starts.
   - **Narrow screens:** "See it on the map" on the card tucks the finder away. The pill then reads "Show: <campaign>"
     and brings the same card back. The map re-frames into the newly open space if the visitor hasn't moved it.
   - **Check:** `tools/tests/finder_map.js OUTDIR`.
+- **Step 3, map discovery, stage 1 of 5 (done, awaiting review): browse by state.** The owner asked for five stages:
+  states, progressive markers, map selection, overlap, then responsive and accessibility work. Each one is reviewed
+  before the next starts.
+  - **Shared selection:** `selection.js` gains a separate "browsed state" value (`browse(code)`, `region()`,
+    `onRegion()`). Browsing never selects a campaign, and the selected campaign is still one record.
+  - **Finder:**
+    - **Control:** "Or browse by state", a native select of the 50 states and DC (`web/shared/us_states.js`, checked
+      against the map's own state ids). It works without the map.
+    - **List:** the state's active campaigns, a filter box, the shared card, and "Back to <state>".
+    - **Focus:** stays on the select while someone arrows through it, with the result announced. A map click moves
+      focus to the state heading.
+    - **Wording:** the list is "by where campaigns are based", and points to ZIP search for an address.
+  - **Map:** `campaign_focus.js`.
+    - **Clicks:** a short click on the land over the country view browses that state. Pointers are tracked by id; a
+      drag or pinch is never a click; the existing label pins keep priority; the story ignores map clicks.
+    - **Lookup:** a state-id image drawn once from the map's state shapes (Alaska and Hawaii in their board positions;
+      `geo.js` now exports `insetShift`). A lookup is one pixel read.
+    - **Outline:** a couched cord, gold stitches over a dark thread, as one pair of meshes.
+    - **Framing:** the state is framed in the open area. A selected campaign keeps the camera.
+  - **Checks:** `node tools/tests/finder_states.js OUTDIR`; the state checks in `finder_unit.mjs`.
   - **Recommended for the next parts:**
     - **States:**
       - Clicking a state (there is no state click today) should zoom toward it and list that state's campaigns in the
