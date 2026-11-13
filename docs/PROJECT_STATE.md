@@ -79,9 +79,25 @@ it one step at a time and reviews each step before the next one starts.
   - **Narrow screens:** "See it on the map" on the card tucks the finder away. The pill then reads "Show: <campaign>"
     and brings the same card back. The map re-frames into the newly open space if the visitor hasn't moved it.
   - **Check:** `tools/tests/finder_map.js OUTDIR`.
-- **Step 3, map discovery, stage 1 of 5 (done, awaiting review): browse by state.** The owner asked for five stages:
-  states, progressive markers, map selection, overlap, then responsive and accessibility work. Each one is reviewed
-  before the next starts.
+- **Product decision (owner):**
+  - ZIP search is THE way to find a campaign. The map is an immersive Toys for Tots world, not a geographic directory.
+  - Paused:
+    - state-based campaign browsing;
+    - progressive campaign markers;
+    - selecting campaigns by clicking the map;
+    - rendering markers at scale;
+    - clustering.
+  - No Puerto Rico or other territories (dropped from the roadmap).
+  - Focus: Phase 1 refinement. That means the textile map's visual quality, the ZIP search's hierarchy and placement,
+    search to camera, storytelling clarity, mobile, and performance and accessibility.
+- **State browsing (step 3, stage 1): built, then preserved and switched OFF.**
+  - Kept on the branch `preserve/state-browsing` (at `f9b6b60`) and in the code.
+  - `web/national/src/features.js`: `stateBrowsing()` is on only when `#finder` has `data-state-browse="on"`, and the
+    Phase 1 page doesn't set it.
+  - With it off, the state list is hidden and unfilled, the map registers no state clicks, and the state lookup image
+    isn't built. State shapes and the projection stay.
+  - `finder_states.js` switches it on for its checks and verifies it is off by default.
+  - What it did:
   - **Shared selection:** `selection.js` gains a separate "browsed state" value (`browse(code)`, `region()`,
     `onRegion()`). Browsing never selects a campaign, and the selected campaign is still one record.
   - **Finder:**
@@ -99,7 +115,18 @@ it one step at a time and reviews each step before the next one starts.
     - **Outline:** a couched cord, gold stitches over a dark thread, as one pair of meshes.
     - **Framing:** the state is framed in the open area. A selected campaign keeps the camera.
   - **Checks:** `node tools/tests/finder_states.js OUTDIR`; the state checks in `finder_unit.mjs`.
-  - **Recommended for the next parts:**
+- **Phase 1 finder refinements (done, awaiting review):**
+  - **One serving campaign:** a ZIP search opens its card straight away, and the map moves as for any selection.
+    - Two or more serving campaigns give a list. None gives the message and the official finder.
+    - Nearby campaigns stay a separate list.
+    - Back goes to the results when there are nearby campaigns, otherwise "New search" returns to the ZIP field.
+  - **Simpler panel:** heading, "Enter your ZIP code", Search, and a one-line test-data note.
+  - **One finder control:** the top-bar "Find Local Campaign" reopens the finder, and the floating pill is gone. While
+    the finder is hidden holding a card, the button shows a dot and announces it.
+  - **"Back to the whole country"** (bottom controls, `#wholeCountry` in `main.js`): restores the national framing and
+    keeps the card and pin. It appears over the country view only, and reduced motion jumps.
+  - **Mobile:** a proposal only. The owner asked to see options before any redesign.
+  - **Recommended for the next parts (superseded by the decision above; kept for reference):**
     - **States:**
       - Clicking a state (there is no state click today) should zoom toward it and list that state's campaigns in the
         finder.
