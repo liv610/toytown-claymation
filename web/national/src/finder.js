@@ -12,6 +12,7 @@
 import { normalizeZip, zipProblem, lookupZip, campaignsInState } from '../../shared/campaigns.js';
 import { US_STATES, stateByCode } from '../../shared/us_states.js';
 import { selection } from './selection.js';
+import { stateBrowsing } from './features.js';
 
 const el = (tag, props = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -130,16 +131,19 @@ export function createFinder(root, { directory, officialUrl, collapsed = false }
   // the card follows the shared selection
   let quiet = false;
   selection.subscribe((cur) => { if (cur) card(cur.campaign, cur); else if (!quiet && out.querySelector('.finder-card')) goBack(); });
-  // ------------------------------------------------------------ browse by state
-  for (const st of US_STATES) stateSel.append(el('option', { value: st.code, text: st.name }));
-  stateSel.addEventListener('change', () => selection.browse(stateSel.value || null, { via: 'list' }));
-  selection.onRegion(async (reg) => {
-    if (!reg) { stateSel.value = ''; if (!quiet && last && last.state && !out.querySelector('.finder-card')) { out.replaceChildren(); busy(false); last = null; } return; }
-    if (!dir) { await directory; if (!dir) return; }
-    quiet = true; selection.clear(); quiet = false;
-    setCollapsed(false); stateSel.value = reg.code;
-    showState(reg.code, { focus: reg.via === 'map' });   // keep focus on the list while someone arrows through it
-  });
+  // ------------------------------------------------------------ browse by state (off unless the page turns it on: features.js)
+  if (stateBrowsing()) {
+    $('.finder-browse').hidden = false;
+    for (const st of US_STATES) stateSel.append(el('option', { value: st.code, text: st.name }));
+    stateSel.addEventListener('change', () => selection.browse(stateSel.value || null, { via: 'list' }));
+    selection.onRegion(async (reg) => {
+      if (!reg) { stateSel.value = ''; if (!quiet && last && last.state && !out.querySelector('.finder-card')) { out.replaceChildren(); busy(false); last = null; } return; }
+      if (!dir) { await directory; if (!dir) return; }
+      quiet = true; selection.clear(); quiet = false;
+      setCollapsed(false); stateSel.value = reg.code;
+      showState(reg.code, { focus: reg.via === 'map' });   // keep focus on the list while someone arrows through it
+    });
+  }
   function showState(code, { focus = true } = {}) {
     const st = stateByCode.get(code), list = campaignsInState(dir, code);
     last = { state: code }; opener = null; busy(true);

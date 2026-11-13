@@ -1,4 +1,6 @@
-// Browsing campaigns by state (Milestone 1, step 3, stage 1). Headless Chromium + SwiftShader (no GPU: about one frame
+// Browsing campaigns by state (Milestone 1, step 3, stage 1). The feature is OFF in the Phase 1 page (features.js); A–C
+// turn it on the way a page would (data-state-browse="on" on #finder, injected into the served page), and D checks it
+// stays off by default: no state list, map clicks never browse, the ZIP finder and its map framing unaffected. Headless Chromium + SwiftShader (no GPU: about one frame
 // every 2 s; timings are not real-device numbers). Dev server on :8765 after `npm run build:national`.
 //   node tools/tests/finder_states.js OUTDIR
 // A. map off: the state list, the state's campaigns, filter, card and Back, empty states, ZIP search clearing it,
@@ -13,8 +15,12 @@ const out = process.argv[2] || '.'; fs.mkdirSync(out, { recursive: true });
 const BASE = process.env.URL || 'http://localhost:8765/national/index.html';
 let failed = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) failed++; };
 
-async function open(b, query, { viewport = { width: 1280, height: 720 }, waitMap = true } = {}) {
+async function open(b, query, { viewport = { width: 1280, height: 720 }, waitMap = true, states = true } = {}) {
   const ctx = await b.newContext({ viewport, reducedMotion: 'reduce' });
+  if (states) await ctx.route(/\/national\/index\.html/, async (r) => {          // switch state browsing on, as a page would
+    const res = await r.fetch(); const body = (await res.text()).replace('<section id="finder" ', '<section id="finder" data-state-browse="on" ');
+    await r.fulfill({ response: res, body });
+  });
   await ctx.route(/example\.org|toysfortots\.org/, (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>outbound</title>' }));
   const p = await ctx.newPage(); p.setDefaultTimeout(120000); const errors = [];
   p.on('pageerror', (e) => errors.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -161,6 +167,27 @@ let innerW = 1280, innerH = 720;
     await p.mouse.click(300, 400); await p.waitForTimeout(1500);
     ok(await region(p) === null && await p.evaluate(() => window.__nat.state().mode) === 'story', 'C: clicks on the map during the story do not browse states');
     ok(errors.length === 0, 'C: no page errors ' + errors.join(' | '));
+    await ctx.close();
+  }
+
+  // ------------------------------------------------------------ D. off by default (the Phase 1 page as shipped)
+  {
+    const { ctx, p, errors } = await open(b, 'map=off', { waitMap: false, states: false });
+    ok(!(await p.isVisible('#stateSel')) && !(await p.isVisible('.finder-browse')), 'D: off by default: no state list in the finder');
+    ok(await p.$$eval('#stateSel option', (o) => o.length) === 1, 'D: the state list is not even filled in');
+    await ctx.close();
+  }
+  {
+    const { ctx, p, errors } = await open(b, 'capture=1&q=medium', { states: false });
+    const c0 = await p.evaluate(() => window.__nat.campaign());
+    ok(c0.stateBrowsing === false && c0.lastClick === '', 'D: off by default: the map reports state browsing off');
+    const at = await p.evaluate(() => window.__nat.project(-112.5, 33.0));
+    await p.mouse.click(at.x, at.y); await p.waitForTimeout(2500);
+    ok(await region(p) === null && (await p.evaluate(() => window.__nat.campaign())).browsed === null && await p.evaluate(() => window.__nat.state().mode) === 'national', 'D: clicking a state on the map does nothing (no list, no outline, no camera move)');
+    await p.fill('#zip', '00201'); await p.click('.finder-form [type=submit]');
+    await p.waitForSelector('.finder-out h3');
+    ok(/ZIP code 00201|Copper Wash/.test(await p.textContent('.finder-out')), 'D: the ZIP finder works as before');
+    ok(errors.length === 0, 'D: no page errors ' + errors.join(' | '));
     await ctx.close();
   }
 
