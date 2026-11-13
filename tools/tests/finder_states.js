@@ -106,7 +106,9 @@ async function clickAt(p, lon, lat) {
     ok(c.selected === false && await sel(p) === null, 'B: no campaign selected by the state click');
     const u = await p.evaluate(() => window.__nat.shot ? null : null);
     await p.screenshot({ path: `${out}/B_ohio_live.png`, timeout: 1000 }).catch(() => {});   // live screenshots may stall under SwiftShader
-    await clickAt(p, -60, 32); await p.waitForTimeout(800);
+    const coast = await p.evaluate(() => window.__nat.project(-75.9, 36.0));                    // the Outer Banks; the sea lies east
+    const seaX = Math.min(coast.area.right - 10, coast.x + 140);
+    await p.mouse.click(seaX, coast.y); await p.waitForTimeout(800);
     ok((await region(p)).code === 'OH', 'B: clicking the ocean does nothing');
     await p.evaluate(() => window.__natShell.selection.browse(null)); await settle(p);
     const a = await clickAt(p, -111.7, 34.3); await p.waitForFunction(() => window.__natShell.selection.region() && window.__natShell.selection.region().code === 'AZ');
