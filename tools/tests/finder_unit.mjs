@@ -1,7 +1,8 @@
 // Unit checks for the campaign directory and ZIP lookup (web/shared/campaigns.js) against the test dataset.
 //   node tools/tests/finder_unit.mjs        (no browser, no server; exits non-zero on failure)
 import fs from 'fs';
-import { normalizeZip, zipProblem, validateDirectory, loadDirectory, lookupZip } from '../../web/shared/campaigns.js';
+import { normalizeZip, zipProblem, validateDirectory, loadDirectory, lookupZip, campaignsInState } from '../../web/shared/campaigns.js';
+import { US_STATES, stateByCode } from '../../web/shared/us_states.js';
 
 let failed = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) failed++; };
 const data = JSON.parse(fs.readFileSync(new URL('../../web/national/assets/campaigns.test.json', import.meta.url)));
@@ -48,5 +49,14 @@ x = L('00106'); ok(x.outcome === 'none' && !x.nearby.some((n) => n.campaign.id =
 x = L('00201'); ok(x.outcome === 'serving' && ids(x.serving) === 'test-copper-wash' && x.nearby.length === 0, '00201 (Arizona) → served, no Ohio campaigns nearby');
 x = L('00401'); ok(x.outcome === 'none' && x.nearby.length === 0, '00401 → known ZIP, no campaign serves it, none nearby');
 x = L('90210'); ok(x.outcome === 'unknown' && x.serving.length === 0 && x.nearby.length === 0, 'a real-world ZIP (90210) → unknown in the test data');
+
+
+// browsing by state (step 3, stage 1)
+const topo = JSON.parse(fs.readFileSync(new URL('../../web/national/assets/states-albers-10m.json', import.meta.url)));
+const mapIds = topo.objects.states.geometries.map((g) => g.id + ':' + g.properties.name).sort().join();
+ok(US_STATES.length === 51 && new Set(US_STATES.map((s) => s.code)).size === 51 && US_STATES.map((s) => s.fips + ':' + s.name).sort().join() === mapIds, 'state table: exactly the 50 states + DC on the map (same ids and names)');
+ok(dir.campaigns.every((c) => stateByCode.has(c.state)), 'every test campaign’s state is in the table');
+ok(campaignsInState(dir, 'OH').map((c) => c.id).join() === 'test-lanternfield,test-maple-hollow,test-sparrow-creek', 'Ohio → its 3 active campaigns, by name (inactive Bramblewood left out)');
+ok(campaignsInState(dir, 'AZ').length === 1 && campaignsInState(dir, 'WY').length === 0, 'Arizona → 1, Wyoming → none');
 
 console.log(failed ? `${failed} FAILED` : 'all passed'); process.exit(failed ? 1 : 0);
