@@ -98,7 +98,7 @@ let innerW = 1280, innerH = 720;
     const { ctx, p, errors } = await open(b, 'capture=1&q=medium');
     const d0 = await p.evaluate(() => window.__nat.rig.dist);
     const az = await p.evaluate(() => window.__nat.project(-111.7, 34.3));
-    await p.mouse.move(az.x, az.y); await p.mouse.down(); await p.mouse.move(az.x + 80, az.y + 30, { steps: 6 }); await p.mouse.up(); await p.waitForTimeout(500);
+    await p.mouse.move(az.x, az.y); await p.mouse.down(); await p.mouse.move(az.x - 80, az.y + 30, { steps: 6 });   // to the left: dragging right slides Ohio under the finder await p.mouse.up(); await p.waitForTimeout(500);
     ok(await region(p) === null, 'B: dragging the map does not browse a state');
     const o = await clickAt(p, [-84.0, 39.6], [-84.3, 41.2], [-81.2, 39.6], [-83.5, 39.0], [-81.0, 41.3]);
     ok(o.under === 'CANVAS' && o.state === 'OH', 'B: (test) western Ohio is open map, not under a label pin');
