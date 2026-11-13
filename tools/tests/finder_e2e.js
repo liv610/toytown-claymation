@@ -3,7 +3,7 @@
 //   node tools/tests/finder_e2e.js OUTDIR
 // A. map off, desktop: visible on arrival, test-data labels, validation, serving / none / unknown / two serving /
 //    inactive, nearby kept separate, card, outbound link, back, Escape, hide / show, other actions unchanged
-// B. keyboard only: Tab to the ZIP field, search, open a card, follow focus back
+// B. keyboard only: Tab to the ZIP field, search (a list), open a card, follow focus back
 // C. phone 390×844 and tablet 900×1000: on screen, touch-sized, no sideways scrolling, results reachable
 // D. ?campaigns=official: no test data; the official campaign finder is offered instead
 // E. 3D map loading (SwiftShader): the finder works before the map is ready, still works after, and tucks away when
@@ -61,14 +61,19 @@ const subheads = (p) => p.$$eval('.finder-out .finder-sub', (h) => h.map((x) => 
 
     // serving vs nearby
     await search(p, '00101-4321');
-    ok(await p.inputValue('#zip') === '00101' && /ZIP code 00101/.test(await text(p, '.finder-out h3')), 'A: ZIP+4 accepted and shown as 00101');
-    let L = await rows(p), H = await subheads(p);
-    ok(/serves this ZIP/.test(H[0]) && L[0].join() === 'Maple Hollow Toy Drive', 'A: 00101 → "The campaign that serves this ZIP code": Maple Hollow Toy Drive');
-    ok(H[1] === 'Nearby campaigns' && L[1].length > 0 && !L[1].includes('Maple Hollow Toy Drive') && /may not serve/.test(await text(p, '.finder-out')), `A: nearby campaigns listed separately with a caution: ${L[1].join(', ')}`);
-    ok(/Test data/i.test(await text(p, '.finder-out h3')), 'A: results heading carries the Test data label');
-    ok(await focusedId(p) === 'finder-h', 'A: focus moves to the results heading');
-    ok(/1 campaign serves ZIP code 00101/.test(await p.waitForFunction(() => document.querySelector('.finder-live').textContent).then(() => p.textContent('.finder-live'))), 'A: screen readers hear a summary ("1 campaign serves ZIP code 00101…")');
+    ok(await p.inputValue('#zip') === '00101', 'A: ZIP+4 accepted and shortened to 00101');
+    // exactly one campaign serves 00101: its card opens straight away
+    ok(await p.$('.finder-card') !== null && /Maple Hollow Toy Drive/.test(await text(p, '.finder-card h3')) && /Serves ZIP code 00101/.test(await text(p, '.finder-card')), 'A: 00101 → one serving campaign, so its card opens at once ("Serves ZIP code 00101")');
+    ok(/Test data/i.test(await text(p, '.finder-card h3')) && await focusedId(p) === 'finderCardName', 'A: the card carries the Test data label and has focus');
+    await p.waitForFunction(() => /serves ZIP code 00101/.test(document.querySelector('.finder-live').textContent));
+    ok(/^Maple Hollow Toy Drive serves ZIP code 00101\. 2 nearby campaigns also listed under Back to results\.$/.test(await p.textContent('.finder-live')), 'A: screen readers hear "Maple Hollow Toy Drive serves ZIP code 00101. 2 nearby campaigns also listed under Back to results."');
+    ok(await p.textContent('.finder-back') === '← Back to results', 'A: with nearby campaigns to show, the card offers "Back to results"');
     await p.screenshot({ path: `${out}/A_serving.png` });
+    await p.click('.finder-back');
+    let L = await rows(p), H = await subheads(p);
+    ok(/serves this ZIP/.test(H[0]) && L[0].join() === 'Maple Hollow Toy Drive', 'A: Back shows the result: "The campaign that serves this ZIP code": Maple Hollow Toy Drive');
+    ok(H[1] === 'Nearby campaigns' && L[1].length > 0 && !L[1].includes('Maple Hollow Toy Drive') && /may not serve/.test(await text(p, '.finder-out')), `A: nearby campaigns listed separately with a caution: ${L[1].join(', ')}`);
+    ok(await p.evaluate(() => document.activeElement.textContent.includes('Maple Hollow Toy Drive')), 'A: focus returns to the serving campaign in the list');
 
     await search(p, '00105'); L = await rows(p);
     ok(/Campaigns that serve/.test((await subheads(p))[0]) && L[0].join() === 'Maple Hollow Toy Drive,Lanternfield Toy Collection', 'A: 00105 → two serving campaigns');
@@ -104,7 +109,9 @@ const subheads = (p) => p.$$eval('.finder-out .finder-sub', (h) => h.map((x) => 
     await search(p, '00105'); await p.click('.finder-row-btn >> nth=0');
     ok(/Serves ZIP code 00105/.test(await text(p, '.finder-card')), 'A: card for a serving campaign says "Serves ZIP code 00105"');
     await search(p, '00201');
-    ok(/Copper Wash Toy Drive/.test(await text(p, '.finder-out')) && !(await p.$('.finder-card')), 'A: a new search from the card replaces it with fresh results');
+    ok(/Copper Wash Toy Drive/.test(await text(p, '.finder-card h3')) && await p.textContent('.finder-back') === '← New search', 'A: a new search from a card replaces it (00201: one campaign, nothing nearby, so "New search")');
+    await p.click('.finder-back');
+    ok(await p.$eval('.finder-out', (e) => e.children.length) === 0 && await focusedId(p) === 'zip', 'A: "New search" clears the card and returns to the ZIP field');
 
     // card opened directly (how the map will open it in step 3)
     await p.evaluate(() => window.__natShell.finder.showCampaign('test-pine-harbor'));
@@ -112,12 +119,16 @@ const subheads = (p) => p.$$eval('.finder-out .finder-sub', (h) => h.map((x) => 
     ok(await p.evaluate(() => window.__natShell.finder.showCampaign('no-such-id')) === false, 'A: showCampaign with an unknown id does nothing');
 
     // hide / show and the top-bar action
+    const top = '.topbar [data-action="campaign"]';
+    ok(await p.getAttribute(top, 'aria-expanded') === 'true' && await p.getAttribute(top, 'aria-controls') === 'finder', 'A: top-bar "Find Local Campaign" is the finder’s own control (aria-controls, expanded while open)');
+    ok(await p.$('#finderPill') === null, 'A: no second, floating finder button competing with it');
     await p.click('.finder-hide');
-    ok(!(await p.isVisible('#finder')) && await p.isVisible('#finderPill') && await focusedId(p) === 'finderPill' && await p.getAttribute('#finderPill', 'aria-expanded') === 'false', 'A: Hide tucks the finder into a "Find your local campaign" button (focus follows)');
-    await p.click('#finderPill');
-    ok(await p.isVisible('#finder') && await focusedId(p) === 'zip', 'A: that button brings it back with the ZIP field focused');
-    await p.click('.finder-hide'); await p.click('[data-action="campaign"]');
-    ok(await p.isVisible('#finder') && await focusedId(p) === 'zip' && !(await p.isVisible('#notyet')), 'A: top-bar "Find Local Campaign" opens the finder (no placeholder dialog)');
+    ok(!(await p.isVisible('#finder')) && await p.getAttribute(top, 'aria-expanded') === 'false' && await p.evaluate((sel) => document.activeElement === document.querySelector(sel), top), 'A: Hide tucks the finder away; focus moves to "Find Local Campaign"');
+    ok(await p.$eval(top, (b) => b.classList.contains('has-card') && /Pine Harbor Toy Drive is open in the finder/.test(b.getAttribute('aria-description'))), 'A: while hidden it marks that a card is open (a small dot, and said to screen readers)');
+    await p.click(top);
+    ok(await p.isVisible('#finder') && await focusedId(p) === 'finderCardName' && !(await p.isVisible('#notyet')), 'A: "Find Local Campaign" brings it back, focus on the open card');
+    await p.click('.finder-back'); await p.click('.finder-hide'); await p.click(top);
+    ok(await p.isVisible('#finder') && await focusedId(p) === 'zip' && !(await p.$eval(top, (b) => b.classList.contains('has-card'))), 'A: with no card open it reopens on the ZIP field');
     for (const a of ['give', 'donate', 'request']) {
       await p.click(`[data-action="${a}"]`); const dlg = await p.isVisible('#notyet'); await p.click('#notyet [data-close]');
       ok(dlg, `A: "${a}" still opens its placeholder dialog`);
@@ -132,8 +143,8 @@ const subheads = (p) => p.$$eval('.finder-out .finder-sub', (h) => h.map((x) => 
     await p.waitForSelector('.finder-test:not([hidden])');
     let n = 0; while (await focusedId(p) !== 'zip' && n++ < 20) await p.keyboard.press('Tab');
     ok(await focusedId(p) === 'zip', `B: Tab reaches the ZIP field (${n} presses from the top of the page)`);
-    await p.keyboard.type('00101'); await p.keyboard.press('Enter'); await p.waitForTimeout(80);
-    ok(await focusedId(p) === 'finder-h' && /ZIP code 00101/.test(await p.evaluate(() => document.activeElement.textContent)), 'B: Enter searches; focus lands on the results heading');
+    await p.keyboard.type('00103'); await p.keyboard.press('Enter'); await p.waitForTimeout(80);
+    ok(await focusedId(p) === 'finder-h' && /ZIP code 00103/.test(await p.evaluate(() => document.activeElement.textContent)), 'B: Enter searches (00103: a list); focus lands on the results heading');
     await p.keyboard.press('Tab');
     ok(await p.evaluate(() => document.activeElement.classList.contains('finder-row-btn')), 'B: next Tab reaches the first campaign');
     await p.keyboard.press('Enter');
@@ -200,8 +211,8 @@ const subheads = (p) => p.$$eval('.finder-out .finder-sub', (h) => h.map((x) => 
     ok(/Nearby campaigns/i.test(await text(p, '.finder-out')), `E: the finder still works with the map running (answer in ${ms2} ms; SwiftShader draws a frame every ~2 s, so this is not a real-device number)`);
     await p.click('#descend');
     await p.waitForFunction(() => window.__nat.state().mode === 'story', null, { timeout: 300000, polling: 250 });
-    ok(!(await p.isVisible('#finder')) && await p.isVisible('#finderPill') && await p.isVisible('#storybar'), 'E: heading into Maple Hollow tucks the finder away; the story controls show');
-    await p.click('#finderPill');
+    ok(!(await p.isVisible('#finder')) && await p.getAttribute('.topbar [data-action="campaign"]', 'aria-expanded') === 'false' && await p.isVisible('#storybar'), 'E: heading into Maple Hollow tucks the finder away; the story controls show');
+    await p.click('.topbar [data-action="campaign"]');
     ok(await p.isVisible('#finder') && /Nearby campaigns/i.test(await text(p, '.finder-out')), 'E: during the story, one tap brings the finder back with the earlier results');
     ok(log.errors.length === 0, 'E: no page errors ' + log.errors.join(' | '));
     await ctx.close();

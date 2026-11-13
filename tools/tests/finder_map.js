@@ -25,9 +25,11 @@ async function open(b, query, { viewport = { width: 1280, height: 720 }, reduced
   if (waitMap) await p.waitForFunction(() => window.__nat, null, { timeout: 600000, polling: 500 });
   return { ctx, p, errors };
 }
+// search and wait for the new answer: a results list, or (one serving campaign) its card
 async function search(p, zip) {
+  await p.evaluate(() => { const h = document.querySelector('.finder-out h3'); if (h) h.dataset.stale = '1'; });
   await p.fill('#zip', zip); await p.click('.finder-form [type="submit"]');
-  await p.waitForFunction((z) => { const h = document.querySelector('.finder-out h3'); return h && h.textContent.includes(z); }, zip, { timeout: 120000 });
+  await p.waitForFunction(() => { const h = document.querySelector('.finder-out h3'); return h && !h.dataset.stale; }, null, { timeout: 120000 });
 }
 const settle = (p) => p.waitForFunction(() => window.__nat.state().mode === 'national', null, { timeout: 300000, polling: 250 });
 const pinState = (p) => p.evaluate(() => window.__nat.campaign());
@@ -46,24 +48,30 @@ const still = async (p, path) => { const u = await p.evaluate(() => window.__nat
     const dist0 = await p.evaluate(() => window.__nat.rig.dist);
     ok((await pinState(p)).selected === false, '1: no campaign selected on arrival, no pin');
     await search(p, '00101');
-    await p.click('.finder-row-btn >> nth=0');
-    ok(await p.$('.finder-card') !== null, '1: the card is there as soon as the click is handled (no waiting for the map)');
+    ok(await p.$('.finder-card') !== null && await p.evaluate(() => document.activeElement.id === 'finderCardName'), '1: one campaign serves 00101, so its card opens straight away (no list, no waiting for the map)');
     ok(JSON.stringify(await sel(p)) === JSON.stringify({ id: 'test-maple-hollow', via: 'search', zip: '00101', kind: 'serving' }), '1: one shared selection: Maple Hollow Toy Drive, via search, serving 00101');
     await settle(p); await p.waitForTimeout(600);
     let s = await pinState(p);
     ok(s.visible && inArea(s) && !(await underFinder(p, s)), `1: pin shown at (${Math.round(s.x)}, ${Math.round(s.y)}), inside the open area (x ${Math.round(s.area.left)}–${Math.round(s.area.right)}), not under the finder`);
     ok(Math.abs(s.x - (s.area.left + s.area.right) / 2) < 30 && Math.abs(s.y - (s.area.top + s.area.bottom) / 2) < 30, '1: framed at the centre of the open area');
     ok(await p.evaluate(() => window.__nat.rig.dist) < dist0 * 0.6, '1: the camera moved in from the country view to the region');
+    // "Back to the whole country"
+    ok(await p.isVisible('#wholeCountry'), '1: "Back to the whole country" appears once the map has moved in');
+    await p.click('#wholeCountry'); await settle(p); await p.waitForTimeout(400);
+    s = await pinState(p);
+    ok(Math.abs(await p.evaluate(() => window.__nat.rig.dist) / dist0 - 1) < 0.02 && !(await p.isVisible('#wholeCountry')), '1: it restores the national framing, then hides');
+    ok((await sel(p)).id === 'test-maple-hollow' && await p.isVisible('.finder-card') && s.visible, '1: the campaign card and pin stay');
+    await search(p, '00101'); await settle(p);
+    ok(await p.$('.finder-back') !== null && await p.textContent('.finder-back') === '← Back to results', '1: 00101 also has nearby campaigns, so the card offers "Back to results"');
     await p.click('.finder-back');
     s = await pinState(p);
-    ok(await sel(p) === null && s.selected === false && (await p.$('.finder-card')) === null, '1: "Back to results" clears the selection: card closed, pin gone');
-    await search(p, '00201'); await p.click('.finder-row-btn >> nth=0'); await settle(p); await p.waitForTimeout(600);
+    ok(await sel(p) === null && s.selected === false && (await p.$('.finder-card')) === null && /Nearby campaigns/i.test(await p.textContent('.finder-out')), '1: "Back to results" clears the selection: card closed, pin gone, the serving and nearby lists shown');
+    await search(p, '00201'); await settle(p); await p.waitForTimeout(600);
     s = await pinState(p);
     ok((await sel(p)).id === 'test-copper-wash' && s.visible && inArea(s) && !(await underFinder(p, s)), '1: a new search and selection (Copper Wash, Arizona) moves the map and the pin there');
     await still(p, `${out}/1_desktop_arizona.png`);
-    await p.click('.finder-row-btn >> nth=0').catch(() => {});
-    await p.keyboard.press('Escape');
-    ok(await sel(p) === null, '1: Escape on the card clears the selection too');
+    await p.focus('#finderCardName'); await p.keyboard.press('Escape');
+    ok(await sel(p) === null && await p.evaluate(() => document.activeElement.id === 'zip') && await p.$eval('.finder-out', (e) => e.children.length) === 0, '1: Escape on a card with nothing else to show clears it and returns to the ZIP field');
     await search(p, '00105');
     await p.focus('.finder-row-btn >> nth=1'); await p.keyboard.press('Enter');
     ok((await sel(p)).id === 'test-lanternfield' && await p.evaluate(() => document.activeElement.id === 'finderCardName'), '1: keyboard: Enter on a result selects it and moves focus to the card heading');
@@ -91,7 +99,7 @@ const still = async (p, path) => { const u = await p.evaluate(() => window.__nat
   // ------------------------------------------------------------ 3. other sizes
   for (const [name, viewport] of [['desktop-1100', { width: 1100, height: 720 }], ['tablet', { width: 900, height: 1000 }], ['phone', { width: 390, height: 844 }]]) {
     const { ctx, p, errors } = await open(b, 'capture=1&q=medium', { viewport });
-    await search(p, '00101'); await p.click('.finder-row-btn >> nth=0'); await settle(p); await p.waitForTimeout(600);
+    await search(p, '00101'); await settle(p); await p.waitForTimeout(600);
     let s = await pinState(p);
     if (name !== 'phone') {
       ok(s.visible && !s.area.covered && inArea(s) && !(await underFinder(p, s)), `3 ${name}: pin in the open area (${Math.round(s.x)}, ${Math.round(s.y)}), not under the finder`);
@@ -101,11 +109,13 @@ const still = async (p, path) => { const u = await p.evaluate(() => window.__nat
       ok(s.area.covered && await p.isVisible('.finder-seemap'), '3 phone: the card covers most of the map, so the card offers "See it on the map"');
       await p.click('.finder-seemap'); await settle(p); await p.waitForTimeout(600);
       s = await pinState(p);
-      ok(!(await p.isVisible('#finder')) && await p.textContent('#finderPill') === 'Show: Maple Hollow Toy Drive' && await p.evaluate(() => document.activeElement.id === 'finderPill'), '3 phone: the finder tucks away; the pill reads "Show: Maple Hollow Toy Drive" and has focus');
+      const top = '.actions [data-action="campaign"]';
+      ok(!(await p.isVisible('#finder')) && await p.getAttribute(top, 'aria-expanded') === 'false' && await p.$eval(top, (b) => b.classList.contains('has-card') && /Maple Hollow Toy Drive/.test(b.getAttribute('aria-description')) && document.activeElement === b),
+        '3 phone: the finder tucks away; "Find Local Campaign" (help bar) has focus, a small mark and says the card is open');
       ok(s.visible && inArea(s) && !s.area.covered, `3 phone: the pin is on screen in the open map (${Math.round(s.x)}, ${Math.round(s.y)})`);
       await still(p, `${out}/3_phone_map.png`);
-      await p.click('#finderPill');
-      ok(await p.isVisible('.finder-card') && /Maple Hollow Toy Drive/.test(await p.textContent('.finder-card')) && (await sel(p)).id === 'test-maple-hollow', '3 phone: the pill brings the same card back without a new search');
+      await p.click(top);
+      ok(await p.isVisible('.finder-card') && /Maple Hollow Toy Drive/.test(await p.textContent('.finder-card')) && (await sel(p)).id === 'test-maple-hollow' && await p.evaluate(() => document.activeElement.id === 'finderCardName'), '3 phone: "Find Local Campaign" brings the same card back (focus on it) without a new search');
       ok(await p.isVisible('a.finder-site'), '3 phone: the website link is right there');
     }
     ok(errors.length === 0, `3 ${name}: no page errors ` + errors.join(' | '));
@@ -116,7 +126,7 @@ const still = async (p, path) => { const u = await p.evaluate(() => window.__nat
   {
     let release; const held = new Promise((r) => { release = r; });
     const { ctx, p, errors } = await open(b, 'capture=1&q=medium', { waitMap: false, holdMap: held });
-    await search(p, '00104'); await p.click('.finder-row-btn >> nth=0');
+    await search(p, '00104');
     const early = await p.evaluate(() => !window.__nat);
     release();
     ok(early && await p.$('.finder-card') !== null, '4: a campaign chosen before the 3D map is ready shows its card');
@@ -133,7 +143,8 @@ const still = async (p, path) => { const u = await p.evaluate(() => window.__nat
     await p.click('#descend');
     await p.waitForFunction(() => window.__nat.state().mode === 'story', null, { timeout: 300000, polling: 250 });
     const rig0 = await p.evaluate(() => JSON.stringify(window.__nat.rig));
-    await p.click('#finderPill'); await search(p, '00105'); await p.click('.finder-row-btn >> nth=1');
+    ok(!(await p.isVisible('#wholeCountry')), '5: no "Back to the whole country" in the story');
+    await p.click('[data-action="campaign"]'); await search(p, '00105'); await p.click('.finder-row-btn >> nth=1');
     await p.waitForTimeout(1500);
     const s = await pinState(p);
     ok(await p.isVisible('.finder-card') && await p.evaluate(() => window.__nat.state().mode) === 'story' && s.visible === false, '5: in the story the card opens, the story stays, no pin');
@@ -145,8 +156,8 @@ const still = async (p, path) => { const u = await p.evaluate(() => window.__nat
   // ------------------------------------------------------------ 6. map off
   {
     const { ctx, p, errors } = await open(b, 'map=off', { waitMap: false });
-    await search(p, '00101'); await p.click('.finder-row-btn >> nth=0');
-    ok((await sel(p)).id === 'test-maple-hollow' && await p.isVisible('.finder-card') && !(await p.isVisible('.finder-seemap')), '6: map off: selecting works, the card shows, no "See it on the map"');
+    await search(p, '00101');
+    ok((await sel(p)).id === 'test-maple-hollow' && await p.isVisible('.finder-card') && !(await p.isVisible('.finder-seemap')) && !(await p.isVisible('#wholeCountry')), '6: map off: the card opens, no "See it on the map", no "Back to the whole country"');
     await p.click('.finder-back'); ok(await sel(p) === null, '6: map off: Back clears the selection');
     ok(errors.length === 0, '6: no page errors ' + errors.join(' | '));
     await ctx.close();

@@ -23,7 +23,7 @@ const finder = createFinder(F, { directory, officialUrl: F.dataset.officialUrl,
 function layout() {
   const top = document.querySelector('.topbar').getBoundingClientRect().bottom, root = document.documentElement.style;
   root.setProperty('--finder-top', `${Math.round(top + 10)}px`);
-  const box = (F.hidden ? $('finderPill') : F).getBoundingClientRect();
+  const box = (F.hidden ? document.querySelector('.topbar') : F).getBoundingClientRect();
   root.setProperty('--finder-bottom', `${Math.round(box.bottom)}px`);
 }
 addEventListener('resize', layout); addEventListener('finderlayout', layout);

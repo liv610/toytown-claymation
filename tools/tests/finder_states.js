@@ -78,8 +78,8 @@ let innerW = 1280, innerH = 720;
     await p.selectOption('#stateSel', '');
     ok(await region(p) === null && await p.$eval('.finder-out', (e) => e.children.length) === 0, 'A: "Choose a state…" clears the list');
     await p.selectOption('#stateSel', 'OH'); await p.fill('#zip', '00201'); await p.click('.finder-form [type=submit]'); await p.waitForTimeout(100);
-    ok(await region(p) === null && await p.inputValue('#stateSel') === '' && /ZIP code 00201/.test(await heading(p)), 'A: a ZIP search replaces the state list and resets it');
-    await p.click('.finder-row-btn >> nth=0'); await p.selectOption('#stateSel', 'ME');
+    ok(await region(p) === null && await p.inputValue('#stateSel') === '' && await heading(p) === 'Copper Wash Toy Drive', 'A: a ZIP search replaces the state list and resets it (00201 opens its one campaign’s card)');
+    await p.selectOption('#stateSel', 'ME');
     ok(await sel(p) === null && await heading(p) === 'Maine' && !(await p.$('.finder-card')), 'A: choosing a state while a card is open closes the card and lists the state');
     // keyboard: type a state name on the focused list
     await p.selectOption('#stateSel', ''); await p.focus('#stateSel'); await p.keyboard.type('Ohio'); await p.waitForTimeout(100);

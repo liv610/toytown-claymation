@@ -25,7 +25,7 @@ const ERRORS = { empty: 'Enter your 5-digit ZIP code.', format: 'A ZIP code has 
 
 export function createFinder(root, { directory, officialUrl, collapsed = false }) {
   const $ = (sel) => root.querySelector(sel);
-  const pill = document.getElementById(root.dataset.pill);
+  const toggles = [...document.querySelectorAll('[data-action="campaign"]')];   // the top-bar "Find Local Campaign" reopens the finder
   const form = $('form'), input = $('input[name="zip"]'), error = $('.finder-error'), out = $('.finder-out'), live = $('.finder-live');
   const hideBtn = $('.finder-hide'), testNote = $('.finder-test');
   const stateSel = $('.finder-browse select');
@@ -37,15 +37,18 @@ export function createFinder(root, { directory, officialUrl, collapsed = false }
   const say = (t) => { live.textContent = ''; setTimeout(() => { live.textContent = t; }, 30); };
   const busy = (on) => document.body.classList.toggle('finder-busy', on);
 
-  const PILL = pill.textContent;
   function setCollapsed(c) {
-    root.hidden = c; pill.hidden = !c;
-    const cur = selection.get(); pill.textContent = c && cur ? `Show: ${cur.campaign.name}` : PILL;   // reopen the card, no new search
-    pill.setAttribute('aria-expanded', String(!c)); hideBtn.setAttribute('aria-expanded', String(!c));
+    root.hidden = c; hideBtn.setAttribute('aria-expanded', String(!c));
+    const cur = selection.get();
+    for (const t of toggles) {
+      t.setAttribute('aria-expanded', String(!c));
+      t.classList.toggle('has-card', c && !!cur);                  // a small mark: the finder is holding a campaign card
+      if (c && cur) t.setAttribute('aria-description', `${cur.campaign.name} is open in the finder`); else t.removeAttribute('aria-description');
+    }
     dispatchEvent(new Event('finderlayout'));
   }
-  hideBtn.addEventListener('click', () => { setCollapsed(true); pill.focus(); });
-  pill.addEventListener('click', () => { setCollapsed(false); input.focus(); });
+  const focusTop = () => (toggles.find((t) => t.offsetParent) || toggles[0]).focus();
+  hideBtn.addEventListener('click', () => { setCollapsed(true); focusTop(); });
 
   // ------------------------------------------------------------ directory ready / unavailable
   directory.then((d) => {
@@ -73,7 +76,13 @@ export function createFinder(root, { directory, officialUrl, collapsed = false }
     if (!dir) { await directory; if (!dir) return; }
     const zip = normalizeZip(input.value); input.value = zip;
     quiet = true; selection.clear(); selection.browse(null); quiet = false;   // a new search replaces any open card or state list
-    showResults(lookupZip(dir, zip));
+    const r = lookupZip(dir, zip);
+    showResults(r);
+    if (r.outcome === 'serving' && r.serving.length === 1) {      // exactly one campaign serves it: straight to its card
+      last.auto = true; opener = out.querySelector('.finder-row-btn');
+      selection.select(r.serving[0], { via: 'search', kind: 'serving', zip });
+      say(`${r.serving[0].name} serves ZIP code ${zip}.` + (r.nearby.length ? ` ${plural(r.nearby.length, 'nearby campaign', 'nearby campaigns')} also listed under Back to results.` : ''));
+    }
   });
   root.querySelectorAll('[data-try]').forEach((b) => b.addEventListener('click', () => { input.value = b.dataset.try; form.requestSubmit(); }));
 
@@ -113,7 +122,8 @@ export function createFinder(root, { directory, officialUrl, collapsed = false }
     const host = new URL(c.website).hostname;
     const relation = ctx && ctx.kind === 'serving' ? el('p', { class: 'finder-rel serving', text: `Serves ZIP code ${ctx.zip}` })
       : ctx && ctx.kind === 'nearby' ? el('p', { class: 'finder-rel nearby', text: `Nearby: about ${Math.round(ctx.miles)} miles from ZIP code ${ctx.zip}. It may not serve that ZIP code.` }) : null;
-    const back = el('button', { type: 'button', class: 'btn finder-back', text: !last ? '← Back to search' : last.state ? `← Back to ${stateByCode.get(last.state).name}` : '← Back to results' });
+    const backTo = !last ? '← Back to search' : last.state ? `← Back to ${stateByCode.get(last.state).name}` : last.auto && !last.zip.nearby.length ? '← New search' : '← Back to results';
+    const back = el('button', { type: 'button', class: 'btn finder-back', text: backTo });
     back.addEventListener('click', () => selection.clear());
     const head = el('h3', { class: 'finder-h', tabIndex: -1, id: 'finderCardName' }, c.name, dir.test ? testTag() : null);
     out.replaceChildren(el('article', { class: 'finder-card', 'aria-labelledby': 'finderCardName' },
@@ -173,13 +183,14 @@ export function createFinder(root, { directory, officialUrl, collapsed = false }
     say(list.length ? `${st.name}: ${plural(list.length, 'campaign', 'campaigns')}.` : `${st.name}: no campaigns listed.`);
   }
 
-  // narrow screens with the map running: tuck the finder away to see the campaign on the map (the pill brings it back)
+  // narrow screens with the map running: tuck the finder away to see the campaign on the map ("Find Local Campaign" brings it back)
   function seeMap() {
     const b = el('button', { type: 'button', class: 'btn finder-seemap', text: 'See it on the map' });
-    b.addEventListener('click', () => { setCollapsed(true); pill.focus(); });
+    b.addEventListener('click', () => { setCollapsed(true); focusTop(); });
     return b;
   }
   function goBack() {
+    if (last && last.auto && !last.zip.nearby.length) { last = null; out.replaceChildren(); busy(false); input.focus(); input.select(); return; }   // nothing else to show: back to the ZIP field
     if (last) { const o = opener && opener.querySelector('.finder-row-name').textContent; if (last.state) showState(last.state); else showResults(last.zip);
       const again = o && [...out.querySelectorAll('.finder-row-btn')].find((b) => b.querySelector('.finder-row-name').textContent === o); if (again) again.focus(); }
     else { out.replaceChildren(); busy(false); input.focus(); }
@@ -188,7 +199,7 @@ export function createFinder(root, { directory, officialUrl, collapsed = false }
 
   if (collapsed) setCollapsed(true); else dispatchEvent(new Event('finderlayout'));
   return {
-    open() { setCollapsed(false); if (!form.hidden) input.focus(); else out.querySelector('a')?.focus(); },
+    open() { setCollapsed(false); const h = out.querySelector('#finderCardName'); if (h) h.focus(); else if (!form.hidden) input.focus(); else out.querySelector('a')?.focus(); },
     collapse() { setCollapsed(true); },
     async showCampaign(id, ctx = {}) {
       await directory; const c = dir && dir.byId.get(id); if (!c) return false;

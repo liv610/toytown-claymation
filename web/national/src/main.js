@@ -281,6 +281,20 @@ const campaigns = attachCampaignFocus({ scene, geo, relief, rig, camera, reduced
   fly: (pose) => { mode = 'flying'; flight = makeFlight(snapshot(), pose, 1.4, () => { mode = 'national'; }); flight.campaign = true; },
   showing: () => mode === 'national' || campaignFlight(), flying: () => !!campaignFlight() });
 
+// "Back to the whole country": after the map has moved in (to a campaign, or the visitor zoomed), one tap restores the
+// national framing. Over the country view only (never in the descent, Maple Hollow or the story); the campaign card and
+// pin stay; reduced motion jumps. Like a campaign move, "Visit Maple Hollow" can interrupt it.
+const wholeBtn = $('wholeCountry');
+wholeBtn.onclick = () => {
+  if (mode !== 'national' && !campaignFlight()) return;
+  const back = document.activeElement === wholeBtn;
+  mode = 'flying'; flight = makeFlight(snapshot(), nationalPose(), 1.4, () => { mode = 'national'; if (back) $('descend').focus(); }); flight.campaign = true;
+};
+function wholeCountryButton() {
+  const show = mode === 'national' && !flight && rig.dist < nationalPose().dist * 0.7;
+  if (wholeBtn.hidden === show) wholeBtn.hidden = !show;
+}
+
 // ------------------------------------------------------------------ loop
 let last = performance.now(), paused = false;
 function frame(dt) {
@@ -291,7 +305,7 @@ function frame(dt) {
     if (flight.t >= 1) { const f = flight; flight = null; f.onDone(); }
   }
   if (mode === 'story' && story) storyStep(dt);
-  applyRig(); atmosphere(timeU.value); relief.update(dt, timeU.value); placePins(); campaigns.update();
+  applyRig(); atmosphere(timeU.value); relief.update(dt, timeU.value); placePins(); campaigns.update(); wholeCountryButton();
   composer.render(dt);
 }
 addEventListener('resize', () => { if (story) story.promptAt = null; camera.aspect = innerWidth / innerHeight; renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); if (mode === 'national') Object.assign(rig, nationalPose()); });

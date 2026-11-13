@@ -73,13 +73,15 @@
             background: #221c3e; border: 1px solid rgba(242, 184, 92, 0.35); border-radius: 18px; padding: 16px 18px 18px;
             box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45), inset 0 0 0 5px #221c3e, inset 0 0 0 6.5px rgba(242, 184, 92, 0.0);
             outline: 1.5px dashed rgba(242, 184, 92, 0.45); outline-offset: -7px; }
-  body.finder-busy .finder-intro, body.finder-busy .finder-test p + p { display: none; }   /* room for results and the card */
+  body.finder-busy .finder-try { display: none; }   /* room for results and the card */
   .finder-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .finder-head h2 { margin: 0; font: 600 1.18rem/1.2 var(--display); }
   .finder-hide { border: 0; background: none; color: var(--muted); font-size: 0.85rem; text-decoration: underline; padding: 8px 4px; min-height: 40px; }
   .finder-intro { margin: 4px 0 12px; color: var(--muted); font-size: 0.95rem; }
-  .finder-test { margin: 0 0 12px; font-size: 0.85rem; color: var(--muted); }
-  .finder-test p { margin: 0 0 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .finder-test { margin: 6px 0 12px; font-size: 0.85rem; color: var(--muted); }
+  .finder-try { display: block; margin-top: 8px; }
+  .act[aria-expanded="true"] { border-color: rgba(242, 184, 92, 0.6); }   /* "Find Local Campaign" while the finder is open */
+  .act.has-card::after { content: ""; display: inline-block; width: 8px; height: 8px; margin-left: 7px; border-radius: 50%; background: var(--gold); vertical-align: middle; }
   .finder .btn.primary, a.finder-site { background: var(--holly); border-color: var(--holly); color: var(--on-holly); }
   .finder .btn.primary:hover, a.finder-site:hover { background: var(--holly-hi); }
   .finder-test button { border: 1px dashed rgba(242, 184, 92, 0.6); background: none; color: var(--ink); border-radius: 8px; padding: 4px 8px; min-height: 32px; font-size: 0.85rem; }
@@ -121,14 +123,11 @@
   .finder-card-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .finder-seemap { display: none; min-height: 46px; }
   @media (max-width: 1099px) { body.map-ready .finder-seemap { display: inline-flex; align-items: center; } }
-  .finder-pill { position: fixed; z-index: 4; top: var(--finder-top, 76px); right: max(16px, env(safe-area-inset-right, 0px)); border: 1px solid rgba(242, 184, 92, 0.6);
-                 background: #221c3e; border-radius: 999px; padding: 10px 16px; min-height: 44px; font-weight: 700; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4); }
-  .finder-pill::before { content: "⌕ "; color: var(--gold); }
   @media (min-width: 1100px) { .caption { width: min(720px, calc(100% - 2 * 370px)); } }
   @media (max-width: 1099px) {
     .finder { left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); width: auto; padding: 12px 14px 14px;
               max-height: calc(100dvh - var(--finder-top, 76px) - 150px); }
-    .finder-head h2 { font-size: 1.1rem; } .finder-intro { display: none; }
+    .finder-head h2 { font-size: 1.1rem; }
     .finder-test { margin-bottom: 8px; }
     .caption { top: calc(var(--finder-bottom, 92px) + 10px); }
     body.finder-busy .caption { visibility: hidden; }
@@ -164,23 +163,19 @@
     <button type="button" class="act act-primary" data-action="give">Give Toys</button>
     <button type="button" class="act" data-action="donate">Donate</button>
     <button type="button" class="act" data-action="request">Request Toys</button>
-    <button type="button" class="act" data-action="campaign">Find Local Campaign</button>
+    <button type="button" class="act" data-action="campaign" aria-controls="finder" aria-expanded="true">Find Local Campaign</button>
   </nav>
 </header>
-<section id="finder" class="finder" aria-labelledby="finderTitle" data-pill="finderPill"
+<section id="finder" class="finder" aria-labelledby="finderTitle"
          data-campaigns="test" data-src="./assets/campaigns.test.json" data-official-src=""
          data-official-url="https://www.toysfortots.org/">
   <div class="finder-head">
     <h2 id="finderTitle">Find your local campaign</h2>
     <button type="button" class="finder-hide" aria-expanded="true" aria-controls="finder">Hide</button>
   </div>
-  <p class="finder-intro">Enter a ZIP code to see the campaign that serves it.</p>
-  <div class="finder-test" hidden>
-    <p><span class="tag">Test data</span> Fictional campaigns for this prototype.</p>
-    <p>Try a test ZIP: <button type="button" data-try="00101">00101</button> <button type="button" data-try="00103">00103</button> <button type="button" data-try="00105">00105</button></p>
-  </div>
+  <p class="finder-test" hidden><span class="tag">Test data</span> Fictional campaigns<span class="finder-try">Try a test ZIP: <button type="button" data-try="00101">00101</button> <button type="button" data-try="00103">00103</button> <button type="button" data-try="00105">00105</button></span></p>
   <form class="finder-form" novalidate>
-    <label for="zip">ZIP code</label>
+    <label for="zip">Enter your ZIP code</label>
     <div class="finder-row">
       <input id="zip" name="zip" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="10" aria-describedby="zipError" placeholder="12345">
       <button type="submit" class="btn primary">Search</button>
@@ -194,7 +189,6 @@
   <div class="finder-out"></div>
   <p class="finder-live sr" role="status"></p>
 </section>
-<button type="button" id="finderPill" class="finder-pill" hidden aria-controls="finder" aria-expanded="false">Find your local campaign</button>
 <p id="caption" class="caption" aria-live="polite"></p>
 <button type="button" id="pinMaple" class="pin" hidden>Maple Hollow, Ohio</button>
 <button type="button" id="pinToy" class="pin hub" hidden>★ Toy Town</button>
@@ -202,6 +196,7 @@
   <button type="button" id="descend" class="btn primary" hidden>Visit Maple Hollow</button>
   <button type="button" id="playCh1" class="btn primary" hidden>Play Chapter 1</button>
   <button type="button" id="ascend" class="btn" hidden>Back to the national map</button>
+  <button type="button" id="wholeCountry" class="btn" hidden>Back to the whole country</button>
   <div id="storybar" class="storybar" hidden role="group" aria-label="Story controls">
     <button type="button" id="sPlay" class="btn" aria-pressed="false">Pause</button>
     <button type="button" id="sSkip" class="btn">Skip</button>
