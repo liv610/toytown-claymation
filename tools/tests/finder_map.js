@@ -14,8 +14,9 @@ const out = process.argv[2] || '.'; fs.mkdirSync(out, { recursive: true });
 const BASE = process.env.URL || 'http://localhost:8765/national/index.html';
 let failed = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) failed++; };
 
-async function open(b, query, { viewport = { width: 1280, height: 720 }, reducedMotion = 'reduce', waitMap = true } = {}) {
+async function open(b, query, { viewport = { width: 1280, height: 720 }, reducedMotion = 'reduce', waitMap = true, holdMap = null } = {}) {
   const ctx = await b.newContext({ viewport, reducedMotion });
+  if (holdMap) await ctx.route(/\/main-[A-Z0-9]+\.js/, async (r) => { await holdMap; r.continue(); });   // keep the 3D map back until released
   await ctx.route(/example\.org|toysfortots\.org/, (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>outbound</title>' }));
   const p = await ctx.newPage(); const errors = []; p.setDefaultTimeout(120000);   // SwiftShader can stall the page for a while mid-flight
   p.on('pageerror', (e) => errors.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -113,9 +114,11 @@ const still = async (p, path) => { const u = await p.evaluate(() => window.__nat
 
   // ------------------------------------------------------------ 4. chosen before the map loads
   {
-    const { ctx, p, errors } = await open(b, 'capture=1&q=medium', { waitMap: false });
+    let release; const held = new Promise((r) => { release = r; });
+    const { ctx, p, errors } = await open(b, 'capture=1&q=medium', { waitMap: false, holdMap: held });
     await search(p, '00104'); await p.click('.finder-row-btn >> nth=0');
     const early = await p.evaluate(() => !window.__nat);
+    release();
     ok(early && await p.$('.finder-card') !== null, '4: a campaign chosen before the 3D map is ready shows its card');
     await p.waitForFunction(() => window.__nat, null, { timeout: 600000, polling: 500 }); await settle(p); await p.waitForTimeout(600);
     const s = await pinState(p);
