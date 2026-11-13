@@ -7,6 +7,7 @@
 //    finder list with focus); the ocean does nothing; Arizona; a campaign from the list (pin, Back to the list); Alaska
 //    on the felt board's inset; the state list driving the map; a ZIP search clearing it all
 // C. the existing Maple Hollow pin still starts the descent; clicks in the story do not browse
+// env ONLY_B=1 runs B and C only
 const { chromium } = require('playwright'); const fs = require('fs');
 const out = process.argv[2] || '.'; fs.mkdirSync(out, { recursive: true });
 const BASE = process.env.URL || 'http://localhost:8765/national/index.html';
@@ -45,7 +46,7 @@ let innerW = 1280, innerH = 720;
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 
   // ------------------------------------------------------------ A. map off
-  {
+  if (!process.env.ONLY_B) {
     const { ctx, p, errors } = await open(b, 'map=off', { waitMap: false });
     ok(await p.isVisible('#stateSel') && await p.$eval('label[for="stateSel"]', (l) => l.textContent) === 'Or browse by state', 'A: "Or browse by state" list is on the landing panel, labelled');
     ok(await p.$$eval('#stateSel option', (o) => o.length) === 52, 'A: it lists the 50 states and DC (plus "Choose a state…")');
@@ -82,7 +83,7 @@ let innerW = 1280, innerH = 720;
     ok(errors.length === 0, 'A: no page errors ' + errors.join(' | '));
     await ctx.close();
   }
-  {
+  if (!process.env.ONLY_B) {
     const { ctx, p, errors } = await open(b, 'map=off', { viewport: { width: 390, height: 844 }, waitMap: false });
     const h = await p.$eval('#stateSel', (e) => e.getBoundingClientRect().height);
     await p.selectOption('#stateSel', 'OH');
@@ -118,6 +119,7 @@ let innerW = 1280, innerH = 720;
     await p.mouse.click(seaX, coast.y); await p.waitForTimeout(800);
     ok((await region(p)).code === 'OH', 'B: clicking the ocean does nothing');
     await p.evaluate(() => window.__natShell.selection.browse(null)); await settle(p);
+    await p.mouse.move(300, 400); for (let i = 0; i < 4; i++) { await p.mouse.wheel(0, 900); await p.waitForTimeout(300); }   // zoom back out, as a visitor would
     const a = await clickAt(p, [-111.7, 34.3], [-112.5, 33.0], [-110.5, 35.5], [-113.5, 35.8]); await p.waitForFunction(() => window.__natShell.selection.region() && window.__natShell.selection.region().code === 'AZ');
     ok(a.state === 'AZ' && await heading(p) === 'Arizona' && (await rows(p)).join() === 'Copper Wash Toy Drive', 'B: clicking Arizona switches to Arizona and its campaign');
     await settle(p); c = await p.evaluate(() => window.__nat.campaign());

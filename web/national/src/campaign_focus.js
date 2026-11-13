@@ -131,14 +131,22 @@ export function attachCampaignFocus(ctx) {
     const p = hit ? hit.point : ray.ray.intersectPlane(ground, new THREE.Vector3());
     return p ? stateAt(p.x + MAP_W / 2, p.z + MAP_H / 2) : null;
   }
-  let down = null, touches = 0;
-  ctx.dom.addEventListener('pointerdown', (e) => { touches++; down = touches === 1 ? { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId } : null; });
+  // pointers are tracked by id (a mouse has one, so a new mouse press clears any release that never arrived); a second
+  // finger turns the gesture into a pinch, never a click
+  const active = new Set(); let down = null, lastClick = '';                       // lastClick: what the last tap did (tests)
+  ctx.dom.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse') active.clear();
+    active.add(e.pointerId);
+    down = active.size === 1 ? { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId } : null;
+  });
   const up = (e) => {
-    touches = Math.max(0, touches - 1);
-    const d = down; down = null;
-    if (!d || d.id !== e.pointerId || e.type !== 'pointerup' || !ctx.canMove()) return;
-    if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6 || e.timeStamp - d.t > 700) return;   // that was a drag
-    const code = pickState(e.clientX, e.clientY); if (code) selection.browse(code, { via: 'map' });
+    active.delete(e.pointerId);
+    const d = down; if (!d || d.id === e.pointerId) down = null;
+    if (!d || d.id !== e.pointerId || e.type !== 'pointerup') { lastClick = d ? 'other pointer' : 'pinch'; return; }
+    if (!ctx.canMove()) { lastClick = 'not over the country view'; return; }
+    if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6 || e.timeStamp - d.t > 700) { lastClick = 'drag'; return; }
+    const code = pickState(e.clientX, e.clientY); lastClick = code ? 'state ' + code : 'no state there';
+    if (code) selection.browse(code, { via: 'map' });
   };
   ctx.dom.addEventListener('pointerup', up); ctx.dom.addEventListener('pointercancel', up);
 
@@ -210,7 +218,7 @@ export function attachCampaignFocus(ctx) {
     state() {
       let box = null;
       if (outline) { outline.geometry.computeBoundingBox(); const b = outline.geometry.boundingBox; box = [b.min.toArray().map(Math.round), b.max.toArray().map(Math.round)]; }
-      const reg = { browsed, outline: !!outline && outline.visible, stitches: outline ? outline.geometry.attributes.position.count / 6 : 0, box };
+      const reg = { browsed, outline: !!outline && outline.visible, stitches: outline ? outline.geometry.attributes.position.count / 6 : 0, box, lastClick };
       if (!at) return { selected: false, ...reg };
       const v = at.clone().project(ctx.camera);
       return { selected: true, visible: pin.visible, x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight, area: freeArea(), ...reg };
