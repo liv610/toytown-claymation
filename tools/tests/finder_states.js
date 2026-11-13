@@ -28,11 +28,18 @@ const heading = (p) => p.evaluate(() => { const h = document.querySelector('.fin
 const rows = (p) => p.$$eval('.finder-out .finder-list li:not([hidden]) .finder-row-name', (n) => n.map((x) => x.textContent));
 const focusIs = (p, test) => p.evaluate(test);
 const settle = (p) => p.waitForFunction(() => window.__nat.state().mode === 'national', null, { timeout: 300000, polling: 250 });
-async function clickAt(p, lon, lat) {
-  const at = await p.evaluate(([lo, la]) => window.__nat.project(lo, la), [lon, lat]);
-  const under = await p.evaluate(({ x, y }) => document.elementFromPoint(x, y).tagName, at);
-  await p.mouse.click(at.x, at.y); return { ...at, under };
+// click the first of these points that is open map (not under a label pin or the finder) and inside the state
+async function clickAt(p, ...pts) {
+  for (const [lon, lat] of pts) {
+    const at = await p.evaluate(([lo, la]) => window.__nat.project(lo, la), [lon, lat]);
+    if (!at || at.x < 0 || at.y < 0 || at.x > innerW || at.y > innerH) continue;
+    const under = await p.evaluate(({ x, y }) => document.elementFromPoint(x, y).tagName, at);
+    if (under !== 'CANVAS') continue;
+    await p.mouse.click(at.x, at.y); return { ...at, under };
+  }
+  return { under: 'none', state: null };
 }
+let innerW = 1280, innerH = 720;
 
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
@@ -93,7 +100,7 @@ async function clickAt(p, lon, lat) {
     const az = await p.evaluate(() => window.__nat.project(-111.7, 34.3));
     await p.mouse.move(az.x, az.y); await p.mouse.down(); await p.mouse.move(az.x + 80, az.y + 30, { steps: 6 }); await p.mouse.up(); await p.waitForTimeout(500);
     ok(await region(p) === null, 'B: dragging the map does not browse a state');
-    const o = await clickAt(p, -84.0, 39.6);
+    const o = await clickAt(p, [-84.0, 39.6], [-84.3, 41.2], [-81.2, 39.6], [-83.5, 39.0], [-81.0, 41.3]);
     ok(o.under === 'CANVAS' && o.state === 'OH', 'B: (test) western Ohio is open map, not under a label pin');
     await p.waitForFunction(() => window.__natShell.selection.region());
     ok((await region(p)).code === 'OH' && (await region(p)).via === 'map' && await heading(p) === 'Ohio' && (await rows(p)).length === 3, 'B: clicking Ohio on the map lists Ohio’s campaigns in the finder');
@@ -111,7 +118,7 @@ async function clickAt(p, lon, lat) {
     await p.mouse.click(seaX, coast.y); await p.waitForTimeout(800);
     ok((await region(p)).code === 'OH', 'B: clicking the ocean does nothing');
     await p.evaluate(() => window.__natShell.selection.browse(null)); await settle(p);
-    const a = await clickAt(p, -111.7, 34.3); await p.waitForFunction(() => window.__natShell.selection.region() && window.__natShell.selection.region().code === 'AZ');
+    const a = await clickAt(p, [-111.7, 34.3], [-112.5, 33.0], [-110.5, 35.5], [-113.5, 35.8]); await p.waitForFunction(() => window.__natShell.selection.region() && window.__natShell.selection.region().code === 'AZ');
     ok(a.state === 'AZ' && await heading(p) === 'Arizona' && (await rows(p)).join() === 'Copper Wash Toy Drive', 'B: clicking Arizona switches to Arizona and its campaign');
     await settle(p); c = await p.evaluate(() => window.__nat.campaign());
     ok(c.browsed === 'AZ' && c.outline, 'B: the outline moves to Arizona');
