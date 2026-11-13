@@ -30,7 +30,7 @@ it one step at a time and reviews each step before the next one starts.
     every `.js` file in the output folder** (`national.js`, `main-*.js`, `chunk-*.js`).
   - Check: `tools/tests/national_shell.js OUTDIR`. It covers map off (desktop and phone), WebGL unavailable, actions
     before the map is ready, drag/zoom, the descent into Chapter 1, skip, look around, replay, and back to the map.
-- **Step 2 (done, awaiting review): the campaign finder, with fictional test data.**
+- **Step 2 (done, approved): the campaign finder, with fictional test data.**
   - **Where it appears:** a felt panel under the top bar. It is the right-hand column on wide screens (1100 px and
     up) and a full-width strip on tablets and phones. It is open when the page loads and works before and without the
     3D map.
@@ -60,6 +60,40 @@ it one step at a time and reviews each step before the next one starts.
       phone and tablet, official fallback, before and while the map loads);
     - `tools/tests/national_shell.js` (updated).
   - Not yet: the map link (step 3), events (step 4).
+- **Step 3, first part (done, awaiting review): ZIP search drives the map.** The owner asked for Step 3 in increments.
+  This is the first; selecting campaigns from the map waits for review.
+  - **One source of truth:** `web/national/src/selection.js` (no DOM, no three.js). The page and the lazily loaded map
+    share one instance through esbuild's shared chunk.
+    - The finder writes the selection: choosing a result selects a campaign, and "Back" or Escape clears it.
+    - The card renders from the selection. The map only listens.
+  - **Map:** `web/national/src/campaign_focus.js`, about 15 lines of hook-up in `main.js`.
+    - **Framing:** a selection over the country view frames the campaign in the open area. `freeArea()` reads the top
+      bar, the finder (right-hand panel or top strip) and the bottom controls. The camera target is shifted so the
+      campaign lands at that area's centre, using the same lens formula, now `fovFor()`.
+    - **Pin:** a felt-headed hat pin with a stitched gold ring, its own layer. It is long enough for its head to clear
+      a label pin at the same place (Maple Hollow).
+    - **Reduced motion:** the camera jumps instead of flying.
+    - **Late map:** a selection made before the map loads is framed when it arrives.
+    - **Descent and story:** during the descent, in Maple Hollow or in the story, the card works but the camera stays
+      put. "Visit Maple Hollow" can interrupt a campaign move.
+  - **Narrow screens:** "See it on the map" on the card tucks the finder away. The pill then reads "Show: <campaign>"
+    and brings the same card back. The map re-frames into the newly open space if the visitor hasn't moved it.
+  - **Check:** `tools/tests/finder_map.js OUTDIR`.
+  - **Recommended for the next parts:**
+    - **States:**
+      - Clicking a state (there is no state click today) should zoom toward it and list that state's campaigns in the
+        finder.
+      - It should never select a campaign.
+      - Its markers become more prominent.
+      - With hundreds of campaigns that list is the scalable path; one pin per campaign at country zoom is not.
+    - **Markers at scale:**
+      - One instanced mesh for all campaign markers: one draw call whatever the count.
+      - Shown progressively by zoom: none, or a quiet stitch dot per state, over the whole country; individual
+        markers once a region fills the view.
+      - A screen-space spacing pass before any real clustering.
+      - The non-3D route to every campaign stays the finder's list.
+    - **Pins that coincide:** when a campaign shares a place with a story label pin (Maple Hollow), the label could
+      step aside while a campaign is selected. That would change an existing pin, so it needs the owner's go-ahead.
 
 **Newest line of work: `experiment/textile-toytown` (from `experiment/national`). The owner chose a handmade textile direction for the whole project.**
 - **Owner, latest: "I want the whole thing to be the felt, we're moving on from the clay."** Order agreed: regional map and
@@ -181,7 +215,7 @@ Toy*, exactly in this order:
 | `experiment/map-scale` | 320 × 260 m regional diorama around the village, validated railway layout (`scripts/tt/layout.py`, `region.py`), trains, continuous descent (`web/region`), `docs/MAP_SCALE_ASSESSMENT.md` | — |
 | `experiment/visual-quality` | Cycles texture-bake experiment on the blue shop and pink house (`scripts/tt/hq.py`, `bake_hq.py`, `export_hq.py`, `web/hq`), before/after images, `docs/VISUAL_QUALITY_EXPERIMENT.md` | [Toy Town Quality Test](https://claude.ai/artifact/3bqaJDnGMco4e3kR83cfXf) |
 | `experiment/journey` (from map-scale) | Journey prototype: drop-off reached three ways (direct / explore / Marine story), the toy shop interior and "send a toy online" with the station departure and ZIP line map, illustrated fallback, local event log + research panel (`web/journey`), `docs/JOURNEY_PROTOTYPE.md`, `docs/JOURNEY_TESTING_GUIDE.md` | [Toy Town Journey Prototype](https://claude.ai/artifact/68VGT1ZJfx3HdZF8vPkQNw) |
-| `experiment/campaign-finder` (from textile-toytown) | **Newest.** Milestone 1, the campaign finder, built step by step. Step 1: national page shell + lazy 3D map (`web/national/src/app.js`). Step 2: the finder with fictional test data (`web/shared/campaigns.js`, `web/national/src/finder.js`, `web/national/assets/campaigns.test.json`). Tests: `national_shell.js`, `finder_unit.mjs`, `finder_e2e.js`. `preserve/pre-m1` = the state before it | — (not republished yet) |
+| `experiment/campaign-finder` (from textile-toytown) | **Newest.** Milestone 1, the campaign finder, built step by step. Step 1: national page shell + lazy 3D map (`web/national/src/app.js`). Step 2: the finder with fictional test data (`web/shared/campaigns.js`, `web/national/src/finder.js`, `web/national/assets/campaigns.test.json`). Step 3 (first part): shared selection + the map following it (`selection.js`, `campaign_focus.js`). Tests: `national_shell.js`, `finder_unit.mjs`, `finder_e2e.js`, `finder_map.js`. `preserve/pre-m1` = the state before it | — (not republished yet) |
 | `experiment/textile-toytown` (from national) | **Newest.** Textile construction system (`web/textile/`), the textile toy shop corner + puppet Marines in the journey behind `?look=`, split village export (`scripts/tt/corner.py`, `export_region.py --split-corner`), `docs/TEXTILE_SYSTEM.md` | [Textile Toy Town](https://claude.ai/artifact/Ajk5aHEBWDgSDXdZ7j5RZG) |
 | `experiment/textile-storybook`, `experiment/handmade-styles` | The owner's separate style experiments (paper, felt, textile). Source of the textile techniques; not merged | — |
 | `experiment/national` (from storybook) | **Current line of work.** Clay national relief + descent into Maple Hollow + Chapter 1 with townspeople (`web/national`, `scripts/tt/people.py`, `scripts/tt/toys.py`), `docs/NATIONAL_MAP.md`; journey copy revised | [Railroad of Hope National Map](https://claude.ai/artifact/Ljs6JaGJYW1kMGijHRKaZ1) |
