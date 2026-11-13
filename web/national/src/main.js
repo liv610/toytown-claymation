@@ -275,7 +275,7 @@ $('pinToy').onclick = () => window.open(TOYTOWN_URL, '_blank', 'noopener');
 // ------------------------------------------------------------------ campaign selection (Milestone 1): the finder selects, the map follows
 // Only over the country view: during the descent, in Maple Hollow or in the story the selection is kept (the card stays
 // open) but the camera does not move and the pin is not shown.
-const campaigns = attachCampaignFocus({ scene, geo, relief, rig, camera, reduced: REDUCED,
+const campaigns = attachCampaignFocus({ scene, geo, relief, rig, camera, reduced: REDUCED, dom: renderer.domElement, minDist: NAT_MIN,
   regionalDist: () => nationalPose().dist, fovFor,
   canMove: () => mode === 'national' || campaignFlight(),
   fly: (pose) => { mode = 'flying'; flight = makeFlight(snapshot(), pose, 1.4, () => { mode = 'national'; }); flight.campaign = true; },
@@ -322,5 +322,6 @@ window.__nat = {
   beats: () => ch1.beats,
   state: () => ({ mode, t: story && story.t, given: story && story.given, waited: story && story.waited, ended: story && story.ended }),
   campaign: () => campaigns.state(),
+  project: (lon, lat) => campaigns.project(lon, lat),
   rig, siteWorld, S,
 };

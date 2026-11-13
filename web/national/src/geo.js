@@ -74,7 +74,7 @@ function segDist(px, py, ax, ay, bx, by) { const dx = bx - ax, dy = by - ay, t =
 // projected units (x0, y0, x1, y1). Alaska and Hawaii stay insets, moved out into the open Pacific (Albers USA puts them
 // where Baja California is).
 export const FELT_BOARD = [-250, -170, 1170, 830];
-const insetShift = (p, lon, lat) => (lat > 45 ? [p[0] - 300, p[1] - 330] : [p[0] - 445, p[1] - 215]);
+export const insetShift = (p, lon, lat) => (lat > 45 ? [p[0] - 300, p[1] - 330] : [p[0] - 445, p[1] - 215]);
 // stylised extra ranges for the neighbours (felt map only)
 const NEIGHBOUR_RANGES = [
   { name: 'Canadian Rockies', w: 30, h: 15, pts: [[-121.5, 54.5], [-119.5, 53.0], [-117.6, 51.6], [-116.0, 50.4], [-114.6, 49.0]] },

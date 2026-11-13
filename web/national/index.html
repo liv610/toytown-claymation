@@ -93,6 +93,12 @@
   .finder input[aria-invalid="true"] { border-color: var(--holly-hi); }
   .finder-row .btn { min-height: 48px; }
   .finder-error { margin: 8px 0 0; color: #ffb9ad; font-weight: 700; font-size: 0.92rem; }
+  .finder-browse { margin-top: 12px; display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
+  .finder-browse label { margin: 0; font-weight: 700; font-size: 0.92rem; }
+  .finder select, .finder-filter { min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: #2c2550; color: var(--ink); font: 600 1rem var(--body); padding: 6px 10px; }
+  .finder select { flex: 1; min-width: 10em; }
+  .finder-filter { width: 100%; margin: 0 0 10px; }
+  .finder-filter-label { display: block; font-size: 0.85rem !important; color: var(--muted); margin: 4px 0 6px !important; font-weight: 600 !important; }
   .finder-out:not(:empty) { margin-top: 14px; padding-top: 12px; border-top: 1.5px dashed var(--line); }
   .finder-h { margin: 0 0 8px; font: 600 1.15rem/1.25 var(--display); }
   .finder-h:focus { outline: none; } .finder-h:focus-visible { outline: 3px solid var(--gold); }
@@ -181,6 +187,10 @@
     </div>
     <p id="zipError" class="finder-error" hidden></p>
   </form>
+  <div class="finder-browse">
+    <label for="stateSel">Or browse by state</label>
+    <select id="stateSel"><option value="">Choose a state…</option></select>
+  </div>
   <div class="finder-out"></div>
   <p class="finder-live sr" role="status"></p>
 </section>

@@ -88,3 +88,9 @@ export function lookupZip(dir, zip) {
     .filter((n) => n.miles <= NEARBY_MILES).sort((a, b) => a.miles - b.miles).slice(0, NEARBY_MAX) : [];
   return { zip, outcome: serving.length ? 'serving' : known ? 'none' : 'unknown', serving, nearby };
 }
+
+/** active campaigns based in a state (postal code), by name. The directory's "state" is where a campaign is based;
+ *  it says nothing about which ZIP codes it serves (that is serves.zips). */
+export function campaignsInState(dir, code) {
+  return dir.campaigns.filter((c) => c.active && c.state === code).sort((a, b) => a.name.localeCompare(b.name));
+}
