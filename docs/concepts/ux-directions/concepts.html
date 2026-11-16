@@ -121,7 +121,7 @@ const screens = {
       <span class="brand" style="font-size:18px">Railroad of Hope</span><span class="proto">Prototype</span>
       <span class="sbtn" style="margin-left:auto;width:36px;height:36px;padding:0;font:600 16px var(--display)">i</span></div>`);
     add(`<span class="abs sbtn" style="right:12px;top:64px;padding:8px 13px;font-size:13px">Whole country</span>`);
-    add(`<div class="abs felt" style="left:0;right:0;top:556px;bottom:56px;border-radius:20px 20px 0 0;padding:14px 18px 14px;box-shadow:0 -10px 30px rgba(0,0,0,.45)">
+    add(`<div class="abs felt" style="left:0;right:0;top:612px;bottom:56px;border-radius:20px 20px 0 0;padding:14px 18px 14px;box-shadow:0 -10px 30px rgba(0,0,0,.45)">
       <div style="display:flex;align-items:center;justify-content:space-between"><span class="zipchip">ZIP <b>${C.zip}</b> · <span class="link">Change</span></span><span class="muted" style="font-size:22px;line-height:1">×</span></div>
       <p class="h" style="font-size:19px;margin-top:10px">${C.name} <span class="tag">Test data</span></p>
       <p class="ok" style="margin:5px 0 12px">Serves ZIP code ${C.zip}</p>
@@ -135,7 +135,7 @@ const screens = {
       <span class="brand" style="font-size:18px">Railroad of Hope</span><span class="proto">Prototype</span>
       <span class="sbtn" style="margin-left:auto;width:36px;height:36px;padding:0;font:600 16px var(--display)">i</span></div>`);
     add(`<span class="abs sbtn" style="right:12px;top:64px;padding:8px 13px;font-size:13px">Whole country</span>`);
-    add(`<div class="abs felt" style="left:0;right:0;top:326px;bottom:56px;border-radius:20px 20px 0 0;padding:14px 18px 14px;box-shadow:0 -10px 30px rgba(0,0,0,.45)">
+    add(`<div class="abs felt" style="left:0;right:0;top:392px;bottom:56px;border-radius:20px 20px 0 0;padding:14px 18px 14px;box-shadow:0 -10px 30px rgba(0,0,0,.45)">
       <div style="display:flex;align-items:center;justify-content:space-between"><span class="zipchip">ZIP <b>${C.zip}</b> · <span class="link">Change</span></span><span class="muted" style="font-size:22px;line-height:1">×</span></div>
       <p class="h" style="font-size:20px;margin-top:10px">${C.name} <span class="tag">Test data</span></p>
       <p class="ok" style="margin:5px 0 12px">Serves ZIP code ${C.zip}</p>
@@ -154,7 +154,7 @@ const screens = {
       <span style="margin-left:auto;display:flex;gap:6px"><span class="act primary">Give Toys</span><span class="act">Donate</span><span class="act">Request Toys</span></span></div>`);
   },
   _Bexplore(top) {
-    return `<div style="position:absolute;left:24px;right:24px;bottom:20px">
+    return `<div style="margin-top:22px">
       <p class="fine" style="margin:0 0 8px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);font-weight:700;font-size:11px">Explore the map</p>
       <div style="display:grid;gap:8px;margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 12px"><span><b>Visit Maple Hollow</b><br><span class="fine">Chapter 1 · It Starts With You</span></span><span style="color:var(--gold);font-size:20px">›</span></div>
@@ -193,18 +193,18 @@ const screens = {
       <span class="brand" style="font-size:18px">Railroad of Hope</span><span class="proto">Prototype</span></div>`);
   },
   _Bhelp() {
-    return `<div style="position:absolute;left:16px;right:16px;bottom:14px">
+    return `<div style="margin-top:16px">
       <p class="fine" style="margin:0 0 6px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;font-size:10.5px">Ways to help</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px"><span class="act primary" style="border-radius:12px;text-align:center;padding:9px 4px">Give Toys</span><span class="act" style="border-radius:12px;text-align:center;padding:9px 4px">Donate</span><span class="act" style="border-radius:12px;text-align:center;padding:9px 4px">Request Toys</span></div></div>`;
   },
   B_phone_landing() {
     this._Bphonebar();
     map('B_phone_landing', 0, 52);
-    add(`<span class="abs sbtn" style="right:10px;top:${52 + 430 - 46}px;width:36px;height:36px;padding:0;font:600 15px var(--display)">i</span>`);
-    add(`<div class="abs" style="left:0;right:0;top:482px;bottom:0;background:var(--panel);border-top:1px solid rgba(242,184,92,.35);padding:16px">
+    add(`<span class="abs sbtn" style="right:10px;top:${52 + 500 - 46}px;width:36px;height:36px;padding:0;font:600 15px var(--display)">i</span>`);
+    add(`<div class="abs" style="left:0;right:0;top:552px;bottom:0;background:var(--panel);border-top:1px solid rgba(242,184,92,.35);padding:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><p class="h">Find your local campaign</p><span class="tag">Test data</span></div>
       ${searchRow('100%', 46)}
-      <div style="display:flex;gap:8px;margin-top:14px"><span class="sbtn" style="flex:1;padding:9px 6px;font-size:13.5px">Visit Maple Hollow</span><span class="sbtn" style="flex:1;padding:9px 6px;font-size:13.5px;color:var(--gold)">★ Toy Town</span></div>
+      <div style="display:flex;gap:8px;margin-top:12px"><span class="sbtn" style="flex:1;padding:9px 6px;font-size:13.5px">Visit Maple Hollow</span><span class="sbtn" style="flex:1;padding:9px 6px;font-size:13.5px;color:var(--gold)">★ Toy Town</span></div>
       ${this._Bhelp()}</div>`);
   },
   B_phone_found() {
