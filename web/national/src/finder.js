@@ -2,7 +2,9 @@
 // separately, a campaign card with the campaign's website. Plain DOM, no three.js; it works before and without the map.
 // Campaign text is always set with textContent (never parsed as HTML).
 //
-// createFinder(root, { directory, officialUrl, collapsed }) → { open(), collapse(), showCampaign(id, context?) }
+// createFinder(root, { directory, officialUrl, collapsed }) → { open(opts?), show(), collapse(), showCampaign(id, context?) }
+//   open({ context: 'story', backLabel, onClose }) opens it over another view (the Toy Town story): its Hide button then
+//   reads backLabel, and closing it (or Escape) calls onClose with the selected campaign kept.
 //   directory: a promise of loadDirectory()'s result (shared/campaigns.js)
 //   showCampaign(id) opens the same card from anywhere (the map will use it).
 // The card always shows the shared selection (selection.js): choosing a campaign selects it, the card follows, and
@@ -47,8 +49,14 @@ export function createFinder(root, { directory, officialUrl, collapsed = false }
     }
     dispatchEvent(new Event('finderlayout'));
   }
-  const focusTop = () => (toggles.find((t) => t.offsetParent) || toggles[0]).focus();
-  hideBtn.addEventListener('click', () => { setCollapsed(true); focusTop(); });
+  const focusTop = () => (toggles.find((t) => t.offsetParent) || toggles[0])?.focus();
+  // opened over another view (the story): closing returns there, the selection is kept
+  const HIDE = hideBtn.textContent; let over = null;
+  function closeOver() {
+    const o = over; over = null; delete root.dataset.context; hideBtn.textContent = HIDE;
+    setCollapsed(true); if (o && o.onClose) o.onClose();
+  }
+  hideBtn.addEventListener('click', () => { if (over) closeOver(); else { setCollapsed(true); focusTop(); } });
 
   // ------------------------------------------------------------ directory ready / unavailable
   directory.then((d) => {
@@ -117,30 +125,43 @@ export function createFinder(root, { directory, officialUrl, collapsed = false }
   }
 
   // ------------------------------------------------------------ campaign card (reused by the map in step 3)
+  // "Change": back to an empty ZIP field (the card and any results go; a new search picks the next campaign)
+  function changeZip() {
+    quiet = true; selection.clear(); quiet = false;
+    last = null; opener = null; out.replaceChildren(); busy(false); input.focus(); input.select();
+  }
   function card(c, ctx = null) {
     busy(true);
     const host = new URL(c.website).hostname;
     const relation = ctx && ctx.kind === 'serving' ? el('p', { class: 'finder-rel serving', text: `Serves ZIP code ${ctx.zip}` })
       : ctx && ctx.kind === 'nearby' ? el('p', { class: 'finder-rel nearby', text: `Nearby: about ${Math.round(ctx.miles)} miles from ZIP code ${ctx.zip}. It may not serve that ZIP code.` }) : null;
-    const backTo = !last ? '← Back to search' : last.state ? `← Back to ${stateByCode.get(last.state).name}` : last.auto && !last.zip.nearby.length ? '← New search' : '← Back to results';
-    const back = el('button', { type: 'button', class: 'btn finder-back', text: backTo });
-    back.addEventListener('click', () => selection.clear());
+    // Back only when there is a list to go back to; "Change" always returns to the ZIP field (the search becomes the result)
+    const backTo = !last ? null : last.state ? `← Back to ${stateByCode.get(last.state).name}` : last.auto && !last.zip.nearby.length ? null : '← Back to results';
+    const back = backTo ? el('button', { type: 'button', class: 'btn finder-back', text: backTo }) : null;
+    if (back) back.addEventListener('click', () => selection.clear());
+    const change = el('button', { type: 'button', class: 'finder-change', text: 'Change' });
+    change.addEventListener('click', changeZip);
+    const summary = el('p', { class: 'finder-zipline' }, ctx && ctx.zip ? el('span', {}, 'ZIP ', el('b', { text: ctx.zip }), ' · ') : el('span', { text: 'Search a ZIP code · ' }), change);
     const head = el('h3', { class: 'finder-h', tabIndex: -1, id: 'finderCardName' }, c.name, dir.test ? testTag() : null);
-    out.replaceChildren(el('article', { class: 'finder-card', 'aria-labelledby': 'finderCardName' },
-      back, head, relation,
+    const details = el('div', { class: 'finder-details', id: 'finderDetails' },
       el('dl', {},
         el('dt', { text: 'Area served' }), el('dd', { text: c.serves.label }),
         el('dt', { text: 'Based in' }), el('dd', { text: c.location.label })),
+      el('p', { class: 'finder-fine', text: dir.test ? `Fictional campaign for testing. Its link goes to ${host}, a placeholder address.` : host }));
+    const more = el('button', { type: 'button', class: 'finder-more', 'aria-expanded': 'false', 'aria-controls': 'finderDetails', text: 'Details' });   // phones only
+    more.addEventListener('click', () => { const open = details.classList.toggle('open'); more.setAttribute('aria-expanded', String(open)); more.textContent = open ? 'Fewer details' : 'Details'; });
+    out.replaceChildren(el('article', { class: 'finder-card', 'aria-labelledby': 'finderCardName' },
+      summary, back, head, relation,
       el('div', { class: 'finder-card-actions' },
         el('a', { class: 'btn primary finder-site', href: c.website, target: '_blank', rel: 'noopener noreferrer' },
-          'Visit the campaign’s website', el('span', { class: 'sr', text: ` (${host}, opens in a new tab)` })),
-        seeMap()),
-      el('p', { class: 'finder-fine', text: dir.test ? `Fictional campaign for testing. Its link goes to ${host}, a placeholder address.` : host })));
+          'Visit Campaign Website', el('span', { class: 'sr', text: ` (${host}, opens in a new tab)` })),
+        seeMap(), more),
+      details));
     head.focus();
   }
   // the card follows the shared selection
   let quiet = false;
-  selection.subscribe((cur) => { if (cur) card(cur.campaign, cur); else if (!quiet && out.querySelector('.finder-card')) goBack(); });
+  selection.subscribe((cur) => { root.classList.toggle('has-card', !!cur); if (cur) card(cur.campaign, cur); else if (!quiet && out.querySelector('.finder-card')) goBack(); });
   // ------------------------------------------------------------ browse by state (off unless the page turns it on: features.js)
   if (stateBrowsing()) {
     $('.finder-browse').hidden = false;
@@ -195,11 +216,22 @@ export function createFinder(root, { directory, officialUrl, collapsed = false }
       const again = o && [...out.querySelectorAll('.finder-row-btn')].find((b) => b.querySelector('.finder-row-name').textContent === o); if (again) again.focus(); }
     else { out.replaceChildren(); busy(false); input.focus(); }
   }
-  root.addEventListener('keydown', (e) => { if (e.key === 'Escape' && out.querySelector('.finder-card')) { e.preventDefault(); selection.clear(); } });
+  root.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (over) { e.preventDefault(); closeOver(); }                                  // over the story: back to it, campaign kept
+    else if (out.querySelector('.finder-card')) { e.preventDefault(); selection.clear(); }
+  });
 
   if (collapsed) setCollapsed(true); else dispatchEvent(new Event('finderlayout'));
   return {
-    open() { setCollapsed(false); const h = out.querySelector('#finderCardName'); if (h) h.focus(); else if (!form.hidden) input.focus(); else out.querySelector('a')?.focus(); },
+    open(opts = {}) {
+      if (opts.context) { over = opts; root.dataset.context = opts.context; hideBtn.textContent = opts.backLabel || '← Back'; }
+      setCollapsed(false);
+      const h = out.querySelector('#finderCardName'); if (h) h.focus(); else if (!form.hidden) input.focus(); else out.querySelector('a')?.focus();
+    },
+    show() { setCollapsed(false); },
+    release() { over = null; delete root.dataset.context; hideBtn.textContent = HIDE; },   // the view it was opened over has gone
+    isOpen: () => !root.hidden,
     collapse() { setCollapsed(true); },
     async showCampaign(id, ctx = {}) {
       await directory; const c = dir && dir.byId.get(id); if (!c) return false;

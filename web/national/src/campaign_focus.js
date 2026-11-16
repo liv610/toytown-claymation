@@ -15,13 +15,14 @@ import { stateBrowsing } from './features.js';
 /** the part of the window the map can show without the top bar, the finder or the bottom controls over it (CSS px) */
 export function freeArea() {
   const W = innerWidth, H = innerHeight, box = (sel) => { const e = document.querySelector(sel); const r = e && e.getBoundingClientRect(); return r && r.width > 0 && r.height > 0 ? r : null; };
-  const bar = box('.topbar'), acts = box('.actions'), f = box('#finder');
+  const bar = box('.topbar'), acts = box('.actions'), f = box('#landing') || box('#finder');   // the landing column: finder + Explore Toy Town
   let left = 0, right = W, top = bar ? bar.bottom : 0, bottom = H - 76;                 // the controls row along the bottom
   if (acts && acts.top > H / 2) bottom = Math.min(bottom, acts.top - 64);               // phones: help bar at the bottom
   const full = { left, right, top, bottom };
   if (f) {
     if (f.width < W * 0.6) right = Math.min(right, f.left - 12);                        // side panel (wide screens)
-    else top = Math.max(top, f.bottom + 8);                                               // strip (tablets, phones)
+    else if (f.top > H * 0.4) bottom = Math.min(bottom, f.top - 8);                     // docked at the bottom (phones)
+    else top = Math.max(top, f.bottom + 8);                                               // strip under the top bar (tablets)
   }
   // if the finder leaves too little room (a phone showing results), frame in the whole map area instead; the visitor
   // can tuck the finder away to see it

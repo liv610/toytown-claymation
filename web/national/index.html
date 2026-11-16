@@ -68,8 +68,11 @@
   /* Campaign finder (Milestone 1): a felt panel under the top bar, right-hand column on wide screens, a full-width strip
      on narrow ones. Readability first; the handmade touches are a stitched edge and a sewn-on "Test data" label. */
   .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .finder { position: fixed; z-index: 4; top: var(--finder-top, 76px); right: max(16px, env(safe-area-inset-right, 0px)); width: 330px;
-            max-height: calc(100dvh - var(--finder-top, 76px) - 96px); overflow: auto; overscroll-behavior: contain;
+  /* the landing column (Phase 1): the finder, then Explore Toy Town; right-hand column on wide screens, a strip under the
+     top bar on tablets, docked at the bottom on phones. The two entry points are always both on screen. */
+  .landing { position: fixed; z-index: 4; top: var(--finder-top, 76px); right: max(16px, env(safe-area-inset-right, 0px)); width: 340px;
+             max-height: calc(100dvh - var(--finder-top, 76px) - 96px); display: flex; flex-direction: column; gap: 12px; }
+  .finder { position: relative; min-height: 0; flex: 0 1 auto; overflow: auto; overscroll-behavior: contain;
             background: #221c3e; border: 1px solid rgba(242, 184, 92, 0.35); border-radius: 18px; padding: 16px 18px 18px;
             box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45), inset 0 0 0 5px #221c3e, inset 0 0 0 6.5px rgba(242, 184, 92, 0.0);
             outline: 1.5px dashed rgba(242, 184, 92, 0.45); outline-offset: -7px; }
@@ -77,7 +80,25 @@
   .finder-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .finder-head h2 { margin: 0; font: 600 1.18rem/1.2 var(--display); }
   .finder-hide { border: 0; background: none; color: var(--muted); font-size: 0.85rem; text-decoration: underline; padding: 8px 4px; min-height: 40px; }
-  .finder-intro { margin: 4px 0 12px; color: var(--muted); font-size: 0.95rem; }
+  .finder-intro { margin: 2px 0 10px; color: var(--muted); font-size: 0.92rem; }
+  .finder.has-card .finder-form, .finder.has-card .finder-test, .finder.has-card .finder-intro { display: none; }   /* the search becomes the result */
+  .finder-zipline { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; } .finder-zipline b { color: var(--ink); letter-spacing: 0.05em; }
+  .finder-change { border: 0; background: none; color: var(--gold); font-weight: 700; text-decoration: underline; padding: 6px 2px; min-height: 36px; }
+  .finder-more { display: none; border: 1px solid var(--line); background: none; border-radius: 999px; padding: 8px 14px; min-height: 44px; font-weight: 700; }
+  .finder-details { display: block; }
+  .explore { display: grid; gap: 2px; flex: none; }
+  .explore-btn { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 14px 16px; min-height: 68px;
+                 color: var(--ink); border-radius: 18px; border: 1px solid rgba(242, 184, 92, 0.55); background: linear-gradient(135deg, #2e2554, #221c3e);
+                 box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45); outline: 1.5px dashed rgba(242, 184, 92, 0.45); outline-offset: -7px; }
+  .explore-btn:hover { border-color: var(--gold); }
+  .explore-btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .explore-star { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--gold); color: #2a1606; font-size: 1.25rem; }
+  .explore-title { display: block; font: 600 1.18rem/1.2 var(--display); }
+  .explore-sub { display: block; color: var(--muted); font-size: 0.9rem; margin-top: 2px; }
+  .explore-go { color: var(--gold); font-size: 1.6rem; line-height: 1; }
+  .explore-restart { justify-self: end; border: 0; background: none; color: var(--muted); text-decoration: underline; font-size: 0.85rem; padding: 4px; min-height: 32px; }
+  body.finder-busy .explore-sub { display: none; }   /* a campaign card is open: the invitation stays, more compact */
+  .help-menu { display: none; }
   .finder-test { margin: 6px 0 12px; font-size: 0.85rem; color: var(--muted); }
   .finder-try { display: block; margin-top: 8px; }
   .act[aria-expanded="true"] { border-color: rgba(242, 184, 92, 0.6); }   /* "Find Local Campaign" while the finder is open */
@@ -123,14 +144,113 @@
   .finder-card-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .finder-seemap { display: none; min-height: 46px; }
   @media (max-width: 1099px) { body.map-ready .finder-seemap { display: inline-flex; align-items: center; } }
-  @media (min-width: 1100px) { .caption { width: min(720px, calc(100% - 2 * 370px)); } }
+  /* wide screens: the map's caption sits quietly at the lower left (Direction A), not over the landscape */
+  @media (min-width: 1100px) { .caption { left: max(24px, env(safe-area-inset-left, 0px)); translate: none; top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px));
+                               width: min(420px, 34vw); text-align: left; font-size: 1.05rem; } }
   @media (max-width: 1099px) {
-    .finder { left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); width: auto; padding: 12px 14px 14px;
-              max-height: calc(100dvh - var(--finder-top, 76px) - 150px); }
+    .landing { left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); width: auto;
+               max-height: calc(100dvh - var(--finder-top, 76px) - 150px); gap: 8px; }
+    .finder { padding: 12px 14px 14px; }
     .finder-head h2 { font-size: 1.1rem; }
     .finder-test { margin-bottom: 8px; }
     .caption { top: calc(var(--finder-bottom, 92px) + 10px); }
     body.finder-busy .caption { visibility: hidden; }
+  }
+  @media (max-width: 760px) {
+    .badge { font-size: 0.66rem; }
+    .help-menu { display: inline-flex; align-items: center; margin-left: auto; min-height: 40px; padding: 6px 14px; border-color: rgba(242, 184, 92, 0.5); }
+    .actions { display: none; position: fixed; z-index: 8; top: var(--finder-top, 60px); right: max(12px, env(safe-area-inset-right, 0px)); left: auto; bottom: auto;
+               width: min(250px, calc(100% - 24px)); flex-direction: column; gap: 6px; padding: 10px; background: #1d1a38; border: 1px solid var(--line);
+               border-radius: 16px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55); grid-template-columns: none; }
+    .actions.open { display: flex; }
+    .actions .act { font-size: 0.95rem; padding: 10px 14px; text-align: left; }
+    .landing { top: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); max-height: calc(100dvh - var(--finder-top, 60px) - 20px); }
+    .explore { order: -1; }
+    .explore-btn { padding: 10px 14px; min-height: 60px; }
+    .explore-star { width: 36px; height: 36px; font-size: 1.05rem; }
+    .explore-title { font-size: 1.05rem; } .explore-sub { font-size: 0.82rem; }
+    body.finder-busy .explore { display: none; }        /* after a search, the campaign website comes first */
+    body:not(.story-finder) .finder-hide { display: none; }
+    .finder-test .finder-try { margin-top: 4px; }
+    .finder-seemap { display: none !important; }
+    .finder-more { display: inline-flex; align-items: center; }
+    .finder-details { display: none; } .finder-details.open { display: block; }
+    .finder-card-actions a.finder-site { flex: 1 1 100%; justify-content: center; min-height: 50px; }
+    .controls { top: calc(var(--finder-top, 60px) + 6px); bottom: auto; background: none; justify-content: flex-end; padding: 0 max(12px, env(safe-area-inset-right, 0px)); }
+    .controls .btn { padding: 7px 13px; min-height: 40px; font-size: 0.88rem; }
+    .caption { top: calc(var(--finder-top, 60px) + 4px); left: max(12px, env(safe-area-inset-left, 0px)); translate: none; width: calc(100% - 24px); text-align: left; font-size: 0.95rem; }
+    body.finder-busy .caption { visibility: hidden; }
+  }
+  /* ---------------------------------------------------------------- Toy Town story (Phase 1 Milestone 1: placeholder scenes) */
+  .story { position: fixed; inset: 0; z-index: 6; background: #120f22; }
+  .story-stage { position: absolute; inset: 0; overflow: hidden; }
+  .story-scene { position: absolute; inset: 0; opacity: 0; transition: opacity 0.4s ease; }
+  .story-scene.in { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .story-scene { transition: none; } }
+  .story-scene img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .story-slate { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 10px; padding: 24px;
+                 background: radial-gradient(ellipse at 50% 40%, #2e2554, #151229 72%); }
+  .story-slate::before { content: ""; position: absolute; inset: 24px; border: 2px dashed rgba(242, 184, 92, 0.3); border-radius: 24px; pointer-events: none; }
+  .story-slate-kicker { font: 700 0.74rem var(--body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
+  .story-slate-title { font: 600 clamp(1.5rem, 4vw, 2.5rem) var(--display); color: var(--ink); }
+  .story-placeholder { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); top: calc(76px + env(safe-area-inset-top, 0px)); font: 700 0.66rem var(--body);
+                       letter-spacing: 0.08em; text-transform: uppercase; background: rgba(23, 20, 42, 0.78); color: var(--muted); padding: 4px 8px; border-radius: 6px; }
+  .story-bar { position: relative; z-index: 2; display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap;
+               padding: calc(10px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
+               background: linear-gradient(to bottom, rgba(23, 20, 42, 0.94), rgba(23, 20, 42, 0.6)); border-bottom: 1px solid var(--line); }
+  .story-place { margin: 0; font: 600 1.2rem/1 var(--display); }
+  .story-progress { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
+  .story-step { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: rgba(246, 236, 218, 0.05); border-radius: 999px;
+                padding: 4px 12px 4px 4px; min-height: 40px; font-size: 0.85rem; color: var(--muted); }
+  .story-step-n { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; border: 1.5px dashed rgba(242, 184, 92, 0.6); font-weight: 700; color: var(--ink); }
+  .story-step.done .story-step-n { background: rgba(242, 184, 92, 0.22); }
+  .story-step.current { border-color: var(--gold); color: var(--ink); }
+  .story-step.current .story-step-n { background: var(--gold); color: #2a1606; border-style: solid; }
+  .story-step-name { white-space: nowrap; }
+  .story-bar-actions { display: flex; gap: 8px; margin-left: auto; }
+  .story .btn { min-height: 44px; padding: 9px 16px; }
+  .story .btn.primary { background: var(--holly); border-color: var(--holly); color: var(--on-holly); }
+  .story .btn.primary:hover { background: var(--holly-hi); }
+  .story-find { border-color: rgba(242, 184, 92, 0.7) !important; }
+  .story-card { position: absolute; z-index: 2; left: max(20px, env(safe-area-inset-left, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+                width: min(470px, calc(100% - 40px)); max-height: calc(100dvh - 120px); overflow: auto; background: rgba(34, 28, 62, 0.95);
+                border: 1px solid rgba(242, 184, 92, 0.35); border-radius: 18px; padding: 18px 20px; outline: 1.5px dashed rgba(242, 184, 92, 0.4); outline-offset: -7px;
+                box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5); }
+  .story-eyebrow { margin: 0 0 8px; font: 700 0.74rem/1.3 var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); }
+  .story-text { outline: none; } .story-text:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; border-radius: 6px; }
+  .story-line { margin: 0 0 8px; } .story-line.lead { font: 500 1.3rem/1.35 var(--display); }
+  .story-list { margin: 8px 0 4px; padding-left: 1.4em; display: grid; gap: 8px; }
+  .story-list b { display: block; } .story-list span { color: var(--muted); font-size: 0.92rem; }
+  .story-note { color: var(--muted); font-size: 0.86rem; margin: 8px 0 0; }
+  .story-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .story-nav { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+  .story-count { color: var(--muted); font-size: 0.85rem; margin-right: auto; }
+  .story-back[disabled] { opacity: 0.4; cursor: default; }
+  .story-links { margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; font-size: 0.86rem; }
+  .story-links button { border: 0; background: none; color: var(--muted); text-decoration: underline; padding: 6px 2px; min-height: 36px; }
+  .story-links .tag { margin-left: auto; }
+  body.story-open .landing { z-index: 9; top: calc(76px + env(safe-area-inset-top, 0px)); }
+  body.story-open:not(.story-finder) .landing { display: none; }   /* over the story only while its finder is open */
+  body.story-open .explore, body.story-open .controls, body.story-open .caption, body.story-open .note, body.story-open .pin { display: none !important; }
+  .story-text-dialog { width: min(640px, calc(100% - 24px)); max-height: 86dvh; }
+  .story-text-body h3 { margin: 18px 0 6px; font: 600 1.1rem var(--display); color: var(--ink); }
+  .story-text-body p, .story-text-body li { color: var(--ink); }
+  .story-text-body .story-text-scene { color: var(--muted); font-style: italic; font-size: 0.9rem; }
+  .story-text-dialog .btn.primary { background: var(--holly); border-color: var(--holly); color: var(--on-holly); }
+  .story-text-dialog .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  @media (max-width: 760px) {
+    .story { display: flex; flex-direction: column; }
+    .story-stage { position: relative; inset: auto; flex: 1 1 auto; min-height: 26dvh; order: 1; }
+    .story-bar { order: 0; padding-top: calc(8px + env(safe-area-inset-top, 0px)); padding-bottom: 8px; gap: 8px; }
+    .story-place { font-size: 1.05rem; }
+    .story-step-name { display: none; } .story-step { padding: 3px; min-height: 36px; } .story-step-n { width: 30px; height: 30px; }
+    .story-bar-actions { width: 100%; margin-left: 0; } .story-bar-actions .btn { flex: 1; padding: 7px 10px; min-height: 40px; font-size: 0.9rem; }
+    .story-placeholder { top: 8px; }
+    .story-card { position: relative; order: 2; left: auto; bottom: auto; width: auto; max-height: 60dvh; border-radius: 18px 18px 0 0;
+                  padding: 14px 16px calc(12px + env(safe-area-inset-bottom, 0px)); }
+    .story-line.lead { font-size: 1.12rem; }
+    body.story-finder .landing { top: 0; bottom: 0; left: 0; right: 0; max-height: none; }
+    body.story-finder .finder { flex: 1 1 auto; border-radius: 0; padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
   }
   .storybar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
   .chip { position: fixed; z-index: 3; left: max(16px, env(safe-area-inset-left, 0px)); top: calc(76px + env(safe-area-inset-top, 0px)); margin: 0; padding: 5px 12px; border-radius: 999px;
@@ -158,14 +278,16 @@
 <div id="stage"></div>
 <div id="status" class="status" role="status">Loading…</div>
 <header class="topbar">
-  <div class="brand"><strong>Railroad of Hope</strong><span class="badge">Prototype · national story, chapter 1</span></div>
-  <nav class="actions" aria-label="Ways to help">
+  <div class="brand"><strong>Railroad of Hope</strong><span class="badge">Prototype</span></div>
+  <button type="button" id="helpMenu" class="act help-menu" aria-expanded="false" aria-controls="helpActions">Ways to help</button>
+  <nav id="helpActions" class="actions" aria-label="Ways to help">
     <button type="button" class="act act-primary" data-action="give">Give Toys</button>
     <button type="button" class="act" data-action="donate">Donate</button>
     <button type="button" class="act" data-action="request">Request Toys</button>
     <button type="button" class="act" data-action="campaign" aria-controls="finder" aria-expanded="true">Find Local Campaign</button>
   </nav>
 </header>
+<div id="landing" class="landing">
 <section id="finder" class="finder" aria-labelledby="finderTitle"
          data-campaigns="test" data-src="./assets/campaigns.test.json" data-official-src=""
          data-official-url="https://www.toysfortots.org/">
@@ -173,6 +295,7 @@
     <h2 id="finderTitle">Find your local campaign</h2>
     <button type="button" class="finder-hide" aria-expanded="true" aria-controls="finder">Hide</button>
   </div>
+  <p class="finder-intro">Enter your ZIP code to connect with Toys for Tots in your community.</p>
   <p class="finder-test" hidden><span class="tag">Test data</span> Fictional campaigns<span class="finder-try">Try a test ZIP: <button type="button" data-try="00101">00101</button> <button type="button" data-try="00103">00103</button> <button type="button" data-try="00105">00105</button></span></p>
   <form class="finder-form" novalidate>
     <label for="zip">Enter your ZIP code</label>
@@ -189,6 +312,15 @@
   <div class="finder-out"></div>
   <p class="finder-live sr" role="status"></p>
 </section>
+<section id="explore" class="explore" aria-label="Explore Toy Town">
+  <button type="button" id="exploreBtn" class="explore-btn">
+    <span class="explore-star" aria-hidden="true">★</span>
+    <span><span class="explore-title">Explore Toy Town</span><span class="explore-sub">Discover how toys travel from neighbors to families.</span></span>
+    <span class="explore-go" aria-hidden="true">›</span>
+  </button>
+  <button type="button" id="exploreRestart" class="explore-restart" hidden>Start the story over</button>
+</section>
+</div>
 <p id="caption" class="caption" aria-live="polite"></p>
 <button type="button" id="pinMaple" class="pin" hidden>Maple Hollow, Ohio</button>
 <button type="button" id="pinToy" class="pin hub" hidden>★ Toy Town</button>
@@ -223,6 +355,36 @@
   <div id="ch1textBody"></div>
   <p class="small">Draft story text for review. Maple Hollow and its people are fictional.</p>
   <button type="button" class="btn" data-close>Close</button>
+</dialog>
+<section id="story" class="story" hidden aria-label="Toy Town story">
+  <div class="story-stage" aria-hidden="true"></div>
+  <header class="story-bar">
+    <p class="story-place">Toy Town</p>
+    <ol class="story-progress" aria-label="Chapters"></ol>
+    <div class="story-bar-actions">
+      <button type="button" class="btn story-find">Find Local Campaign</button>
+      <button type="button" class="btn story-exit">Exit Toy Town</button>
+    </div>
+  </header>
+  <div class="story-card">
+    <p class="story-eyebrow"></p>
+    <div class="story-text" tabindex="-1"></div>
+    <p class="sr story-scene-alt"></p>
+    <div class="story-actions" hidden></div>
+    <div class="story-nav">
+      <button type="button" class="btn story-back">← Back</button>
+      <span class="story-count"></span>
+      <button type="button" class="btn primary story-next">Next</button>
+    </div>
+    <p class="story-links"><button type="button" class="story-skip">Skip story</button><button type="button" class="story-read">Read as text</button><span class="tag">Draft copy</span></p>
+  </div>
+  <p class="sr story-live" aria-live="polite"></p>
+</section>
+<dialog id="storyText" class="story-text-dialog" aria-labelledby="storyTextTitle">
+  <h2 id="storyTextTitle">Toy Town, as text</h2>
+  <p class="small">Draft story text for review with Toys for Tots. Toy Town and its people are fictional.</p>
+  <div class="story-text-body"></div>
+  <div class="row"><button type="button" class="btn primary story-text-finder">Find My Local Campaign</button><button type="button" class="btn" data-close>Close</button></div>
 </dialog>
 <p class="note">Felt map from US Census boundaries (public domain). Mountains placed by real latitude and longitude, heights exaggerated. Towns are generic; Maple Hollow is fictional.</p>
 <dialog id="notyet" aria-labelledby="nyTitle">

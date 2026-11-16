@@ -16,6 +16,7 @@ import { createCommunity, S } from './community.js';
 import { createChapter1, CH1 } from './chapter1.js';
 import { fetchData } from '../../shared/data.js';
 import { attachCampaignFocus } from './campaign_focus.js';
+import { mapleHollow } from './features.js';
 
 const $ = (id) => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
@@ -31,6 +32,7 @@ const tier = ['high', 'medium', 'low'].includes(Q.get('q')) ? Q.get('q') : (matc
 const status = (t) => { const s = $('status'); if (s) s.textContent = t; };
 // the look: felt (the project's direction, default) or the original clay map (?look=clay, for comparison)
 const FELT = (Q.get('look') || window.NAT_LOOK || 'felt') !== 'clay';
+const MAPLE = mapleHollow();   // Maple Hollow's entrance on the landing (kept, off in Phase 1: features.js)
 LOOK.felt = FELT;
 
 // ------------------------------------------------------------------ renderer + scene
@@ -250,7 +252,7 @@ const pins = [['pinMaple', () => siteWorld.clone().add(V(0, 3, 0))], ['pinToy', 
 function placePins() {
   for (const [id, f] of pins) {
     const p = f().project(camera), el = $(id);
-    const show = mode === 'national' && p.z < 1 && !flight;
+    const show = mode === 'national' && p.z < 1 && !flight && (id !== 'pinMaple' || MAPLE);
     el.hidden = !show; if (!show) continue;
     el.style.transform = `translate(${((p.x + 1) / 2 * innerWidth).toFixed(1)}px, ${((1 - p.y) / 2 * innerHeight).toFixed(1)}px)`;
   }
@@ -265,11 +267,13 @@ const CAPTIONS = {
 function ui(m) {
   $('caption').textContent = CAPTIONS[m];
   document.querySelector('.note').hidden = m !== 'national';
-  $('descend').hidden = m !== 'national'; $('ascend').hidden = m !== 'town'; $('playCh1').hidden = m !== 'town';
+  $('descend').hidden = m !== 'national' || !MAPLE; $('ascend').hidden = m !== 'town'; $('playCh1').hidden = m !== 'town';
   $('hint').textContent = m === 'town' ? 'Drag to look around · scroll or pinch to move closer' : m === 'national' ? 'Drag to move · scroll or pinch to zoom' : '';
 }
 $('descend').onclick = descend; $('pinMaple').onclick = descend; $('ascend').onclick = ascend;
-$('pinToy').onclick = () => window.open(TOYTOWN_URL, '_blank', 'noopener');
+// the Toy Town star opens the Toy Town story (Phase 1); the separate journey prototype stays at TOYTOWN_URL for reference
+$('pinToy').onclick = () => dispatchEvent(new Event('explore-toytown'));
+$('pinToy').setAttribute('aria-label', 'Explore Toy Town');
 // the ways-to-help bar and the dialogs' Close buttons are wired by the page shell (app.js), before the 3D map loads
 
 // ------------------------------------------------------------------ campaign selection (Milestone 1): the finder selects, the map follows
@@ -313,7 +317,8 @@ document.addEventListener('visibilitychange', () => { paused = document.hidden; 
 $('status').remove();
 ui('national');
 if (Q.get('chapter') === '1' || location.hash === '#chapter1') { Object.assign(rig, rigFrom(ch1.shotWorld(0, REDUCED))); startStory(); }
-renderer.setAnimationLoop((now) => { const dt = Math.min(0.1, (now - last) / 1000); last = now; if (!paused) frame(dt); });
+// while the Toy Town story covers the map, the map stops drawing (it picks up where it was when the story closes)
+renderer.setAnimationLoop((now) => { const dt = Math.min(0.1, (now - last) / 1000); last = now; if (!paused && !document.body.classList.contains('story-open')) frame(dt); });
 
 // test hooks (no effect for visitors): pose the camera along the descent at u ∈ [0,1] and grab a frame
 window.__nat = {

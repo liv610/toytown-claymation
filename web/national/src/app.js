@@ -6,6 +6,7 @@
 import { loadDirectory } from '../../shared/campaigns.js';
 import { createFinder } from './finder.js';
 import { selection } from './selection.js';
+import { createStory } from './story.js';
 
 const $ = (id) => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
@@ -23,20 +24,41 @@ const finder = createFinder(F, { directory, officialUrl: F.dataset.officialUrl,
 function layout() {
   const top = document.querySelector('.topbar').getBoundingClientRect().bottom, root = document.documentElement.style;
   root.setProperty('--finder-top', `${Math.round(top + 10)}px`);
-  const box = (F.hidden ? document.querySelector('.topbar') : F).getBoundingClientRect();
+  const L = $('landing'), box = (L && L.getBoundingClientRect().height ? L : document.querySelector('.topbar')).getBoundingClientRect();
   root.setProperty('--finder-bottom', `${Math.round(box.bottom)}px`);
 }
 addEventListener('resize', layout); addEventListener('finderlayout', layout);
-new ResizeObserver(layout).observe(F); layout();
+new ResizeObserver(layout).observe($('landing')); layout();
 // heading into Maple Hollow's story: tuck the finder away (one tap brings it back)
 for (const id of ['descend', 'pinMaple']) $(id).addEventListener('click', () => finder.collapse());
 
 // ------------------------------------------------------------ ways to help
-// "Find Local Campaign" opens the finder; the others are placeholders in this prototype ("not connected yet")
+// "Find Local Campaign" opens the finder; the others are placeholders in this prototype ("not connected yet").
+// Phones: the actions sit behind one "Ways to help" button instead of a fixed four-button bar.
+const notYet = (title) => { $('nyTitle').textContent = title; $('notyet').showModal(); };
+const menuBtn = $('helpMenu'), menu = $('helpActions');
+const closeMenu = () => { if (!menu.classList.contains('open')) return; menu.classList.remove('open'); menuBtn.setAttribute('aria-expanded', 'false'); };
+menuBtn.addEventListener('click', () => { const open = menu.classList.toggle('open'); menuBtn.setAttribute('aria-expanded', String(open)); if (open) menu.querySelector('button').focus(); });
+menu.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeMenu(); menuBtn.focus(); } });
+document.addEventListener('click', (e) => { if (!menu.contains(e.target) && e.target !== menuBtn) closeMenu(); });
 document.querySelectorAll('[data-action]').forEach((b) => b.addEventListener('click', () => {
-  if (b.dataset.action === 'campaign') { finder.open(); return; }
-  $('nyTitle').textContent = b.textContent; $('notyet').showModal();
+  closeMenu();
+  if (b.dataset.action === 'campaign') { if (story.isOpen()) story.openFinder(); else finder.open(); return; }
+  notYet(b.textContent);
 }));
+
+// ------------------------------------------------------------ Toy Town story (placeholder scenes, Milestone 1)
+const story = createStory($('story'), { finder, notYet, onLeave: (pos) => {
+  // back on the map: Explore Toy Town offers to continue where the visitor left (or start over)
+  const done = !pos || pos.chapter >= 4;
+  $('exploreBtn').querySelector('.explore-title').textContent = done ? 'Explore Toy Town' : 'Continue Toy Town';
+  $('exploreBtn').querySelector('.explore-sub').textContent = done ? 'Discover how toys travel from neighbors to families.' : `Pick up at chapter ${pos.chapter + 1}.`;
+  $('exploreRestart').hidden = done;
+  $('exploreBtn').focus();
+} });
+$('exploreBtn').addEventListener('click', () => story.enter());
+$('exploreRestart').addEventListener('click', () => story.enter({ restart: true }));
+addEventListener('explore-toytown', () => story.enter());
 document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => b.closest('dialog').close()));
 
 // ------------------------------------------------------------ the 3D map, loaded after the page works
@@ -57,4 +79,4 @@ const world = Q.get('map') === 'off'
 world.then((ok) => { if (ok) document.body.classList.add('map-ready'); });   // map-only extras (e.g. "See it on the map")
 
 // test hooks (no effect for visitors)
-window.__natShell = { world, finder, directory, selection };
+window.__natShell = { world, finder, directory, selection, story };
