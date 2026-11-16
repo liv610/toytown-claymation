@@ -169,7 +169,10 @@
     .explore-btn { padding: 10px 14px; min-height: 60px; }
     .explore-star { width: 36px; height: 36px; font-size: 1.05rem; }
     .explore-title { font-size: 1.05rem; } .explore-sub { font-size: 0.82rem; }
-    body.finder-busy .explore { display: none; }        /* after a search, the campaign website comes first */
+    body.finder-busy .explore { order: 1; }              /* after a search the campaign website comes first; Explore stays, compact, below it */
+    body.finder-busy .explore-btn { min-height: 46px; padding: 6px 12px; }
+    body.finder-busy .explore-star { width: 28px; height: 28px; font-size: 0.9rem; }
+    body.finder-busy .explore-restart { display: none; }
     body:not(.story-finder) .finder-hide { display: none; }
     .finder-test .finder-try { margin-top: 4px; }
     .finder-seemap { display: none !important; }
@@ -203,7 +206,7 @@
   .story-step { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: rgba(246, 236, 218, 0.05); border-radius: 999px;
                 padding: 4px 12px 4px 4px; min-height: 40px; font-size: 0.85rem; color: var(--muted); }
   .story-step-n { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; border: 1.5px dashed rgba(242, 184, 92, 0.6); font-weight: 700; color: var(--ink); }
-  .story-step.done .story-step-n { background: rgba(242, 184, 92, 0.22); }
+  .story-step.done .story-step-n { background: rgba(242, 184, 92, 0.45); border-style: solid; border-color: var(--gold); }
   .story-step.current { border-color: var(--gold); color: var(--ink); }
   .story-step.current .story-step-n { background: var(--gold); color: #2a1606; border-style: solid; }
   .story-step-name { white-space: nowrap; }
@@ -224,6 +227,8 @@
   .story-note { color: var(--muted); font-size: 0.86rem; margin: 8px 0 0; }
   .story-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
   .story-nav { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+  /* a long beat scrolls inside the card; Back and Next stay pinned at its foot */
+  .story-nav { position: sticky; bottom: -12px; z-index: 1; margin-inline: -8px; padding: 8px 8px 4px; background: rgb(34, 28, 62); box-shadow: 0 -10px 12px -6px rgb(34, 28, 62); }
   .story-count { color: var(--muted); font-size: 0.85rem; margin-right: auto; }
   .story-back[disabled] { opacity: 0.4; cursor: default; }
   .story-links { margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; font-size: 0.86rem; }
@@ -249,6 +254,8 @@
     .story-card { position: relative; order: 2; left: auto; bottom: auto; width: auto; max-height: 60dvh; border-radius: 18px 18px 0 0;
                   padding: 14px 16px calc(12px + env(safe-area-inset-bottom, 0px)); }
     .story-line.lead { font-size: 1.12rem; }
+    .story-nav { gap: 8px; } .story-nav .btn { white-space: nowrap; padding: 8px 12px; font-size: 0.9rem; } .story-count { white-space: nowrap; }
+    @media (max-width: 359px) { .story-count { display: none; } .story-back { margin-right: auto; } }
     body.story-finder .landing { top: 0; bottom: 0; left: 0; right: 0; max-height: none; }
     body.story-finder .finder { flex: 1 1 auto; border-radius: 0; padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
   }

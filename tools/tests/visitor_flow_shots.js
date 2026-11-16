@@ -19,6 +19,9 @@ const SIZES = [['desktop', { width: 1280, height: 800 }], ['phone', { width: 390
     await p.waitForTimeout(1500);
     // 1. landing: the map with the two entry points
     await pose(); await shot('1_landing');
+    // pose() stops the map's loop: reload so the camera can move to the campaign
+    await p.reload({ waitUntil: 'domcontentloaded' });
+    await p.waitForFunction(() => window.__natShell && window.__nat, null, { timeout: 600000, polling: 500 });
     // 2. Journey A: ZIP → the serving campaign's card (fictional test data)
     await p.fill('#zip', '00101'); await p.click('.finder-form [type="submit"]');
     await p.waitForSelector('.finder-card');

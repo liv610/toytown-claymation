@@ -58,6 +58,7 @@ async function nextTimes(p, n) { for (let i = 0; i < n; i++) await p.click('.sto
     const site = await p.$('a.finder-site');
     ok(/^Visit Campaign Website/.test(await site.innerText()) && await site.getAttribute('href') === 'https://example.org/test-campaigns/maple-hollow' && await site.getAttribute('target') === '_blank' && await site.getAttribute('rel') === 'noopener noreferrer', `A ${name}: Visit Campaign Website → the campaign's site, new tab`);
     ok(await inView(p, 'a.finder-site'), `A ${name}: the website button is on screen right after the search`);
+    ok(await inView(p, '#exploreBtn') && await p.$eval('a.finder-site', (a) => a.getBoundingClientRect().top) < await p.$eval('#exploreBtn', (e) => e.getBoundingClientRect().top), `A ${name}: Explore Toy Town stays on screen with the card, below the website link`);
     const [popup] = await Promise.all([ctx.waitForEvent('page'), site.click()]);
     ok(popup.url() === 'https://example.org/test-campaigns/maple-hollow', `A ${name}: it opens the campaign website`); await popup.close();
     ok(await p.isHidden('#story') && await pos(p) === null, `A ${name}: done without entering Toy Town`);
@@ -242,6 +243,7 @@ async function nextTimes(p, n) { for (let i = 0; i < n; i++) await p.click('.sto
     const stageH = await p.$eval('.story-stage', (e) => e.getBoundingClientRect().height);
     ok(stageH > viewport.height * 0.25, `I ${name}: the scene keeps ${Math.round(stageH)} px of the screen`);
     await p.click('.story-step[data-chapter="2"]'); await p.click('.story-next');
+    ok(await inView(p, '.story-next') && await inView(p, '.story-back'), `I ${name}: on the longest beat (the four steps) Back and Next stay on screen; the text scrolls`);
     ok(await inView(p, '.story-act-finder') || await p.$eval('.story-card', (c) => c.scrollHeight > c.clientHeight), `I ${name}: Chapter 3's steps and action fit or scroll inside the card`);
     await p.click('.story-find');
     const fb = await p.$eval('#landing', (e) => e.getBoundingClientRect().toJSON());
