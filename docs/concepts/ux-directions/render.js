@@ -40,7 +40,7 @@ const R = [
     await p.waitForFunction(() => window.__nat, null, { timeout: 600000, polling: 500 });
     await p.evaluate(() => dispatchEvent(new Event('resize')));
     await p.waitForTimeout(1500);
-    if (r.zip) { await p.fill('#zip', r.zip); await p.click('.finder-form [type=submit]'); await p.waitForSelector('.finder-card'); }
+    if (r.zip) { await p.evaluate((z) => { document.getElementById('zip').value = z; document.querySelector('.finder-form').requestSubmit(); }, r.zip); await p.waitForSelector('.finder-card', { state: 'attached' }); }   // the finder may be off screen
     await p.waitForFunction(() => window.__nat.state().mode === 'national' && !window.__nat.state().flying, null, { timeout: 300000 });
     await p.waitForTimeout(1500);
     const a = await p.evaluate(() => {
@@ -52,6 +52,7 @@ const R = [
     fs.writeFileSync(path.join(OUT, r.name + '.jpg'), Buffer.from(url.split(',')[1], 'base64'));
     anchors[r.name] = { w: r.w, h: r.h, ...a };
     console.log(r.name, JSON.stringify(anchors[r.name]));
+    fs.writeFileSync(path.join(OUT, 'anchors.json'), JSON.stringify(anchors, null, 1));   // after each render, so a later failure loses nothing
     await p.close();
   }
   fs.writeFileSync(path.join(OUT, 'anchors.json'), JSON.stringify(anchors, null, 1));
