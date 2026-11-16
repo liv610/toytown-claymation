@@ -18,13 +18,13 @@ const R = [
   // Direction A, map-first: the map is the whole page; a small search pill, then a result card where the pill was
   { name: 'A_desktop_landing', w: 1280, h: 720 },
   { name: 'A_desktop_found', w: 1280, h: 720, zip: '00201', css: '#finder{top:84px!important;right:20px!important;width:340px!important;height:250px!important;max-height:none!important;overflow:hidden!important}' },
-  { name: 'A_phone_landing', w: 390, h: 844, zoom: 0.56, target: [10, -30] },   // closer than the app's portrait view: the country fills the screen
+  { name: 'A_phone_landing', w: 390, h: 844, zoom: 0.5, target: [30, -10], el: 1.25 },   // steeper, so the board's far edge stays out of frame   // closer than the app's portrait view: the country fills the screen
   { name: 'A_phone_found', w: 390, h: 844, zip: '00201', css: offFinder + bar(52) + bottomEdge(548) },      // result sheet from y 556
   { name: 'A_phone_details', w: 390, h: 400, zip: '00201', css: offFinder + bar(52) },   // only the band above the expanded sheet (from y 392) shows map
   // Direction B, integrated: the map is a region of the page beside / above a docked panel (rendered at that size)
   { name: 'B_desktop_landing', w: 920, h: 656, css: noBar + offFinder, zoom: 0.9 },
   { name: 'B_desktop_found', w: 920, h: 656, zip: '00201', css: noBar + offFinder },
-  { name: 'B_phone_landing', w: 390, h: 500, css: noBar + offFinder, zoom: 0.7, target: [10, -12] },
+  { name: 'B_phone_landing', w: 390, h: 500, css: noBar + offFinder, zoom: 0.62, target: [25, -5], el: 1.2 },
   { name: 'B_phone_found', w: 390, h: 500, zip: '00201', css: noBar + offFinder },
   { name: 'B_phone_details', w: 390, h: 340, zip: '00201', css: noBar + offFinder },
 ];
@@ -41,7 +41,7 @@ const R = [
     await p.evaluate(() => dispatchEvent(new Event('resize')));
     await p.waitForTimeout(1500);
     if (r.zoom) {   // a closer country view for the concept (the app's own national framing is unchanged)
-      await p.evaluate(({ z, t }) => { const g = window.__nat.rig; g.dist *= z; if (t) g.target.set(t[0], 0, t[1]); }, { z: r.zoom, t: r.target || null });
+      await p.evaluate(({ z, t, el }) => { const g = window.__nat.rig; g.dist *= z; if (t) g.target.set(t[0], 0, t[1]); if (el) g.el = el; }, { z: r.zoom, t: r.target || null, el: r.el || null });
       await p.waitForTimeout(6000);
     }
     if (r.zip) { await p.evaluate((z) => { document.getElementById('zip').value = z; document.querySelector('.finder-form').requestSubmit(); }, r.zip); await p.waitForSelector('.finder-card', { state: 'attached' }); }   // the finder may be off screen
