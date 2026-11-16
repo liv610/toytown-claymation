@@ -159,7 +159,7 @@ let innerW = 1280, innerH = 720;
 
   // ------------------------------------------------------------ C. existing pin and the story
   {
-    const { ctx, p, errors } = await open(b, 'capture=1&q=medium');
+    const { ctx, p, errors } = await open(b, 'capture=1&q=medium&maplehollow=1');
     const pin = await p.$eval('#pinMaple', (e) => { const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
     await p.mouse.click(pin.x, pin.y);
     await p.waitForFunction(() => window.__nat.state().mode === 'story', null, { timeout: 300000, polling: 250 });

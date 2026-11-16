@@ -21,15 +21,17 @@ async function page(b, { viewport = { width: 1280, height: 720 }, noWebGL = fals
   if (noWebGL) await p.addInitScript(() => { const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (t, ...a) { return /webgl/.test(t) ? null : g.call(this, t, ...a); }; });
   return { p, log };
 }
+// phones keep the actions behind one "Ways to help" button (Phase 1); open it before each action there
+const menu = async (p) => { if (await p.isVisible('#helpMenu') && !(await p.isVisible('#helpActions'))) await p.click('#helpMenu'); };
 async function actionsWork(p, label) {
   for (const a of ['give', 'donate', 'request']) {   // placeholders: the "not connected yet" dialog
-    await p.click(`[data-action="${a}"]`, { timeout: 5000 });
+    await menu(p); await p.click(`[data-action="${a}"]`, { timeout: 5000 });
     const open = await p.isVisible('#notyet'), title = await p.textContent('#nyTitle');
     await p.click('#notyet [data-close]'); const closed = !(await p.isVisible('#notyet'));
     ok(open && title.trim().length > 0 && closed, `${label}: "${title.trim()}" opens its dialog and closes`);
   }
   // "Find Local Campaign" opens the campaign finder (step 2) and puts the cursor in the ZIP field
-  await p.click('[data-action="campaign"]', { timeout: 5000 });
+  await menu(p); await p.click('[data-action="campaign"]', { timeout: 5000 });
   ok(await p.isVisible('#finder') && await p.evaluate(() => document.activeElement && document.activeElement.id === 'zip') && !(await p.isVisible('#notyet')),
     `${label}: "Find Local Campaign" opens the campaign finder with the ZIP field focused`);
 }
@@ -70,7 +72,7 @@ const worldChunk = (log) => log.requests.some((u) => /\/main-[A-Z0-9]+\.js/.test
   {
     const { p, log } = await page(b, { reducedMotion: 'reduce' });
     const t0 = Date.now();
-    await p.goto(BASE + '?capture=1&q=medium', { waitUntil: 'domcontentloaded' });
+    await p.goto(BASE + '?capture=1&q=medium&maplehollow=1', { waitUntil: 'domcontentloaded' });   // Maple Hollow's entrance is off by default (Phase 1)
     await p.waitForFunction(() => window.__natShell);
     const tShell = Date.now() - t0, early = await p.evaluate(() => !window.__nat);
     await p.click('[data-action="request"]'); const open = await p.isVisible('#notyet'); await p.click('#notyet [data-close]');

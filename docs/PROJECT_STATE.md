@@ -15,7 +15,45 @@ actions are always available without the world.
 
 ## Where we are now (updated)
 
-**Newest: `experiment/campaign-finder` (from `experiment/textile-toytown` at `1f6a4f1`). Milestone 1, "Find your local
+**Newest: `experiment/visitor-flow` (from `experiment/campaign-finder` at `c8a812b`). Phase 1, Milestone 1: the visitor
+flow skeleton.** Plan: [Phase 1 visitor experience](https://claude.ai/artifact/KGMGwiFCR4kubUSyrB94hF) (also in
+`docs/PHASE1_EXPERIENCE.md` on `experiment/phase1-plan`). The owner approved the implementation proposal and asked to
+stop after Milestone 1 for a review of the whole flow before any new story scenes or 3D work.
+- **Landing (Direction A, map-first).** Two entry points over the felt map, both visible without scrolling on desktop,
+  tablet and phones (`#landing` in `web/national/index.html`): the finder ("Enter your ZIP code to connect with Toys for
+  Tots in your community.") and a prominent "Explore Toy Town" button ("Discover how toys travel from neighbors to
+  families."). No welcome modal. On phones the other ways to help sit in a "Ways to help" menu in the top bar.
+- **Journey A.** ZIP → the serving campaign's card at once → "Visit Campaign Website" (the final destination). After a
+  search the card replaces the ZIP form ("ZIP 00101 · Change"); details fold behind a "Details" toggle on phones.
+  Campaign data is still the fictional test directory (example.org links, labelled fictional).
+- **Journey B: the Toy Town story** (`web/national/src/story.js`, `story_data.js`). Four chapters (What is Toys for
+  Tots? · How does it work? · How do I request toys? · How can I help?) and a finale ("Every community has a part to
+  play. Find yours."). Visitor-paced beats with progress, Back, Next, Skip, Exit, Read as text, and a "Draft copy" tag.
+  Copy is a draft; each beat lists what to confirm with Toys for Tots (`confirm`), shown at the end of Read as text.
+  - Scenes are temporary scaffolding: stills from the existing felt work (`web/national/assets/story/`, rendered by
+    `tools/story_stills.js` or taken from earlier screenshots) and "Scene in development" slates where no scene exists
+    (sorting, distribution, Chapter 3). Every scene carries a "Placeholder" tag.
+  - **3D later without a rebuild:** the story state is one `{chapter, beat}` record; scenes are data; a 3D stage can be
+    added with `registerStage('shot', …)` and beats can name a `shot`. Interface, navigation and the finder hand-off stay.
+- **The finder from every chapter.** "Find Local Campaign" in the story bar (and the chapter actions in Chapters 3, 4
+  and the finale) opens the same finder over the story with "← Back to the story". The chapter and beat stay put;
+  closing (button or Escape) returns focus to where the visitor was. A campaign already chosen reopens on its card and
+  website link; otherwise the finder opens on the ZIP field. Exit keeps the position: the landing button becomes
+  "Continue Toy Town" with "Start the story over".
+- **Accessibility.** Keyboard throughout; focus moves to the story text on entry and returns on close; the page behind
+  the story is `inert` while it is open; a live region announces each beat; reduced motion removes the crossfades; the
+  story is plain DOM, so it works with the 3D map off or unavailable (`?map=off`). The map stops rendering while the
+  story covers it.
+- **Maple Hollow preserved behind a flag.** Its pin and the descent into Chapter 1 are hidden by default and come back
+  with `?maplehollow=1` (or `data-maple-hollow="on"`, `features.js`). Nothing in them was rewritten. The Toy Town pin
+  now opens the story. State browsing stays off (`preserve/state-browsing`).
+- **Monetary donation** stays a separate placeholder action ("not connected in this prototype").
+- **Tests:** `tools/tests/visitor_flow.js` (both journeys, the finder from every chapter with exact resume, keyboard,
+  inert background, reduced motion, map off, phones and a small phone, the Maple Hollow flag). The earlier tests were
+  updated for the Phase 1 card (`.finder-change`), the phone menu and the flag. Review screenshots:
+  `tools/tests/visitor_flow_shots.js`. Packaging: `tools/build_national.sh` now copies the story stills.
+
+**Previous: `experiment/campaign-finder` (from `experiment/textile-toytown` at `1f6a4f1`). Milestone 1, "Find your local
 campaign".** Plan: [Milestone 1 technical plan](https://claude.ai/artifact/K1gtbYErahn9pzdwAvDdVV). The owner approved
 it one step at a time and reviews each step before the next one starts.
 - The state before Milestone 1 is kept as the branch `preserve/pre-m1` on GitHub. That is the same commit as
@@ -262,7 +300,8 @@ Toy*, exactly in this order:
 | `experiment/map-scale` | 320 × 260 m regional diorama around the village, validated railway layout (`scripts/tt/layout.py`, `region.py`), trains, continuous descent (`web/region`), `docs/MAP_SCALE_ASSESSMENT.md` | — |
 | `experiment/visual-quality` | Cycles texture-bake experiment on the blue shop and pink house (`scripts/tt/hq.py`, `bake_hq.py`, `export_hq.py`, `web/hq`), before/after images, `docs/VISUAL_QUALITY_EXPERIMENT.md` | [Toy Town Quality Test](https://claude.ai/artifact/3bqaJDnGMco4e3kR83cfXf) |
 | `experiment/journey` (from map-scale) | Journey prototype: drop-off reached three ways (direct / explore / Marine story), the toy shop interior and "send a toy online" with the station departure and ZIP line map, illustrated fallback, local event log + research panel (`web/journey`), `docs/JOURNEY_PROTOTYPE.md`, `docs/JOURNEY_TESTING_GUIDE.md` | [Toy Town Journey Prototype](https://claude.ai/artifact/68VGT1ZJfx3HdZF8vPkQNw) |
-| `experiment/campaign-finder` (from textile-toytown) | **Newest.** Milestone 1, the campaign finder, built step by step. Step 1: national page shell + lazy 3D map (`web/national/src/app.js`). Step 2: the finder with fictional test data (`web/shared/campaigns.js`, `web/national/src/finder.js`, `web/national/assets/campaigns.test.json`). Step 3 (first part): shared selection + the map following it (`selection.js`, `campaign_focus.js`). Tests: `national_shell.js`, `finder_unit.mjs`, `finder_e2e.js`, `finder_map.js`. `preserve/pre-m1` = the state before it | — (not republished yet) |
+| `experiment/visitor-flow` (from campaign-finder) | **Newest.** Phase 1 Milestone 1: landing with two entry points, the Toy Town story frame over placeholder scenes (`story.js`, `story_data.js`, `assets/story/`), the finder from every chapter, Maple Hollow behind `?maplehollow=1`. Tests: `visitor_flow.js` + updated regressions | see the session report |
+| `experiment/campaign-finder` (from textile-toytown) | Milestone 1 (finder). Milestone 1, the campaign finder, built step by step. Step 1: national page shell + lazy 3D map (`web/national/src/app.js`). Step 2: the finder with fictional test data (`web/shared/campaigns.js`, `web/national/src/finder.js`, `web/national/assets/campaigns.test.json`). Step 3 (first part): shared selection + the map following it (`selection.js`, `campaign_focus.js`). Tests: `national_shell.js`, `finder_unit.mjs`, `finder_e2e.js`, `finder_map.js`. `preserve/pre-m1` = the state before it | — (not republished yet) |
 | `experiment/textile-toytown` (from national) | **Newest.** Textile construction system (`web/textile/`), the textile toy shop corner + puppet Marines in the journey behind `?look=`, split village export (`scripts/tt/corner.py`, `export_region.py --split-corner`), `docs/TEXTILE_SYSTEM.md` | [Textile Toy Town](https://claude.ai/artifact/Ajk5aHEBWDgSDXdZ7j5RZG) |
 | `experiment/textile-storybook`, `experiment/handmade-styles` | The owner's separate style experiments (paper, felt, textile). Source of the textile techniques; not merged | — |
 | `experiment/national` (from storybook) | **Current line of work.** Clay national relief + descent into Maple Hollow + Chapter 1 with townspeople (`web/national`, `scripts/tt/people.py`, `scripts/tt/toys.py`), `docs/NATIONAL_MAP.md`; journey copy revised | [Railroad of Hope National Map](https://claude.ai/artifact/Ljs6JaGJYW1kMGijHRKaZ1) |
@@ -293,6 +332,9 @@ New work should branch from `experiment/national` (it contains everything except
 | Visual direction (earlier) | **Handmade textile world** for the whole project (national map + Toy Town), textile primary, felt where it helps. The folk-art look is no longer a constraint | owner's decision after comparing paper / felt / textile |
 | Textile approach | Port techniques selectively, never merge the style branches; construction over texture (sewn panels, laps, tabs, bindings, batting); stitching only where it holds things together | the experiment still looked like textured 3D in places |
 | Corner split | Village exported once more with the test corner separated (`--split-corner`); original assets untouched; both looks swap live | safe A/B in the real journey |
+| Phase 1 landing | Direction A (map-first) with two equal-weight entries: find a campaign, explore Toy Town; no welcome modal | owner's decision after the two-direction comparison |
+| Phase 1 story | Hosted in the national app as a visitor-paced chapter view over replaceable stages; the campaign website is the final destination; finder reachable from every chapter with exact resume | actions before spectacle; 3D scenes can replace stills later |
+| Maple Hollow | Kept intact behind `?maplehollow=1` while the placeholder story is the Toy Town entry | preserve existing work; one Toy Town |
 | Story copy | Invitations, not process claims; nothing about where a specific toy goes | owner's review (point 8); organisation to approve wording |
 
 ## How to run and rebuild

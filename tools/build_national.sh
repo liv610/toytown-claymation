@@ -18,6 +18,9 @@ rm -f "$OUT"/assets/*.json "$OUT"/assets/*.json.js
 for f in states-albers-10m maple neighbours-albers campaigns.test; do jsonwrap national/assets/$f.json "$OUT/assets/$f.json"; done
 GLBS="maple marine ch1_parent ch1_child ch1_volunteer ch1_props"
 for f in $GLBS; do b64wrap national/assets/$f.glb $f.glb "$OUT/assets/$f.glb.js"; done
+# the story's placeholder stills (Milestone 1 scaffolding): plain JPEGs, only the ones story_data.js names
+mkdir -p "$OUT/assets/story"; rm -f "$OUT"/assets/story/*
+for f in $(grep -oE "still: '[^']+'" national/src/story_data.js | cut -d"'" -f2 | sort -u); do cp national/assets/story/$f "$OUT/assets/story/"; done
 python3 - "$OUT" "${TOYTOWN_URL:-https://claude.ai/artifact/Ajk5aHEBWDgSDXdZ7j5RZG}" <<'PY'
 import sys, re
 s = open('national/index.html').read()

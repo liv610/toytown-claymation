@@ -29,6 +29,7 @@ const focusedId = (p) => p.evaluate(() => document.activeElement && (document.ac
 const text = (p, sel) => p.$eval(sel, (e) => e.innerText);
 // search and wait for the answer (results heading, an error, or a message); returns how long it took in ms
 async function search(p, zip) {
+  if (await p.isVisible('.finder-change')) await p.click('.finder-change');   // an open card replaces the ZIP form (Phase 1): Change brings it back
   await p.evaluate(() => { const h = document.querySelector('.finder-out h3'); if (h) h.dataset.stale = '1'; document.getElementById('zipError').dataset.stale = '1'; });
   await p.fill('#zip', zip); const t = Date.now(); await p.click('.finder-form [type="submit"]');
   await p.waitForFunction(() => { const h = document.querySelector('.finder-out h3'), e = document.getElementById('zipError');
@@ -109,9 +110,9 @@ const subheads = (p) => p.$$eval('.finder-out .finder-sub', (h) => h.map((x) => 
     await search(p, '00105'); await p.click('.finder-row-btn >> nth=0');
     ok(/Serves ZIP code 00105/.test(await text(p, '.finder-card')), 'A: card for a serving campaign says "Serves ZIP code 00105"');
     await search(p, '00201');
-    ok(/Copper Wash Toy Drive/.test(await text(p, '.finder-card h3')) && await p.textContent('.finder-back') === '← New search', 'A: a new search from a card replaces it (00201: one campaign, nothing nearby, so "New search")');
-    await p.click('.finder-back');
-    ok(await p.$eval('.finder-out', (e) => e.children.length) === 0 && await focusedId(p) === 'zip', 'A: "New search" clears the card and returns to the ZIP field');
+    ok(/Copper Wash Toy Drive/.test(await text(p, '.finder-card h3')) && !(await p.$('.finder-back')) && /ZIP 00201/.test(await p.textContent('.finder-zipline')), 'A: a new search from a card replaces it (00201: one campaign, nothing nearby: no Back, "ZIP 00201 · Change")');
+    await p.click('.finder-change');
+    ok(await p.$eval('.finder-out', (e) => e.children.length) === 0 && await focusedId(p) === 'zip', 'A: "Change" clears the card and returns to the ZIP field');
 
     // card opened directly (how the map will open it in step 3)
     await p.evaluate(() => window.__natShell.finder.showCampaign('test-pine-harbor'));
@@ -127,7 +128,7 @@ const subheads = (p) => p.$$eval('.finder-out .finder-sub', (h) => h.map((x) => 
     ok(await p.$eval(top, (b) => b.classList.contains('has-card') && /Pine Harbor Toy Drive is open in the finder/.test(b.getAttribute('aria-description'))), 'A: while hidden it marks that a card is open (a small dot, and said to screen readers)');
     await p.click(top);
     ok(await p.isVisible('#finder') && await focusedId(p) === 'finderCardName' && !(await p.isVisible('#notyet')), 'A: "Find Local Campaign" brings it back, focus on the open card');
-    await p.click('.finder-back'); await p.click('.finder-hide'); await p.click(top);
+    await p.click('.finder-change'); await p.click('.finder-hide'); await p.click(top);
     ok(await p.isVisible('#finder') && await focusedId(p) === 'zip' && !(await p.$eval(top, (b) => b.classList.contains('has-card'))), 'A: with no card open it reopens on the ZIP field');
     for (const a of ['give', 'donate', 'request']) {
       await p.click(`[data-action="${a}"]`); const dlg = await p.isVisible('#notyet'); await p.click('#notyet [data-close]');
@@ -164,15 +165,15 @@ const subheads = (p) => p.$$eval('.finder-out .finder-sub', (h) => h.map((x) => 
     const { ctx, p, log } = await open(b, 'map=off', { viewport });
     await p.waitForSelector('.finder-test:not([hidden])');
     const box = await p.$eval('#finder', (e) => e.getBoundingClientRect().toJSON());
-    ok(box.left >= 8 && box.right <= viewport.width - 8 && box.top < 200, `C ${name}: finder on screen under the top bar (top ${Math.round(box.top)} px)`);
+    ok(box.left >= 8 && box.right <= viewport.width - 8 && box.top >= 0 && box.bottom <= viewport.height && (name === 'phone' || box.top < 200), `C ${name}: finder on screen (${name === 'phone' ? 'docked at the bottom' : 'under the top bar'}, top ${Math.round(box.top)} px)`);
     const h = (sel) => p.$$eval(sel, (els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
-    const [zipH] = await h('#zip'), [goH] = await h('.finder-form [type=submit]'), small = [...await h('.finder-test button'), ...await h('.finder-hide')];
+    const [zipH] = await h('#zip'), [goH] = await h('.finder-form [type=submit]'), small = [...await h('.finder-test button'), ...(name === 'phone' ? [] : await h('.finder-hide'))];
     ok(zipH >= 44 && goH >= 44 && small.every((x) => x >= 32), `C ${name}: touch sizes ok (field ${zipH}, search ${goH}, test ZIPs / Hide ${small.join('/')} px)`);
     ok(await p.$eval('#zip', (e) => parseFloat(getComputedStyle(e).fontSize)) >= 16 && await p.getAttribute('#zip', 'inputmode') === 'numeric', `C ${name}: numeric keypad, text ≥16 px (no zoom-on-focus)`);
     await p.screenshot({ path: `${out}/C_${name}_arrival.png` });
     await p.click('[data-try="00103"]'); await p.waitForTimeout(100);
     const fits = await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
-    const bar = name === 'phone' ? await p.$eval('.actions', (e) => e.getBoundingClientRect().top) : viewport.height;
+    const bar = viewport.height;   // no fixed help bar on phones any more (Phase 1: "Ways to help" menu)
     const fb = await p.$eval('#finder', (e) => e.getBoundingClientRect().bottom);
     ok(fits && fb <= bar, `C ${name}: results fit (no sideways scroll; finder ends at ${Math.round(fb)} px, above the help bar at ${Math.round(bar)} px)`);
     await p.$eval('#finder', (e) => { e.scrollTop = e.scrollHeight; });
@@ -201,7 +202,7 @@ const subheads = (p) => p.$$eval('.finder-out .finder-sub', (h) => h.map((x) => 
 
   // ---------------------------------------------------------------- E. with the 3D map loading
   {
-    const { ctx, p, log } = await open(b, 'capture=1&q=medium', { reducedMotion: 'reduce' });
+    const { ctx, p, log } = await open(b, 'capture=1&q=medium&maplehollow=1', { reducedMotion: 'reduce' });
     await p.waitForSelector('.finder-test:not([hidden])');
     const before = await p.evaluate(() => !window.__nat);
     const ms = await search(p, '00101');

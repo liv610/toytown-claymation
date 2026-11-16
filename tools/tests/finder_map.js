@@ -27,6 +27,7 @@ async function open(b, query, { viewport = { width: 1280, height: 720 }, reduced
 }
 // search and wait for the new answer: a results list, or (one serving campaign) its card
 async function search(p, zip) {
+  if (await p.isVisible('.finder-change')) await p.click('.finder-change');   // an open card replaces the ZIP form (Phase 1)
   await p.evaluate(() => { const h = document.querySelector('.finder-out h3'); if (h) h.dataset.stale = '1'; });
   await p.fill('#zip', zip); await p.click('.finder-form [type="submit"]');
   await p.waitForFunction(() => { const h = document.querySelector('.finder-out h3'); return h && !h.dataset.stale; }, null, { timeout: 120000 });
@@ -35,7 +36,7 @@ const settle = (p) => p.waitForFunction(() => window.__nat.state().mode === 'nat
 const pinState = (p) => p.evaluate(() => window.__nat.campaign());
 const sel = (p) => p.evaluate(() => { const s = window.__natShell.selection.get(); return s && { id: s.id, via: s.via, zip: s.zip, kind: s.kind }; });
 const inArea = (s) => s.x >= s.area.left && s.x <= s.area.right && s.y >= s.area.top && s.y <= s.area.bottom;
-const underFinder = (p, s) => p.evaluate(({ x, y }) => { const f = document.getElementById('finder'); if (f.hidden) return false; const r = f.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; }, s);
+const underFinder = (p, s) => p.evaluate(({ x, y }) => { const f = document.getElementById('landing'); if (!f || !f.getBoundingClientRect().height) return false; const r = f.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; }, s);
 // a posed still: __nat.pose() stops the map's animation loop, so take it only after the last check that needs the map moving
 const still = async (p, path) => { const u = await p.evaluate(() => window.__nat.pose({ ...window.__nat.rig })); await p.screenshot({ path, timeout: 300000 }); return u; };
 
@@ -106,17 +107,10 @@ const still = async (p, path) => { const u = await p.evaluate(() => window.__nat
       ok(!(await p.isVisible('.finder-seemap')) || name === 'tablet', `3 ${name}: "See it on the map" only where the finder spans the screen`);
       await still(p, `${out}/3_${name}.png`);
     } else {
-      ok(s.area.covered && await p.isVisible('.finder-seemap'), '3 phone: the card covers most of the map, so the card offers "See it on the map"');
-      await p.click('.finder-seemap'); await settle(p); await p.waitForTimeout(600);
-      s = await pinState(p);
-      const top = '.actions [data-action="campaign"]';
-      ok(!(await p.isVisible('#finder')) && await p.getAttribute(top, 'aria-expanded') === 'false' && await p.$eval(top, (b) => b.classList.contains('has-card') && /Maple Hollow Toy Drive/.test(b.getAttribute('aria-description')) && document.activeElement === b),
-        '3 phone: the finder tucks away; "Find Local Campaign" (help bar) has focus, a small mark and says the card is open');
-      ok(s.visible && inArea(s) && !s.area.covered, `3 phone: the pin is on screen in the open map (${Math.round(s.x)}, ${Math.round(s.y)})`);
-      await still(p, `${out}/3_phone_map.png`);
-      await p.click(top);
-      ok(await p.isVisible('.finder-card') && /Maple Hollow Toy Drive/.test(await p.textContent('.finder-card')) && (await sel(p)).id === 'test-maple-hollow' && await p.evaluate(() => document.activeElement.id === 'finderCardName'), '3 phone: "Find Local Campaign" brings the same card back (focus on it) without a new search');
-      ok(await p.isVisible('a.finder-site'), '3 phone: the website link is right there');
+      // phones (Phase 1): the finder is docked at the bottom; the map frames the campaign above it, the website stays on screen
+      ok(s.visible && !s.area.covered && inArea(s) && !(await underFinder(p, s)), `3 phone: pin in the open map above the docked finder (${Math.round(s.x)}, ${Math.round(s.y)})`);
+      ok(await p.$eval('a.finder-site', (e) => { const r = e.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }) && !(await p.isVisible('.finder-seemap')), '3 phone: Visit Campaign Website on screen at once; no "See it on the map" needed');
+      await still(p, `${out}/3_phone.png`);
     }
     ok(errors.length === 0, `3 ${name}: no page errors ` + errors.join(' | '));
     await ctx.close();
@@ -139,7 +133,7 @@ const still = async (p, path) => { const u = await p.evaluate(() => window.__nat
 
   // ------------------------------------------------------------ 5. during the story
   {
-    const { ctx, p, errors } = await open(b, 'capture=1&q=medium');
+    const { ctx, p, errors } = await open(b, 'capture=1&q=medium&maplehollow=1');   // the Maple Hollow story (kept; off by default)
     await p.click('#descend');
     await p.waitForFunction(() => window.__nat.state().mode === 'story', null, { timeout: 300000, polling: 250 });
     const rig0 = await p.evaluate(() => JSON.stringify(window.__nat.rig));
@@ -158,7 +152,7 @@ const still = async (p, path) => { const u = await p.evaluate(() => window.__nat
     const { ctx, p, errors } = await open(b, 'map=off', { waitMap: false });
     await search(p, '00101');
     ok((await sel(p)).id === 'test-maple-hollow' && await p.isVisible('.finder-card') && !(await p.isVisible('.finder-seemap')) && !(await p.isVisible('#wholeCountry')), '6: map off: the card opens, no "See it on the map", no "Back to the whole country"');
-    await p.click('.finder-back'); ok(await sel(p) === null, '6: map off: Back clears the selection');
+    await p.click('.finder-change'); ok(await sel(p) === null, '6: map off: Change clears the selection');
     ok(errors.length === 0, '6: no page errors ' + errors.join(' | '));
     await ctx.close();
   }

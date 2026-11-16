@@ -123,9 +123,15 @@ export function createStory(root, { finder, assets = './assets/story/', onEnter 
   }
 
   // ------------------------------------------------------------ enter / exit / skip / read as text
+  // while the story is open, the page behind it (map, top bar, labels) is inert: keyboard and screen-reader focus stay in
+  // the story, the shared finder (#landing) and the dialogs
+  function setBehind(inert) {
+    if (inert) for (const e of document.body.children) { if (e === root || e.id === 'landing' || e.tagName === 'DIALOG' || e.tagName === 'SCRIPT' || e.inert) continue; e.inert = true; e.dataset.storyInert = '1'; }
+    else for (const e of document.querySelectorAll('[data-story-inert]')) { e.inert = false; delete e.dataset.storyInert; }
+  }
   function enter({ restart = false } = {}) {
     if (!pos || restart) pos = { chapter: 0, beat: 0 };
-    root.hidden = false; document.body.classList.add('story-open');
+    root.hidden = false; document.body.classList.add('story-open'); setBehind(true);
     finder.collapse();
     onEnter();
     render({ announce: true });
@@ -133,7 +139,7 @@ export function createStory(root, { finder, assets = './assets/story/', onEnter 
   }
   function exit() {
     if (document.body.classList.contains('story-finder')) { finder.release(); finder.collapse(); }   // finder open over the story: let go of it
-    document.body.classList.remove('story-open', 'story-finder');
+    document.body.classList.remove('story-open', 'story-finder'); setBehind(false);
     root.hidden = true; stages.forEach((s) => s.hide && s.hide());
     finder.show();
     onLeave(pos);
