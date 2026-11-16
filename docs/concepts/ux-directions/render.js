@@ -18,15 +18,15 @@ const R = [
   // Direction A, map-first: the map is the whole page; a small search pill, then a result card where the pill was
   { name: 'A_desktop_landing', w: 1280, h: 720 },
   { name: 'A_desktop_found', w: 1280, h: 720, zip: '00201', css: '#finder{top:84px!important;right:20px!important;width:340px!important;height:250px!important;max-height:none!important;overflow:hidden!important}' },
-  { name: 'A_phone_landing', w: 390, h: 844, zoom: 0.6, target: [10, 25] },   // closer than the app's portrait view: the country fills the screen
+  { name: 'A_phone_landing', w: 390, h: 844, zoom: 0.56, target: [10, -30] },   // closer than the app's portrait view: the country fills the screen
   { name: 'A_phone_found', w: 390, h: 844, zip: '00201', css: offFinder + bar(52) + bottomEdge(548) },      // result sheet from y 556
   { name: 'A_phone_details', w: 390, h: 400, zip: '00201', css: offFinder + bar(52) },   // only the band above the expanded sheet (from y 392) shows map
   // Direction B, integrated: the map is a region of the page beside / above a docked panel (rendered at that size)
   { name: 'B_desktop_landing', w: 920, h: 656, css: noBar + offFinder, zoom: 0.9 },
   { name: 'B_desktop_found', w: 920, h: 656, zip: '00201', css: noBar + offFinder },
-  { name: 'B_phone_landing', w: 390, h: 500, css: noBar + offFinder, zoom: 0.72, target: [10, 30] },
-  { name: 'B_phone_found', w: 390, h: 380, zip: '00201', css: noBar + offFinder },
-  { name: 'B_phone_details', w: 390, h: 236, zip: '00201', css: noBar + offFinder },
+  { name: 'B_phone_landing', w: 390, h: 500, css: noBar + offFinder, zoom: 0.7, target: [10, -12] },
+  { name: 'B_phone_found', w: 390, h: 500, zip: '00201', css: noBar + offFinder },
+  { name: 'B_phone_details', w: 390, h: 340, zip: '00201', css: noBar + offFinder },
 ];
 
 (async () => {
@@ -53,6 +53,10 @@ const R = [
       return { maple: at('pinMaple'), toytown: at('pinToy'), campaign: c.selected ? { x: c.x, y: c.y } : null, area: c.area || null };
     });
     const url = await p.evaluate(() => window.__nat.pose({ ...window.__nat.rig }));
+    if (r.zoom) {   // after a manual zoom the app may not have moved its label pins yet: place them from the projection
+      const g = await p.evaluate(() => ({ maple: window.__nat.project(-82.45, 40.45), toytown: window.__nat.project(-98.6, 39.3) }));
+      for (const k of ['maple', 'toytown']) a[k] = g[k] ? { x: g[k].x, y: g[k].y - 8 } : null;
+    }
     fs.writeFileSync(path.join(OUT, r.name + '.jpg'), Buffer.from(url.split(',')[1], 'base64'));
     anchors[r.name] = { w: r.w, h: r.h, ...a };
     console.log(r.name, JSON.stringify(anchors[r.name]));
