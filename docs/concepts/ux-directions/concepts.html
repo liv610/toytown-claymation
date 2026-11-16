@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UX Direction Concepts</title>
+<!-- Static visual concepts only (no behaviour), drawn over real renders of the current felt map (render.js).
+     Open with ?s=A_desktop_landing … B_phone_details. Content is the prototype's existing text and fictional campaign. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+  :root {
+    --night: #17142a; --panel: #221c3e; --panel-2: #2a2350; --ink: #f6ecda; --muted: #cdbfa9; --line: rgba(246, 236, 218, 0.16);
+    --gold: #f2b85c; --holly: #c4372c; --on-holly: #fff8ee; --ok: #bfe3a8;
+    --display: "Fraunces", Georgia, serif; --body: "Atkinson Hyperlegible", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--night); color: var(--ink); font: 400 15px/1.45 var(--body); overflow: hidden; position: relative; }
+  .abs { position: absolute; }
+  img.map { position: absolute; display: block; object-fit: cover; }
+  button, .btn { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: default; }
+  /* shared pieces */
+  .brand { font: 600 19px/1 var(--display); letter-spacing: 0.01em; }
+  .proto { font: 700 10.5px/1 var(--body); letter-spacing: 0.09em; text-transform: uppercase; color: #2a1606; background: var(--gold); padding: 4px 7px; border-radius: 5px; }
+  .tag { display: inline-block; font: 700 10px/1 var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: #2a1606; background: var(--gold); padding: 3px 6px 3px; border-radius: 4px; rotate: -2deg; outline: 1px dashed rgba(42, 22, 6, 0.45); outline-offset: -3px; vertical-align: 2px; }
+  .act { border: 1px solid var(--line); background: rgba(246, 236, 218, 0.06); border-radius: 999px; padding: 7px 13px; font-weight: 700; font-size: 13.5px; white-space: nowrap; }
+  .act.primary { background: var(--holly); border-color: var(--holly); color: var(--on-holly); }
+  .pbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--holly); color: var(--on-holly); border-radius: 999px; font-weight: 700; padding: 11px 18px; }
+  .sbtn { display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 999px; font-weight: 700; padding: 10px 16px; background: rgba(23, 20, 42, 0.6); }
+  .field { background: var(--ink); color: #6e6458; border-radius: 12px; font: 700 16px/1 var(--body); letter-spacing: 0.06em; display: flex; align-items: center; padding: 0 14px; }
+  .felt { background: var(--panel); border: 1px solid rgba(242, 184, 92, 0.32); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45); outline: 1.5px dashed rgba(242, 184, 92, 0.42); outline-offset: -7px; }
+  .muted { color: var(--muted); } .fine { color: var(--muted); font-size: 12.5px; }
+  .ok { color: var(--ok); font-weight: 700; font-size: 13.5px; }
+  .h { font: 600 18px/1.2 var(--display); margin: 0; }
+  .link { color: var(--gold); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+  .zipchip { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .zipchip b { color: var(--ink); letter-spacing: 0.05em; }
+  .stitch-rule { border: 0; border-top: 1.5px dashed var(--line); margin: 12px 0; }
+  /* map labels, restyled the same in both directions: Toy Town leads, Maple Hollow is a quieter story stop */
+  .lbl { position: absolute; translate: -50% -100%; white-space: nowrap; border-radius: 999px; font-weight: 700; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45); }
+  .lbl::after { content: ""; position: absolute; left: 50%; bottom: -6px; translate: -50% 0; border: 6px solid transparent; border-bottom: 0; }
+  .lbl.tt { background: #2a2242; border: 1px solid var(--gold); color: var(--gold); padding: 7px 13px; font-size: 14px; }
+  .lbl.tt::after { border-top-color: var(--gold); }
+  .lbl.mh { background: rgba(23, 20, 42, 0.82); color: var(--ink); padding: 5px 10px 5px 9px; font-size: 12px; border: 1px solid rgba(246, 236, 218, 0.25); }
+  .lbl.mh::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--holly); margin-right: 6px; vertical-align: 1px; }
+  .lbl.mh::after { border-top-color: rgba(23, 20, 42, 0.82); }
+  .lbl small { font-weight: 400; color: var(--muted); margin-left: 4px; }
+  .note { position: absolute; font-size: 11.5px; color: var(--muted); text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9); }
+</style>
+</head>
+<body>
+<script>
+// ------------------------------------------------------------------ content (all existing prototype text)
+const C = {
+  caption: 'A miniature United States, sewn in felt. Three symbolic lines connect communities across the country.',
+  note: 'Felt map from US Census boundaries (public domain). Mountains placed by real latitude and longitude, heights exaggerated. Towns are generic; Maple Hollow is fictional.',
+  name: 'Copper Wash Toy Drive', zip: '00201', area: 'Copper Wash and the canyon communities', based: 'Copper Wash, Arizona',
+  fictional: 'Fictional campaign for testing. Its link goes to example.org, a placeholder address.',
+};
+const S = new URLSearchParams(location.search).get('s') || 'A_desktop_landing';
+const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; };
+const add = (html, parent = document.body) => parent.appendChild(h(html));
+let A = null;
+// the map image of a render, placed at (x, y) on the screen, with its labels re-drawn at the recorded anchors
+function map(name, x = 0, y = 0, { labels = true } = {}) {
+  const a = A[name];
+  add(`<img class="map" src="renders/${name}.jpg" style="left:${x}px;top:${y}px;width:${a.w}px;height:${a.h}px" alt="">`);
+  if (!labels) return a;
+  const inside = (p) => p && p.x > 20 && p.x < a.w - 20 && p.y > 40 && p.y < a.h - 10;
+  if (inside(a.toytown)) add(`<div class="lbl tt" style="left:${x + a.toytown.x}px;top:${y + a.toytown.y}px">★ Toy Town</div>`);
+  if (inside(a.maple)) add(`<div class="lbl mh" style="left:${x + a.maple.x}px;top:${y + a.maple.y}px">Maple Hollow<small>Chapter 1</small></div>`);
+  return a;
+}
+const searchRow = (w = '100%', fh = 44) => `<div style="display:flex;gap:8px;width:${w}"><div class="field" style="flex:1;height:${fh}px">12345</div><span class="pbtn" style="height:${fh}px;padding:0 16px">Search</span></div>`;
+
+const screens = {
+  // ================================================================ DIRECTION A: MAP-FIRST
+  A_desktop_landing() {
+    map('A_desktop_landing');
+    add(`<div class="abs" style="inset:0 0 auto;height:56px;display:flex;align-items:center;gap:12px;padding:0 20px;background:linear-gradient(rgba(23,20,42,.88),rgba(23,20,42,.35))">
+      <span class="brand">Railroad of Hope</span><span class="proto">Prototype</span>
+      <span style="margin-left:auto;display:flex;gap:6px"><span class="act primary">Give Toys</span><span class="act">Donate</span><span class="act">Request Toys</span><span class="act" style="border-color:rgba(242,184,92,.6)">Find Local Campaign</span></span></div>`);
+    add(`<div class="abs felt" style="top:72px;right:20px;width:340px;border-radius:16px;padding:14px 16px 16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><p class="h">Find your local campaign</p><span class="tag">Test data</span></div>
+      ${searchRow()}<p class="fine" style="margin:8px 0 0">Fictional campaigns. Try 00101, 00103 or 00201.</p></div>`);
+    add(`<div class="note" style="left:20px;bottom:18px;max-width:360px"><div style="font:500 14px/1.35 var(--display);color:var(--ink);margin-bottom:4px">${C.caption}</div>${C.note}</div>`);
+    add(`<div class="abs" style="left:50%;translate:-50% 0;bottom:18px;display:flex;gap:10px;align-items:center"><span class="sbtn">Visit Maple Hollow</span><span class="fine" style="text-shadow:0 1px 6px #000">Drag to move · scroll or pinch to zoom</span></div>`);
+  },
+  A_desktop_found() {
+    map('A_desktop_found');
+    add(`<div class="abs" style="inset:0 0 auto;height:56px;display:flex;align-items:center;gap:12px;padding:0 20px;background:linear-gradient(rgba(23,20,42,.88),rgba(23,20,42,.35))">
+      <span class="brand">Railroad of Hope</span><span class="proto">Prototype</span>
+      <span style="margin-left:auto;display:flex;gap:6px"><span class="act primary">Give Toys</span><span class="act">Donate</span><span class="act">Request Toys</span><span class="act" style="border-color:rgba(242,184,92,.6)">Find Local Campaign</span></span></div>`);
+    add(`<div class="abs felt" style="top:72px;right:20px;width:340px;border-radius:16px;padding:12px 16px 16px">
+      <div style="display:flex;align-items:center;justify-content:space-between"><span class="zipchip">ZIP <b>${C.zip}</b> · <span class="link">Change</span></span><span class="muted" style="font-size:20px;line-height:1">×</span></div>
+      <hr class="stitch-rule" style="margin:10px 0">
+      <p class="h" style="font-size:20px">${C.name} <span class="tag">Test data</span></p>
+      <p class="ok" style="margin:6px 0 8px">Serves ZIP code ${C.zip}</p>
+      <p style="margin:0 0 12px;font-size:13.5px">${C.area}<br><span class="muted">Based in ${C.based}</span></p>
+      <span class="pbtn" style="width:100%">Visit the campaign’s website</span>
+      <p class="fine" style="margin:8px 0 0">${C.fictional}</p></div>`);
+    add(`<div class="note" style="left:20px;bottom:18px;max-width:300px">${C.note}</div>`);
+    add(`<div class="abs" style="left:50%;translate:-50% 0;bottom:18px;display:flex;gap:10px;align-items:center"><span class="sbtn">Visit Maple Hollow</span><span class="sbtn">Back to the whole country</span></div>`);
+  },
+  A_phone_landing() {
+    map('A_phone_landing');
+    add(`<div class="abs" style="inset:0 0 auto;height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;background:linear-gradient(rgba(23,20,42,.92),rgba(23,20,42,.4))">
+      <span class="brand" style="font-size:18px">Railroad of Hope</span><span class="proto">Prototype</span>
+      <span class="sbtn" style="margin-left:auto;width:36px;height:36px;padding:0;font:600 16px var(--display)" aria-label="About this map">i</span></div>`);
+    add(`<span class="abs sbtn" style="left:16px;bottom:144px;padding:8px 14px;font-size:13.5px">Visit Maple Hollow</span>`);
+    add(`<div class="abs felt" style="left:12px;right:12px;bottom:68px;height:64px;border-radius:999px;display:flex;align-items:center;gap:10px;padding:0 8px 0 20px;outline-offset:-6px">
+      <span style="flex:1;display:grid"><span style="font-weight:700">Find your local campaign</span><span class="fine">Enter your ZIP code · <span class="tag" style="font-size:9px;padding:2px 5px">Test data</span></span></span>
+      <span class="pbtn" style="height:48px;padding:0 18px">Search</span></div>`);
+    add(`<div class="abs" style="inset:auto 0 0;height:56px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:6px 10px 8px;background:#1d1a38;border-top:1px solid var(--line)">
+      <span class="act primary" style="border-radius:12px;display:grid;place-items:center">Give Toys</span><span class="act" style="border-radius:12px;display:grid;place-items:center">Donate</span><span class="act" style="border-radius:12px;display:grid;place-items:center">Request Toys</span></div>`);
+  },
+  A_phone_found() {
+    map('A_phone_found');
+    add(`<div class="abs" style="inset:0 0 auto;height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;background:linear-gradient(rgba(23,20,42,.92),rgba(23,20,42,.4))">
+      <span class="brand" style="font-size:18px">Railroad of Hope</span><span class="proto">Prototype</span>
+      <span class="sbtn" style="margin-left:auto;width:36px;height:36px;padding:0;font:600 16px var(--display)">i</span></div>`);
+    add(`<span class="abs sbtn" style="right:12px;top:64px;padding:8px 13px;font-size:13px">Whole country</span>`);
+    add(`<div class="abs felt" style="left:0;right:0;top:556px;bottom:56px;border-radius:20px 20px 0 0;padding:14px 18px 14px;box-shadow:0 -10px 30px rgba(0,0,0,.45)">
+      <div style="display:flex;align-items:center;justify-content:space-between"><span class="zipchip">ZIP <b>${C.zip}</b> · <span class="link">Change</span></span><span class="muted" style="font-size:22px;line-height:1">×</span></div>
+      <p class="h" style="font-size:19px;margin-top:10px">${C.name} <span class="tag">Test data</span></p>
+      <p class="ok" style="margin:5px 0 12px">Serves ZIP code ${C.zip}</p>
+      <div style="display:flex;gap:8px"><span class="pbtn" style="flex:1">Visit the website</span><span class="sbtn">Details ▾</span></div></div>`);
+    add(`<div class="abs" style="inset:auto 0 0;height:56px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:6px 10px 8px;background:#1d1a38;border-top:1px solid var(--line)">
+      <span class="act primary" style="border-radius:12px;display:grid;place-items:center">Give Toys</span><span class="act" style="border-radius:12px;display:grid;place-items:center">Donate</span><span class="act" style="border-radius:12px;display:grid;place-items:center">Request Toys</span></div>`);
+  },
+  A_phone_details() {
+    map('A_phone_details');
+    add(`<div class="abs" style="inset:0 0 auto;height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;background:linear-gradient(rgba(23,20,42,.92),rgba(23,20,42,.4))">
+      <span class="brand" style="font-size:18px">Railroad of Hope</span><span class="proto">Prototype</span>
+      <span class="sbtn" style="margin-left:auto;width:36px;height:36px;padding:0;font:600 16px var(--display)">i</span></div>`);
+    add(`<span class="abs sbtn" style="right:12px;top:64px;padding:8px 13px;font-size:13px">Whole country</span>`);
+    add(`<div class="abs felt" style="left:0;right:0;top:326px;bottom:56px;border-radius:20px 20px 0 0;padding:14px 18px 14px;box-shadow:0 -10px 30px rgba(0,0,0,.45)">
+      <div style="display:flex;align-items:center;justify-content:space-between"><span class="zipchip">ZIP <b>${C.zip}</b> · <span class="link">Change</span></span><span class="muted" style="font-size:22px;line-height:1">×</span></div>
+      <p class="h" style="font-size:20px;margin-top:10px">${C.name} <span class="tag">Test data</span></p>
+      <p class="ok" style="margin:5px 0 12px">Serves ZIP code ${C.zip}</p>
+      <dl style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0 0 16px;font-size:14px"><dt class="muted">Area served</dt><dd style="margin:0">${C.area}</dd><dt class="muted">Based in</dt><dd style="margin:0">${C.based}</dd></dl>
+      <span class="pbtn" style="width:100%;margin-bottom:10px">Visit the campaign’s website</span>
+      <div style="display:flex;justify-content:space-between;align-items:center"><span class="link">Show less ▴</span><span class="link">New search</span></div>
+      <p class="fine" style="margin:14px 0 0">${C.fictional}</p></div>`);
+    add(`<div class="abs" style="inset:auto 0 0;height:56px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:6px 10px 8px;background:#1d1a38;border-top:1px solid var(--line)">
+      <span class="act primary" style="border-radius:12px;display:grid;place-items:center">Give Toys</span><span class="act" style="border-radius:12px;display:grid;place-items:center">Donate</span><span class="act" style="border-radius:12px;display:grid;place-items:center">Request Toys</span></div>`);
+  },
+
+  // ================================================================ DIRECTION B: INTEGRATED FINDER
+  _Bbar(found) {
+    add(`<div class="abs" style="inset:0 0 auto;height:64px;display:flex;align-items:center;gap:12px;padding:0 22px;background:var(--night);border-bottom:1px solid var(--line)">
+      <span class="brand">Railroad of Hope</span><span class="proto">Prototype</span>
+      <span style="margin-left:auto;display:flex;gap:6px"><span class="act primary">Give Toys</span><span class="act">Donate</span><span class="act">Request Toys</span></span></div>`);
+  },
+  _Bexplore(top) {
+    return `<div style="position:absolute;left:24px;right:24px;bottom:20px">
+      <p class="fine" style="margin:0 0 8px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);font-weight:700;font-size:11px">Explore the map</p>
+      <div style="display:grid;gap:8px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 12px"><span><b>Visit Maple Hollow</b><br><span class="fine">Chapter 1 · It Starts With You</span></span><span style="color:var(--gold);font-size:20px">›</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 12px"><span><b>★ Toy Town</b></span><span style="color:var(--gold);font-size:20px">›</span></div>
+      </div>
+      <p class="fine" style="margin:0;font-size:11.5px">${C.note}</p></div>`;
+  },
+  B_desktop_landing() {
+    this._Bbar();
+    map('B_desktop_landing', 0, 64);
+    add(`<span class="abs fine" style="left:20px;bottom:16px;text-shadow:0 1px 6px #000">Drag to move · scroll or pinch to zoom</span>`);
+    add(`<div class="abs" style="left:920px;top:64px;right:0;bottom:0;background:var(--panel);border-left:1px solid rgba(242,184,92,.3);padding:22px 24px">
+      <p class="h" style="font-size:21px;margin-bottom:6px">Find your local campaign</p>
+      <p class="fine" style="margin:0 0 14px"><span class="tag">Test data</span>&nbsp; Fictional campaigns</p>
+      <p style="margin:0 0 6px;font-weight:700;font-size:13.5px">Enter your ZIP code</p>${searchRow()}
+      <hr class="stitch-rule" style="margin:20px 0 14px">
+      <p style="margin:0;font:500 15px/1.4 var(--display)">${C.caption}</p>
+      ${this._Bexplore()}</div>`);
+  },
+  B_desktop_found() {
+    this._Bbar();
+    map('B_desktop_found', 0, 64);
+    add(`<div class="abs" style="left:50%;translate:-50% 0;left:460px;bottom:16px"><span class="sbtn">Back to the whole country</span></div>`);
+    add(`<div class="abs" style="left:920px;top:64px;right:0;bottom:0;background:var(--panel);border-left:1px solid rgba(242,184,92,.3);padding:20px 24px">
+      <div style="display:flex;align-items:center;justify-content:space-between"><span class="zipchip">ZIP <b>${C.zip}</b> · <span class="link">Change</span></span><span class="tag">Test data</span></div>
+      <hr class="stitch-rule" style="margin:12px 0 14px">
+      <p class="h" style="font-size:22px">${C.name}</p>
+      <p class="ok" style="margin:6px 0 10px">Serves ZIP code ${C.zip}</p>
+      <dl style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0 0 16px;font-size:14px"><dt class="muted">Area served</dt><dd style="margin:0">${C.area}</dd><dt class="muted">Based in</dt><dd style="margin:0">${C.based}</dd></dl>
+      <span class="pbtn" style="width:100%">Visit the campaign’s website</span>
+      <p class="fine" style="margin:8px 0 0">${C.fictional}</p>
+      ${this._Bexplore()}</div>`);
+  },
+  _Bphonebar() {
+    add(`<div class="abs" style="inset:0 0 auto;height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;background:var(--night);border-bottom:1px solid var(--line)">
+      <span class="brand" style="font-size:18px">Railroad of Hope</span><span class="proto">Prototype</span></div>`);
+  },
+  _Bhelp() {
+    return `<div style="position:absolute;left:16px;right:16px;bottom:14px">
+      <p class="fine" style="margin:0 0 6px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;font-size:10.5px">Ways to help</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px"><span class="act primary" style="border-radius:12px;text-align:center;padding:9px 4px">Give Toys</span><span class="act" style="border-radius:12px;text-align:center;padding:9px 4px">Donate</span><span class="act" style="border-radius:12px;text-align:center;padding:9px 4px">Request Toys</span></div></div>`;
+  },
+  B_phone_landing() {
+    this._Bphonebar();
+    map('B_phone_landing', 0, 52);
+    add(`<span class="abs sbtn" style="right:10px;top:${52 + 430 - 46}px;width:36px;height:36px;padding:0;font:600 15px var(--display)">i</span>`);
+    add(`<div class="abs" style="left:0;right:0;top:482px;bottom:0;background:var(--panel);border-top:1px solid rgba(242,184,92,.35);padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><p class="h">Find your local campaign</p><span class="tag">Test data</span></div>
+      ${searchRow('100%', 46)}
+      <div style="display:flex;gap:8px;margin-top:14px"><span class="sbtn" style="flex:1;padding:9px 6px;font-size:13.5px">Visit Maple Hollow</span><span class="sbtn" style="flex:1;padding:9px 6px;font-size:13.5px;color:var(--gold)">★ Toy Town</span></div>
+      ${this._Bhelp()}</div>`);
+  },
+  B_phone_found() {
+    this._Bphonebar();
+    map('B_phone_found', 0, 52);
+    add(`<span class="abs sbtn" style="right:10px;top:${52 + 380 - 46}px;padding:8px 12px;font-size:13px">Whole country</span>`);
+    add(`<div class="abs" style="left:0;right:0;top:432px;bottom:0;background:var(--panel);border-top:1px solid rgba(242,184,92,.35);padding:14px 16px">
+      <div style="display:flex;align-items:center;justify-content:space-between"><span class="zipchip">ZIP <b>${C.zip}</b> · <span class="link">Change</span></span><span class="tag">Test data</span></div>
+      <p class="h" style="font-size:20px;margin-top:12px">${C.name}</p>
+      <p class="ok" style="margin:5px 0 12px">Serves ZIP code ${C.zip}</p>
+      <span class="pbtn" style="width:100%">Visit the campaign’s website</span>
+      <p style="margin:12px 0 0;text-align:center"><span class="link">More details ▾</span></p>
+      ${this._Bhelp()}</div>`);
+  },
+  B_phone_details() {
+    this._Bphonebar();
+    map('B_phone_details', 0, 52);
+    add(`<span class="abs sbtn" style="right:10px;top:${52 + 236 - 46}px;padding:8px 12px;font-size:13px">Whole country</span>`);
+    add(`<div class="abs" style="left:0;right:0;top:288px;bottom:0;background:var(--panel);border-top:1px solid rgba(242,184,92,.35);padding:14px 16px">
+      <div style="display:flex;align-items:center;justify-content:space-between"><span class="zipchip">ZIP <b>${C.zip}</b> · <span class="link">Change</span></span><span class="tag">Test data</span></div>
+      <p class="h" style="font-size:20px;margin-top:12px">${C.name}</p>
+      <p class="ok" style="margin:5px 0 12px">Serves ZIP code ${C.zip}</p>
+      <dl style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0 0 14px;font-size:14px"><dt class="muted">Area served</dt><dd style="margin:0">${C.area}</dd><dt class="muted">Based in</dt><dd style="margin:0">${C.based}</dd></dl>
+      <span class="pbtn" style="width:100%">Visit the campaign’s website</span>
+      <p class="fine" style="margin:10px 0 6px">${C.fictional}</p>
+      <p style="margin:0;text-align:center"><span class="link">Show less ▴</span></p>
+      ${this._Bhelp()}</div>`);
+  },
+};
+
+fetch('renders/anchors.json').then((r) => r.json()).then((a) => { A = a; screens[S].call(screens); document.body.dataset.ready = '1'; });
+</script>
+</body>
+</html>
