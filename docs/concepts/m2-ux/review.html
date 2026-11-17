@@ -1,0 +1,304 @@
+<meta charset="utf-8">
+<title>Railroad of Hope UX Directions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+  /* Layout: a night "board" the size of a reading column; each direction is a row of real-size screens on a paper mat,
+     with its rationale beside it. Single deliberate look (the project's own night-and-felt palette), not theme-switched. */
+  :root {
+    --board: #15122a; --board-2: #1e1938; --ink: #f6ecda; --muted: #cbbda5; --line: rgba(246, 236, 218, 0.16);
+    --paper: #f4e9d2; --ink-d: #2a2017; --ink-m: #6b5a47; --stitch: rgba(122, 86, 48, 0.55);
+    --gold: #f2b85c; --holly: #c4372c; --pine: #8fc29e;
+    --display: "Fraunces", Georgia, "Times New Roman", serif; --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--board); color: var(--ink); font: 400 16px/1.55 var(--body);
+         padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 64px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  a { color: var(--gold); }
+  a:focus-visible, button:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; border-radius: 4px; }
+  h1, h2, h3, h4 { font-family: var(--display); font-weight: 600; text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.08; }
+  h2 { font-size: clamp(24px, 3.4vw, 32px); line-height: 1.15; }
+  h3 { font-size: 22px; line-height: 1.2; }
+  h4 { font-size: 17px; }
+  p { margin: 0; }
+  .kick { font: 700 12px/1.3 var(--body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); }
+  .tag { display: inline-block; font: 700 10.5px/1 var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: #2a1606; background: var(--gold); padding: 4px 7px; border-radius: 4px; rotate: -2deg; outline: 1px dashed rgba(42, 22, 6, 0.45); outline-offset: -3px; white-space: nowrap; vertical-align: 3px; }
+  .muted { color: var(--muted); }
+  .stitch { border: 0; border-top: 1.5px dashed var(--line); margin: 0; }
+  /* header */
+  header.top { padding-block: 40px 28px; display: grid; gap: 14px; }
+  header.top .lede { max-width: 68ch; color: var(--muted); font-size: 17px; }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 8px; }
+  nav.toc a { text-decoration: none; color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; font-weight: 700; font-size: 14px; }
+  nav.toc a:hover { border-color: var(--gold); }
+  /* the recommendation: a paper ticket, the one object on the page that is set apart */
+  .rec { background: var(--paper); color: var(--ink-d); border-radius: 18px; padding: 26px 28px; outline: 1.5px dashed var(--stitch); outline-offset: -8px;
+         background-image: radial-gradient(rgba(90, 60, 30, 0.05) 1px, transparent 1.2px); background-size: 5px 5px; display: grid; gap: 16px; }
+  .rec .kick { color: var(--holly); }
+  .rec ol { margin: 0; padding-left: 1.3em; display: grid; gap: 10px; }
+  .rec li b { font-family: var(--display); font-size: 17.5px; }
+  .rec p { max-width: 75ch; }
+  /* sections */
+  section.ex { padding-top: 56px; display: grid; gap: 22px; }
+  section.ex > header { display: grid; gap: 8px; max-width: 75ch; }
+  .dir { border-top: 1.5px dashed var(--line); padding-top: 22px; display: grid; gap: 16px; }
+  .dir-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 14px; }
+  .pick { font: 700 11px/1 var(--body); letter-spacing: 0.1em; text-transform: uppercase; color: #10240f; background: var(--pine); padding: 5px 8px; border-radius: 999px; }
+  /* screen rows: real-proportion screens, scroll sideways inside the row on narrow viewports */
+  .row { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x proximity; }
+  figure { margin: 0; flex: none; display: grid; gap: 7px; scroll-snap-align: start; }
+  figure img { display: block; border-radius: 12px; border: 1px solid var(--line); background: var(--board-2); }
+  .ph img { width: 196px; height: auto; aspect-ratio: 390 / 844; }
+  .ph.small img { width: 188px; aspect-ratio: 375 / 667; }
+  .dk img { width: 420px; height: auto; aspect-ratio: 16 / 9; max-width: 80vw; }
+  figcaption { font-size: 13px; color: var(--muted); max-width: 196px; }
+  .dk figcaption { max-width: 420px; }
+  figcaption b { color: var(--ink); }
+  /* rationale: four short labelled answers */
+  .why { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .why div { display: grid; gap: 4px; align-content: start; min-width: 0; }
+  .why h4 { font-family: var(--body); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
+  .why p { font-size: 14.5px; color: var(--ink); }
+  .effort { display: inline-flex; gap: 3px; vertical-align: -1px; margin-right: 6px; } .effort i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--gold); }
+  .effort i.on { background: var(--gold); }
+  /* storyboards */
+  .board { display: grid; gap: 10px; }
+  .board h4 { font-family: var(--body); font-size: 14px; font-weight: 700; }
+  .arrow { align-self: center; color: var(--gold); font-size: 22px; flex: none; }
+  .dk.sm img { width: 300px; } .dk.sm figcaption { max-width: 300px; }
+  /* tables and lists */
+  .twocol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  .card { border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; display: grid; gap: 8px; align-content: start; background: var(--board-2); }
+  ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 7px; }
+  .cmp { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14.5px; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  th { font-family: var(--body); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
+  td b { font-family: var(--display); font-weight: 600; font-size: 15.5px; }
+  footer { margin-top: 56px; color: var(--muted); font-size: 13.5px; display: grid; gap: 6px; max-width: 80ch; }
+  @media (max-width: 860px) { .why { grid-template-columns: repeat(2, minmax(0, 1fr)); } .twocol { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 480px) { .why { grid-template-columns: minmax(0, 1fr); } .ph img { width: 168px; } figcaption { max-width: 168px; } .ph.small img { width: 162px; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <span class="kick">Railroad of Hope · concept for a Toys for Tots-related project · <span class="tag">Prototype</span></span>
+    <h1>Making the map, Toy Town and the finder feel like one world</h1>
+    <p class="lede">Two directions each for the mobile landing, the Toy Town story interface and the transitions between them, then one recommendation. These are static concepts drawn over real renders of the current felt map and the existing Toy Town stills. The working Milestone 1 app was not changed. Campaigns are fictional test data, the story text is the existing draft copy, and links are placeholders.</p>
+    <nav class="toc" aria-label="Sections">
+      <a href="#recommendation">Recommendation</a><a href="#landing">A · Mobile landing</a><a href="#story">B · Story interface</a><a href="#transitions">C · Transitions</a><a href="#decisions">Small decisions</a><a href="#open">Still to decide</a>
+    </nav>
+  </header>
+
+  <!-- ===================================================================== RECOMMENDATION -->
+  <section class="rec" id="recommendation" aria-labelledby="rec-h">
+    <span class="kick">Recommendation</span>
+    <h2 id="rec-h">Map-first ticket on the landing, a cinematic story with the storybook’s step railroad, and one camera for arrivals and the finale</h2>
+    <ol>
+      <li><b>Mobile landing: Direction A, the ticket.</b> The map fills the phone. One paper ticket docks at the bottom: the ZIP field on top, Explore Toy Town below a perforation. Borrow B’s glowing Toy Town junction so the map itself points to the story. It is the fastest route to a campaign website and the smallest change from what works today.</li>
+      <li><b>Story: Direction A, cinematic, on desktop and phones.</b> The scene is the whole screen and the words sit on it like subtitles. The one visible extra control is “Find your local campaign”. Take the storybook’s four-station railroad as the Chapter 3 step tracker, because it makes the four steps read as one short journey.</li>
+      <li><b>Transitions: Concept 1, one continuous world.</b> Explore Toy Town flies down with the existing descent. The finder rises as the same paper ticket over the paused scene. The finale rises back out to the national map, with the ZIP field right under “Find yours.” With reduced motion, every flight becomes Concept 2’s quiet crossfade.</li>
+    </ol>
+    <p>Why this combination: the miniature world stays full-screen at every step, the interface becomes a small set of paper objects that belong to that world (a ticket, a tag, a sign), and the finder looks and behaves the same in all three places. The storybook direction is lovely on desktop but shrinks the scene on phones, which is the opposite of what the review asked for.</p>
+  </section>
+
+  <!-- ===================================================================== A. MOBILE LANDING -->
+  <section class="ex" id="landing" aria-labelledby="land-h">
+    <header><span class="kick">Exploration A · highest priority</span><h2 id="land-h">Mobile landing</h2>
+      <p class="muted">Both at 390 × 844 with no scrolling, plus a 375 × 667 small phone. The current landing stacks a header, a paragraph, the map, the Explore card and the finder. Both directions cut that to the map plus two clear doors.</p></header>
+
+    <div class="dir">
+      <div class="dir-head"><h3>Direction A · Map-first ticket</h3><span class="pick">Recommended</span></div>
+      <div class="row">
+        <figure class="ph"><img src="screens/LA_1.jpg" alt="Phone landing: the felt map fills the screen; a paper ticket at the bottom holds a ZIP field with a Find button and, below a perforation, Explore Toy Town."><figcaption><b>1 · Landing.</b> Map fills the screen. One ticket, two doors. The map caption moves behind the (i) button.</figcaption></figure>
+        <figure class="ph"><img src="screens/LA_2.jpg" alt="Typing a ZIP: the map dims and the ticket rides just above the phone keyboard with 00201 entered."><figcaption><b>2 · Search.</b> The ticket rides above the keyboard; Explore steps aside while typing.</figcaption></figure>
+        <figure class="ph"><img src="screens/LA_3.jpg" alt="Result: the map has framed Copper Wash in Arizona with a red pin; the ticket shows Copper Wash Toy Drive, test data, serves ZIP 00201, and a large Visit Campaign Website button, with Explore Toy Town on a slim stub below."><figcaption><b>3 · Result.</b> The ticket becomes the campaign. The website is the big red action. The map frames the campaign above it.</figcaption></figure>
+        <figure class="ph"><img src="screens/LA_4.jpg" alt="Later: the ticket folds to a stub naming Copper Wash Toy Drive with a Website button; Explore Toy Town is full size again."><figcaption><b>4 · Toy Town after a search.</b> Back from the website, the ticket folds to a stub and Explore is the invitation again.</figcaption></figure>
+        <figure class="ph small"><img src="screens/LA_5.jpg" alt="The same landing on a 375 by 667 phone; both doors are on screen."><figcaption><b>5 · Small phone, 375 × 667.</b> Both doors still fit; the map keeps the upper two thirds.</figcaption></figure>
+      </div>
+      <div class="why">
+        <div><h4>What’s different</h4><p>No panels at all on the map: one physical ticket, docked where thumbs are. Search and story share it, separated by a perforation, so they read as two halves of one decision.</p></div>
+        <div><h4>Improves</h4><p>The map gets about 75% of the screen instead of about 30%. Both journeys sit inside thumb reach, and the result keeps the website button in the same place the Find button was.</p></div>
+        <div><h4>Tradeoffs</h4><p>The ticket covers the southern edge of the map. The intro sentence and map credits move behind (i), so the map has to explain itself through its labels.</p></div>
+        <div><h4>Effort <span class="effort" aria-label="2 of 5"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></h4><p>Low to medium. It restyles today’s <code>#landing</code>. The map already frames a campaign above a bottom-docked finder (<code>freeArea</code>). The keyboard state needs visual-viewport handling and real-device testing.</p></div>
+      </div>
+    </div>
+
+    <div class="dir">
+      <div class="dir-head"><h3>Direction B · Search header, Toy Town on stage</h3></div>
+      <div class="row">
+        <figure class="ph"><img src="screens/LB_1.jpg" alt="Phone landing: a paper header with the title and a full-width ZIP search field; below, the map zoomed toward the glowing junction where three railroad lines meet at Toy Town, with a dotted thread leading down to an Explore Toy Town button."><figcaption><b>1 · Landing.</b> Search lives in the header; the map below is a stage lit at Toy Town, threaded to its button.</figcaption></figure>
+        <figure class="ph"><img src="screens/LB_2.jpg" alt="Typing a ZIP in the header field; the map dims and a test-data note appears under the field."><figcaption><b>2 · Search.</b> The field never moves when the keyboard opens.</figcaption></figure>
+        <figure class="ph"><img src="screens/LB_3.jpg" alt="Result: a luggage tag hangs from the header on two stitched strings, showing Copper Wash Toy Drive and Visit Campaign Website; the map below frames the campaign; Explore Toy Town sits at the bottom."><figcaption><b>3 · Result.</b> The campaign hangs from the header like a luggage tag; the map frames it below.</figcaption></figure>
+        <figure class="ph"><img src="screens/LB_4.jpg" alt="Later: the header field shows the chosen campaign with a Website button; the map and the Explore Toy Town button are as on landing."><figcaption><b>4 · Toy Town after a search.</b> The tag folds into the header and the stage is Toy Town’s again.</figcaption></figure>
+        <figure class="ph small"><img src="screens/LB_5.jpg" alt="The same landing on a 375 by 667 phone."><figcaption><b>5 · Small phone, 375 × 667.</b> The header stays; the stage gets shorter.</figcaption></figure>
+      </div>
+      <div class="why">
+        <div><h4>What’s different</h4><p>A composed page in two zones: a search header, as on any site people already know, and a map that is a stage aimed at Toy Town, with an in-world thread to its button.</p></div>
+        <div><h4>Improves</h4><p>Both journeys are understood at a glance, and the map points at the story instead of being a backdrop. The search field stays visible above the keyboard.</p></div>
+        <div><h4>Tradeoffs</h4><p>Search sits at the top, out of thumb reach. The closer map shows less of the country. A paper header is more “website” than A, and the hanging tag covers the middle of the map on a result.</p></div>
+        <div><h4>Effort <span class="effort" aria-label="3 of 5"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></h4><p>Medium. It needs a new header search, a new phone framing of the national view (a closer camera) and the hanging-tag layout. Framing under a top panel already exists.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================================== B. STORY INTERFACE -->
+  <section class="ex" id="story" aria-labelledby="story-h">
+    <header><span class="kick">Exploration B</span><h2 id="story-h">Toy Town story interface</h2>
+      <p class="muted">Both keep every Milestone 1 control (four chapters, progress, Back, Next, Find, Exit, Skip, Read as text) but give them different weight. Chapter 3’s four steps become four beats in both, using the existing draft text unchanged. The numbered signs are drawn over existing stills for this concept.</p></header>
+
+    <div class="dir">
+      <div class="dir-head"><h3>Direction A · Cinematic</h3><span class="pick">Recommended</span></div>
+      <div class="row">
+        <figure class="dk"><img src="screens/SA_1d.jpg" alt="Desktop Chapter 1: the felt Toy Town street fills the screen; a slim top row shows Toy Town, four progress dashes and Chapter 1 of 4, with Find your local campaign and Exit on the right; the caption Welcome to Toy Town sits centred low on the scene like a subtitle; Back, 1 of 3 and Next at the lower right; Skip story and Read as text small at the lower left."><figcaption><b>Desktop, Chapter 1.</b> The scene is the screen. Words are subtitles, not a card. Progress is four stitched dashes.</figcaption></figure>
+        <figure class="ph"><img src="screens/SA_1m.jpg" alt="Phone Chapter 1: full-height scene; top row with close, progress dashes and Find campaign; caption low on the scene with Back, 1 of 3, a more button and Next."><figcaption><b>Phone, Chapter 1.</b> Close, progress and Find on top. Skip and Read as text sit in the “⋯” menu.</figcaption></figure>
+        <figure class="ph"><img src="screens/SA_3a.jpg" alt="Chapter 3, step 1 of 4: the felt country with a hanging paper sign reading 1 Find your local campaign; caption Search your ZIP code to find the campaign that serves your area, with a Find my local campaign button."><figcaption><b>Ch. 3 · step 1.</b> The step is a felt sign in the scene. Its action is right in the caption.</figcaption></figure>
+        <figure class="ph"><img src="screens/SA_3b.jpg" alt="Step 2 of 4: the community hall’s toy drop-off sign with a hanging sign reading 2 Read its instructions; caption Check who it serves, what to have ready, and its deadlines."><figcaption><b>Step 2.</b> One idea per beat.</figcaption></figure>
+        <figure class="ph"><img src="screens/SA_3c.jpg" alt="Step 3 of 4: the toy shop with a sign reading 3 Apply through the campaign; caption Follow its own application process on its website."><figcaption><b>Step 3.</b></figcaption></figure>
+        <figure class="ph"><img src="screens/SA_3d.jpg" alt="Step 4 of 4: a lit window in the pink house with a sign reading 4 Hear about next steps; caption about approval and the note that each campaign sets its own process and requests aren’t made on this site."><figcaption><b>Step 4.</b> A lit window, the project’s symbol for a delivery, plus the existing note.</figcaption></figure>
+        <figure class="ph"><img src="screens/SA_fm.jpg" alt="Finder during the story on a phone: the scene dims and stays visible, labelled Paused at Chapter 3 step 2 of 4; a paper sheet rises from the bottom with the Copper Wash card and Visit Campaign Website; the top button reads Back to story."><figcaption><b>Finder, phone.</b> The scene pauses under it. Same ticket as the landing. “Back to story” replaces Find.</figcaption></figure>
+        <figure class="dk"><img src="screens/SA_fd.jpg" alt="Finder during the story on desktop: the scene dims to the right; a paper tag at the upper right shows the campaign and Visit Campaign Website; the top button reads Back to the story."><figcaption><b>Finder, desktop.</b> A paper tag at the side; the scene and its place stay visible.</figcaption></figure>
+      </div>
+      <div class="why">
+        <div><h4>What’s different</h4><p>No story card. A thin top row and subtitle text over a soft shadow at the foot of the scene. Controls are ranked: Next is red, Find is outlined gold, and Skip and Read as text are quiet.</p></div>
+        <div><h4>Improves</h4><p>The scene goes from about half of the phone screen to all of it. Chapter 3 drops from one long list to four short beats. It is also the layout a full-screen 3D stage needs later.</p></div>
+        <div><h4>Tradeoffs</h4><p>Captions must stay short (two lines on phones), and text over moving 3D needs the shadow scrim. Skip and Read as text sit one tap deeper on phones.</p></div>
+        <div><h4>Effort <span class="effort" aria-label="3 of 5"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></h4><p>Medium. Restyle <code>story.js</code>’s DOM and add a small menu. Chapter 3 becomes four beats in <code>story_data.js</code> (the same words). The signs are an overlay on the still stage, with navigation, state and finder hand-off unchanged.</p></div>
+      </div>
+    </div>
+
+    <div class="dir">
+      <div class="dir-head"><h3>Direction B · Storybook</h3></div>
+      <div class="row">
+        <figure class="dk"><img src="screens/SB_1d.jpg" alt="Desktop Chapter 1 as a book spread: the scene as a framed plate on the left page; on the right a cream page with Chapter one, What is Toys for Tots, and a drop-cap paragraph; numbered chapter tabs stick out from the page edge; turned-page corners for Back and Next."><figcaption><b>Desktop, Chapter 1.</b> A spread: the scene as a plate, the words as a page. Chapters are cloth tabs; Next is a page corner.</figcaption></figure>
+        <figure class="ph"><img src="screens/SB_1m.jpg" alt="Phone Chapter 1: the scene as a framed plate on top, chapter tabs along the top of a cream page, drop-cap text, page corners for Back and Next."><figcaption><b>Phone, Chapter 1.</b> The plate on top, the page below, tabs between them.</figcaption></figure>
+        <figure class="ph"><img src="screens/SB_3a.jpg" alt="Chapter 3 step 1 of 4: the country plate above; on the page a little railroad with four stations, station 1 lit, then 1 Find your local campaign and its text with a Find my local campaign button."><figcaption><b>Ch. 3 · step 1.</b> Progress through the steps is a four-station railroad.</figcaption></figure>
+        <figure class="ph"><img src="screens/SB_3b.jpg" alt="Step 2: station 2 lit; Read its instructions."><figcaption><b>Step 2.</b></figcaption></figure>
+        <figure class="ph"><img src="screens/SB_3c.jpg" alt="Step 3: station 3 lit; Apply through the campaign."><figcaption><b>Step 3.</b></figcaption></figure>
+        <figure class="ph"><img src="screens/SB_3d.jpg" alt="Step 4: station 4 lit; Hear about next steps, with the note."><figcaption><b>Step 4.</b></figcaption></figure>
+        <figure class="ph"><img src="screens/SB_fm.jpg" alt="Finder during the story on a phone: the page becomes the finder with a red bookmark ribbon and Bookmarked, Chapter 3, step 2; the plate stays above."><figcaption><b>Finder, phone.</b> The page turns to the finder; a bookmark holds the place.</figcaption></figure>
+        <figure class="dk"><img src="screens/SB_fd.jpg" alt="Finder during the story on desktop: the right page is the finder with a bookmark ribbon; the plate stays on the left."><figcaption><b>Finder, desktop.</b> The facing page becomes the finder.</figcaption></figure>
+      </div>
+      <div class="why">
+        <div><h4>What’s different</h4><p>An editorial layout: the scene is framed like an illustration, the words are typeset like a book page, chapters are tabs and navigation is turning pages.</p></div>
+        <div><h4>Improves</h4><p>The most readable option, with large type and no text over the scene. Read as text is almost the same view. On desktop it feels crafted and calm.</p></div>
+        <div><h4>Tradeoffs</h4><p>On phones the scene shrinks to a plate, so the world is less the focus than in A. A book is a second metaphor next to the railroad and the map, and it risks feeling like a slideshow with nicer paper.</p></div>
+        <div><h4>Effort <span class="effort" aria-label="3 of 5"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></h4><p>Medium. A responsive spread layout, tabs and page-corner controls. The stage adapter fits the plate unchanged, and a 3D scene would render into a smaller frame.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================================== C. TRANSITIONS -->
+  <section class="ex" id="transitions" aria-labelledby="tr-h">
+    <header><span class="kick">Exploration C</span><h2 id="tr-h">Transitions between the map, Toy Town and the finder</h2>
+      <p class="muted">Static storyboards at desktop size. The flight frames are real frames of the existing descent (<code>__nat.shot</code>), which today lands in Maple Hollow’s street. The gold glow and signs are drawn over for the concept. Nothing here was animated or built.</p></header>
+
+    <div class="dir">
+      <div class="dir-head"><h3>Concept 1 · One continuous world</h3><span class="pick">Recommended</span></div>
+      <div class="board">
+        <h4>1 · Map to Toy Town: the camera flies down</h4>
+        <div class="row">
+          <figure class="dk sm"><img src="screens/T_land.jpg" alt="Desktop landing with one finder ticket at the right holding the ZIP field and Explore Toy Town; the top bar keeps Give Toys, Donate (provisional) and Request Toys without a second Find Local Campaign button."><figcaption>Landing. One finder: the top bar no longer repeats Find Local Campaign.</figcaption></figure><span class="arrow" aria-hidden="true">→</span>
+          <figure class="dk sm"><img src="screens/T1_a2.jpg" alt="Descent frame: the interface has faded; Toy Town and A story in four chapters appear over the map as the camera starts down; a Skip the flight button at the lower right."><figcaption>The interface fades, a title card appears and the camera starts down. “Skip the flight” is always there.</figcaption></figure><span class="arrow" aria-hidden="true">→</span>
+          <figure class="dk sm"><img src="screens/T1_a3.jpg" alt="Late in the existing descent: a felt village street at night with the community hall and a lit tree."><figcaption>Late in the flight, with no interface. This real frame lands in Maple Hollow’s street, because that is where the existing descent goes.</figcaption></figure><span class="arrow" aria-hidden="true">→</span>
+          <figure class="dk sm"><img src="screens/T1_a4.jpg" alt="Arrival: Chapter 1 cinematic interface on the Toy Town street."><figcaption>Arrival: the story’s subtitle and top row fade in. Focus moves to the text.</figcaption></figure>
+        </div>
+        <h4>2 · Toy Town to the finder: the scene pauses, the ticket rises</h4>
+        <div class="row">
+          <figure class="dk sm"><img src="screens/T2_a1.jpg" alt="Chapter 3 step 2 in the cinematic interface with the hanging sign."><figcaption>Chapter 3, step 2. The visitor picks Find your local campaign.</figcaption></figure><span class="arrow" aria-hidden="true">→</span>
+          <figure class="dk sm"><img src="screens/T2_a2.jpg" alt="The scene dims; the paper finder tag sits at the side with the remembered campaign."><figcaption>The scene holds still and dims. The same paper ticket slides in with the remembered campaign. “Back to the story” returns to step 2.</figcaption></figure>
+        </div>
+        <h4>3 · The finale: rise out of Toy Town to the whole country</h4>
+        <div class="row">
+          <figure class="dk sm"><img src="screens/T3_a1.jpg" alt="The last beat in the town: Every community has a part to play, with a Find yours button."><figcaption>In town: “Every community has a part to play.”</figcaption></figure><span class="arrow" aria-hidden="true">→</span>
+          <figure class="dk sm"><img src="screens/T3_a2.jpg" alt="Rising frame: the region seen from above, with the railroad lines meeting at a glowing junction; the closing line still on screen."><figcaption>The camera rises (the descent, played backwards) and the railroad lines come into view.</figcaption></figure><span class="arrow" aria-hidden="true">→</span>
+          <figure class="dk sm"><img src="screens/T3_a3.jpg" alt="The whole felt country with Toy Town glowing where the three railroad lines meet; below, Every community has a part to play. Find yours. A ZIP field with Find my local campaign, and small links for a provisional monetary donation, replay the story and return to the map."><figcaption>The country, with Toy Town glowing where the three lines meet. “Find yours.” sits right above a ZIP field. Donation (provisional), Replay and Return to the map are smaller links.</figcaption></figure>
+        </div>
+      </div>
+      <div class="why">
+        <div><h4>What’s different</h4><p>No screen changes. The visitor never leaves the felt world: down into the town, back up to the country. The finder is one paper ticket wherever it appears.</p></div>
+        <div><h4>Improves</h4><p>It turns the story into a place the visitor visits. The finale connects “one town” to “your town” through geography, which is the project’s idea.</p></div>
+        <div><h4>Tradeoffs</h4><p>The flights cost a few seconds, so they must be skippable and instant under reduced motion. On weak phones the flight may stutter; that is unmeasured, since the cloud has no GPU.</p></div>
+        <div><h4>Effort <span class="effort" aria-label="4 of 5"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></h4><p>Medium to high. The descent and <code>makeFlight</code> exist, and a reverse flight is new work. The descent ends in Maple Hollow, not in the felt Toy Town, so it needs the “one Toy Town” decision. Without it the flight can end in a crossfade to the Toy Town still.</p></div>
+      </div>
+    </div>
+
+    <div class="dir">
+      <div class="dir-head"><h3>Concept 2 · Storybook pages</h3></div>
+      <div class="board">
+        <h4>1 · Map to Toy Town: the map softens and a book opens</h4>
+        <div class="row">
+          <figure class="dk sm"><img src="screens/T_land.jpg" alt="The same desktop landing."><figcaption>Landing.</figcaption></figure><span class="arrow" aria-hidden="true">→</span>
+          <figure class="dk sm"><img src="screens/T1_b2.jpg" alt="The map blurs behind a book cover reading Toy Town, A story in four chapters, with the four chapter titles and a Begin the story button."><figcaption>The map blurs in place. A title page lists the four chapters, so the visitor knows the length.</figcaption></figure><span class="arrow" aria-hidden="true">→</span>
+          <figure class="dk sm"><img src="screens/T1_b3.jpg" alt="Chapter 1 storybook spread."><figcaption>A page turn (a crossfade under reduced motion) to Chapter 1.</figcaption></figure>
+        </div>
+        <h4>2 · Toy Town to the finder: the facing page turns</h4>
+        <div class="row">
+          <figure class="dk sm"><img src="screens/T2_b1.jpg" alt="Chapter 3 step 2 as a storybook spread with the four-station railroad."><figcaption>Chapter 3, step 2.</figcaption></figure><span class="arrow" aria-hidden="true">→</span>
+          <figure class="dk sm"><img src="screens/T2_b2.jpg" alt="The facing page is the finder, with a bookmark ribbon."><figcaption>The facing page becomes the finder, with a bookmark at step 2.</figcaption></figure>
+        </div>
+        <h4>3 · The finale: a fold-out map</h4>
+        <div class="row">
+          <figure class="dk sm"><img src="screens/T3_b1.jpg" alt="A fold-out spread of the felt country across both pages, with a cream page in the corner reading Every community has a part to play. Find yours. A ZIP field and links for a provisional donation, read it again and close the book."><figcaption>The last spread folds out into the country. “Find yours” with its ZIP field sits on the page. “Close the book” returns to the live map.</figcaption></figure>
+        </div>
+      </div>
+      <div class="why">
+        <div><h4>What’s different</h4><p>Cuts instead of flights. The map stays where it was behind the book, and every change is a page.</p></div>
+        <div><h4>Improves</h4><p>Calm, quick and predictable. It works the same on every device and with reduced motion, and the title page sets expectations.</p></div>
+        <div><h4>Tradeoffs</h4><p>It is less magical: the map and the town feel like two artefacts, not one world. The fold-out finale is a picture of the map, not the map.</p></div>
+        <div><h4>Effort <span class="effort" aria-label="2 of 5"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></h4><p>Low to medium. Only the DOM and CSS change, with no camera work. It is also Concept 1’s reduced-motion fallback, so building it first is not wasted.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================================== SIDE BY SIDE -->
+  <section class="ex" aria-labelledby="cmp-h">
+    <header><span class="kick">Side by side</span><h2 id="cmp-h">The meaningful differences</h2></header>
+    <div class="cmp">
+      <table>
+        <thead><tr><th scope="col"></th><th scope="col">Where the world is</th><th scope="col">Where the finder is</th><th scope="col">Best at</th><th scope="col">Weakest at</th></tr></thead>
+        <tbody>
+          <tr><td><b>Landing A · ticket</b></td><td>Whole screen</td><td>Bottom, in thumb reach</td><td>Speed to the campaign website</td><td>Explaining the map without the caption</td></tr>
+          <tr><td><b>Landing B · header</b></td><td>A stage below the header</td><td>Top, like site search</td><td>Making Toy Town the obvious second door</td><td>One-handed use; covers the map on a result</td></tr>
+          <tr><td><b>Story A · cinematic</b></td><td>Whole screen</td><td>Ticket over the paused scene</td><td>Immersion; ready for 3D</td><td>Long text (kept short by design)</td></tr>
+          <tr><td><b>Story B · storybook</b></td><td>A framed plate</td><td>The facing page</td><td>Reading comfort on desktop</td><td>Scene size on phones</td></tr>
+          <tr><td><b>Transitions 1 · one world</b></td><td>Continuous camera</td><td>Same ticket everywhere</td><td>A memorable finale</td><td>Cost; depends on the one-Toy-Town decision</td></tr>
+          <tr><td><b>Transitions 2 · pages</b></td><td>Map stays behind the book</td><td>A page</td><td>Calm, cheap, motion-safe</td><td>Feels like two separate things</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================================================================== SMALL DECISIONS -->
+  <section class="ex" id="decisions" aria-labelledby="dec-h">
+    <header><span class="kick">Built into every concept</span><h2 id="dec-h">The small UX decisions</h2></header>
+    <div class="twocol">
+      <div class="card"><h4>One Find Local Campaign per context</h4><p>The desktop top bar drops its Find Local Campaign button while the finder ticket is on screen (see the landing frames). In the story, “Find your local campaign” appears once, in the top row, plus the in-place action on Chapter 3, step 1 and the finale.</p></div>
+      <div class="card"><h4>Back to results only when there are results</h4><p>One serving campaign shows its card with only “Change”. A back link appears only when two or more campaigns serve the ZIP. Nearby campaigns that don’t serve the ZIP are never listed as equals: they would appear under their own “Not in your area” heading only when nothing serves it.</p></div>
+      <div class="card"><h4>The website stays the clearest action</h4><p>After every search, in every concept, Visit Campaign Website is the one large red button, in the same place as the Find button before it.</p></div>
+      <div class="card"><h4>Labels and provisional links</h4><p>Campaigns carry the Test data tag, and placeholder links say example.org. Make a Monetary Donation is marked Provisional until an official destination is confirmed. Every scene is labelled a placeholder.</p></div>
+    </div>
+  </section>
+
+  <!-- ===================================================================== OPEN -->
+  <section class="ex" id="open" aria-labelledby="open-h">
+    <header><span class="kick">Before implementation</span><h2 id="open-h">Decisions still open</h2></header>
+    <ul class="plain">
+      <li><b>Which Toy Town the camera lands in.</b> The existing descent ends in Maple Hollow’s street inside the national app. The felt Toy Town in the stills lives in the separate journey prototype. Concept 1 needs one destination; until then the flight can end in a crossfade to the still.</li>
+      <li><b>Chapter 3 as four beats.</b> The words stay exactly as drafted, but the chapter grows from two beats to five (the opening line plus four steps). Please confirm that structure, and the felt signs as the visual cue (in 3D later they would be props on the existing street, not a new environment).</li>
+      <li><b>Moving the map caption and credits behind (i).</b> The Census attribution stays one tap away. Is that acceptable for the landing?</li>
+      <li><b>The finale’s ZIP field.</b> I recommend putting the finder’s field directly under “Find yours.” instead of a button that opens it. It removes a step, and the result appears as the same ticket.</li>
+      <li><b>Request Toys on phones.</b> In “Ways to help” it should open the finder directly with request-specific wording, never the story. Wording for that request path needs your and the organisation’s review.</li>
+      <li><b>Story copy and accuracy.</b> Unchanged draft. It still needs the organisation’s review before publication.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>Concepts on branch <code>experiment/ux-cohesion</code> (docs/concepts/m2-ux): <code>render.js</code> makes the map and descent frames from the current app, <code>concepts.html</code> draws each screen and <code>shoot.js</code> captures them. Milestone 1 is preserved on <code>experiment/visitor-flow</code> and <code>preserve/milestone1</code>.</p>
+    <p>Rendered headless without a GPU. The map images are faithful, but nothing here measures performance on a real phone. These screens have not been compared against any reference images.</p>
+  </footer>
+</div>

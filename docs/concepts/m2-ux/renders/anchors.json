@@ -1,0 +1,243 @@
+{
+ "pB_land": {
+  "w": 390,
+  "h": 720,
+  "toytown": {
+   "x": 154.73199241255782,
+   "y": 350.16021338445074,
+   "state": null,
+   "area": {
+    "left": 0,
+    "right": 390,
+    "top": 0,
+    "bottom": 644,
+    "covered": false
+   }
+  },
+  "maple": {
+   "x": 424.84334089944775,
+   "y": 313.27754419002713,
+   "state": null,
+   "area": {
+    "left": 0,
+    "right": 390,
+    "top": 0,
+    "bottom": 644,
+    "covered": false
+   }
+  },
+  "campaign": null
+ },
+ "pA_land": {
+  "w": 390,
+  "h": 844,
+  "toytown": {
+   "x": 148.7907090080471,
+   "y": 418.7312438927024,
+   "state": null,
+   "area": {
+    "left": 0,
+    "right": 390,
+    "top": 0,
+    "bottom": 768,
+    "covered": false
+   }
+  },
+  "maple": {
+   "x": 345.20094226613134,
+   "y": 390.34105809772603,
+   "state": null,
+   "area": {
+    "left": 0,
+    "right": 390,
+    "top": 0,
+    "bottom": 768,
+    "covered": false
+   }
+  },
+  "campaign": null
+ },
+ "pA_found": {
+  "w": 390,
+  "h": 844,
+  "toytown": {
+   "x": 795.2424277236053,
+   "y": 66.00094587693056,
+   "state": null,
+   "area": {
+    "left": 0,
+    "right": 390,
+    "top": 0,
+    "bottom": 532,
+    "covered": false
+   }
+  },
+  "maple": {
+   "x": 1410.9355273052392,
+   "y": -3.8704075817717274,
+   "state": null,
+   "area": {
+    "left": 0,
+    "right": 390,
+    "top": 0,
+    "bottom": 532,
+    "covered": false
+   }
+  },
+  "campaign": {
+   "x": 195,
+   "y": 265.99999999999994
+  }
+ },
+ "pB_found": {
+  "w": 390,
+  "h": 720,
+  "toytown": {
+   "x": 707.0551516125543,
+   "y": 282.673313554794,
+   "state": null,
+   "area": {
+    "left": 0,
+    "right": 390,
+    "top": 308,
+    "bottom": 644,
+    "covered": false
+   }
+  },
+  "maple": {
+   "x": 1232.2909711608677,
+   "y": 215.10874595354903,
+   "state": null,
+   "area": {
+    "left": 0,
+    "right": 390,
+    "top": 308,
+    "bottom": 644,
+    "covered": false
+   }
+  },
+  "campaign": {
+   "x": 195,
+   "y": 476
+  }
+ },
+ "sB_land": {
+  "w": 375,
+  "h": 560,
+  "toytown": {
+   "x": 148.80358983735258,
+   "y": 270.5442448832015,
+   "state": null,
+   "area": {
+    "left": 0,
+    "right": 375,
+    "top": 0,
+    "bottom": 484,
+    "covered": false
+   }
+  },
+  "maple": {
+   "x": 407.62853640363466,
+   "y": 235.25236548344296,
+   "state": null,
+   "area": {
+    "left": 0,
+    "right": 375,
+    "top": 0,
+    "bottom": 484,
+    "covered": false
+   }
+  },
+  "campaign": null
+ },
+ "sA_land": {
+  "w": 375,
+  "h": 667,
+  "toytown": {
+   "x": 143.06780291378035,
+   "y": 330.35695208758943,
+   "state": null,
+   "area": {
+    "left": 0,
+    "right": 375,
+    "top": 0,
+    "bottom": 591,
+    "covered": false
+   }
+  },
+  "maple": {
+   "x": 331.722588656369,
+   "y": 303.1011590448117,
+   "state": null,
+   "area": {
+    "left": 0,
+    "right": 375,
+    "top": 0,
+    "bottom": 591,
+    "covered": false
+   }
+  },
+  "campaign": null
+ },
+ "d_land": {
+  "w": 1280,
+  "h": 720,
+  "toytown": {
+   "x": 585.1215407436997,
+   "y": 306.77612318100324,
+   "state": null,
+   "area": {
+    "left": 0,
+    "right": 912,
+    "top": 65,
+    "bottom": 644,
+    "covered": false
+   }
+  },
+  "maple": {
+   "x": 835.2845938642363,
+   "y": 278.71941201648826,
+   "state": null,
+   "area": {
+    "left": 0,
+    "right": 912,
+    "top": 65,
+    "bottom": 644,
+    "covered": false
+   }
+  },
+  "campaign": null
+ },
+ "d_found": {
+  "w": 1280,
+  "h": 720,
+  "toytown": {
+   "x": 1060.2199207695423,
+   "y": 167.88595766445508,
+   "state": null,
+   "area": {
+    "left": 0,
+    "right": 912,
+    "top": 65,
+    "bottom": 644,
+    "covered": false
+   }
+  },
+  "maple": {
+   "x": 1648.659163452353,
+   "y": 105.97587401504911,
+   "state": null,
+   "area": {
+    "left": 0,
+    "right": 912,
+    "top": 65,
+    "bottom": 644,
+    "covered": false
+   }
+  },
+  "campaign": {
+   "x": 456,
+   "y": 354.4999999999999
+  }
+ }
+}

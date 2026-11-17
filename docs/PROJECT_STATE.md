@@ -15,6 +15,12 @@ actions are always available without the world.
 
 ## Where we are now (updated)
 
+**Newest: `experiment/ux-cohesion` (from `experiment/visitor-flow` at `625a80b`). UX exploration after Milestone 1,
+concepts only.** The owner approved Milestone 1 functionally and asked for visual directions before any new scenes or 3D.
+`docs/concepts/m2-ux/` has two directions each for the mobile landing, the story interface and the transitions, plus a
+recommendation (`review.html`, published as [Railroad of Hope UX Directions](https://claude.ai/artifact/QRSoFRuiw1eRzr2GtMJPYf)). The app was not changed. Milestone 1 is
+preserved as `preserve/milestone1`. Waiting for the owner's choice before implementation.
+
 **Newest: `experiment/visitor-flow` (from `experiment/campaign-finder` at `c8a812b`). Phase 1, Milestone 1: the visitor
 flow skeleton.** Preview: [Toy Town Visitor Flow](https://claude.ai/artifact/ApfEe3B7HobJooA5JRmvzc) (prototype, published from
 `tools/build_national.sh`). Review screenshots: `docs/milestone1/`. Plan: [Phase 1 visitor experience](https://claude.ai/artifact/KGMGwiFCR4kubUSyrB94hF) (also in
