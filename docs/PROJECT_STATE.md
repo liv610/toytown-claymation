@@ -19,7 +19,10 @@ actions are always available without the world.
 concepts only.** The owner approved Milestone 1 functionally and asked for visual directions before any new scenes or 3D.
 `docs/concepts/m2-ux/` has two directions each for the mobile landing, the story interface and the transitions, plus a
 recommendation (`review.html`, published as [Railroad of Hope UX Directions](https://claude.ai/artifact/QRSoFRuiw1eRzr2GtMJPYf)). The app was not changed. Milestone 1 is
-preserved as `preserve/milestone1`. Waiting for the owner's choice before implementation.
+preserved as `preserve/milestone1`. The owner approved Landing A + Story A + Transition Concept 1. The implementation plan,
+`docs/PHASE1_IMPLEMENTATION_PLAN.md` ([plan doc](https://claude.ai/artifact/DQGUAp7rJPNKFB2BdUvgxo)), recommends building on
+the national app, with Maple Hollow's street moved to the Toy Town hub as the one Toy Town. The essential scope is
+estimated at 61–75 hours, in five milestones; the continuous-world spike comes first. Waiting for approval of the plan.
 
 **Newest: `experiment/visitor-flow` (from `experiment/campaign-finder` at `c8a812b`). Phase 1, Milestone 1: the visitor
 flow skeleton.** Preview: [Toy Town Visitor Flow](https://claude.ai/artifact/ApfEe3B7HobJooA5JRmvzc) (prototype, published from
