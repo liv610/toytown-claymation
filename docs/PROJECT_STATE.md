@@ -26,6 +26,10 @@ the continuous-world spike.** The owner approved the implementation plan's found
 - Report, findings, the assessment of reusable Toy Town assets and the effort: `docs/MILESTONE1_SPIKE.md`. Frames: `docs/milestone1-spike/frames`.
 - Tests: `tools/tests/toytown_spike.js`, `tools/tests/toytown_frames.js`.
 - The cinematic interface and Chapters 2–4 wait for the owner's next approval.
+- After Milestone 1 the owner set the direction: a living, animated miniature world. The assessment
+  (`docs/LIVING_TOYTOWN_ASSESSMENT.md`, [doc](https://claude.ai/artifact/Ryi9vqPYzXaDfEaS5E4xof)) recommends Milestone 2A, the
+  red truck donation and collection sequence at final quality (24–30 developer hours). Its estimates: Option A about
+  100–130 developer hours, Option B about 160–220. Waiting for approval; no code changed.
 
 **Newest: `experiment/visitor-flow` (from `experiment/campaign-finder` at `c8a812b`). Phase 1, Milestone 1: the visitor
 flow skeleton.** Preview: [Toy Town Visitor Flow](https://claude.ai/artifact/ApfEe3B7HobJooA5JRmvzc) (prototype, published from
