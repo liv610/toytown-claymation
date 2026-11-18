@@ -49,9 +49,9 @@ const still = async (p, path) => { await p.evaluate(() => window.__nat.pose({ ..
     await p.click('.story-next');
     await p.waitForFunction(() => window.__nat.state().held === 4.2 && window.__nat.state().mode === 'shot', null, { timeout: LONG });
     ok(await pos(p) === 'what/community', 'A: Next: the camera moves to the next shot in the same street');
-    await p.click('.story-step[data-chapter="1"]');
-    await p.waitForSelector('.story-scene img', { timeout: LONG });
-    ok(await p.evaluate(() => !document.body.classList.contains('story-live')), 'A: Chapter 2 (not built yet) falls back to its still, cleanly');
+    await p.click('.story-step[data-chapter="2"]');                 // (Chapter 2 plays live since Milestone 2A; Chapter 3 is not built yet)
+    await p.waitForSelector('.story-scene img, .story-slate', { timeout: LONG });
+    ok(await p.evaluate(() => !document.body.classList.contains('story-live')), 'A: Chapter 3 (not built yet) falls back to its placeholder, cleanly');
     await p.click('.story-skip');
     await waitMode(p, 'finale');
     ok(await pos(p) === 'finale/yours' && await p.evaluate(() => document.body.classList.contains('story-live')), 'A: Skip story: the finale is shown over the whole country (the camera rose out of Toy Town)');

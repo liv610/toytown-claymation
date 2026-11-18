@@ -1,0 +1,564 @@
+// Toy Town · the red truck's donation and collection (Phase 1, Milestone 2A). About 26 seconds in two visitor-paced
+// beats, played live in the Toy Town street:
+//   Beat 1 · the donation (0–13.5 s): a parent and child walk up the street; the child carries a small red toy truck,
+//            lifts it over the toy drop-off box and lowers it through the slot; it drops onto the toys inside; the box
+//            glows; the child looks up at the parent; the volunteer by the hall waves; the family steps aside.
+//   Beat 2 · the collection (13.5–26.5 s): the Marine by the wagon walks to the box, lifts its lid, reaches in and
+//            lifts out the carton of toys (the red truck on top: it fell there in beat 1, so it never teleports), carries
+//            it to the community hall while the volunteer opens the door; warm light spills out; both go in; the door
+//            swings shut and the hall's glow sets up the next scene (sorting).
+// Town life runs on the wall clock and never waits: chimney smoke, a neighbour shovelling snow, passers-by, snow,
+// lamps, the tree's lights.
+//
+// Like Chapter 1 (chapter1.js, kept for ?town=maple), everything is a pure function of story time t (plus wall-clock w
+// for the ambient life), so a beat can be played, held, paused for the finder, jumped to or replayed exactly. Characters
+// are the Chapter 1 cast and clips; new gestures (reaching, lifting, opening, shovelling) are built on their bones with a
+// two-bone arm reach, a spine bend and a head look. Puppets move on twos (12 poses a second), like stop-motion.
+// All positions are Toy Town's own units (the street model's space).
+import * as THREE from 'three';
+import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
+import { loadGLB, S } from './community.js';
+import { clay as claySurface, LOOK } from './clay.js';
+
+const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const smooth = (x) => { x = clamp(x); return x * x * (3 - 2 * x); };
+const ramp = (t, a, b) => smooth((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const angLerp = (a, b, k) => { const d = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI; return a + d * k; };
+const yawOf = (d) => Math.atan2(d.x, d.z);
+const curve = (pts) => new THREE.CatmullRomCurve3(pts.map(([x, z]) => V(x, 0, z)), false, 'centripetal');
+const backOut = (x) => { x = clamp(x); const c = 1.4; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };   // a little overshoot
+const settle = (x) => { x = clamp(x); return 1 - Math.exp(-6 * x) * Math.cos(9 * x); };                                     // swing, bounce back, rest
+
+// trapezoid speed profile: start at t0, cover L at speed v, easing in and out over e seconds
+function travel(t, t0, L, v, e = 0.6) {
+  const Tt = L / v + e, a = v / e, u = t - t0;
+  if (u <= 0) return { s: 0, v: 0 };
+  if (u >= Tt) return { s: L, v: 0 };
+  if (u < e) return { s: 0.5 * a * u * u, v: a * u };
+  if (u > Tt - e) { const r = Tt - u; return { s: L - 0.5 * a * r * r, v: a * r }; }
+  return { s: 0.5 * a * e * e + v * (u - e), v };
+}
+const walkTime = (L, v, e = 0.6) => L / v + e;
+
+// ------------------------------------------------------------------ the script (story time, seconds)
+export const BEATS = { donation: [0, 13.5], collection: [13.5, 28] };   // collection's end is set from the walks below
+const T = {
+  // beat 1
+  walk0: 1.0,                 // the family sets off
+  lift0: 7.55, lift1: 8.35,   // the child lifts the truck over the box
+  show1: 8.85,                // …holds it there a moment
+  lower1: 9.35,               // …lowers it into the slot
+  drop1: 9.7,                 // …lets go; it lands on the toys inside
+  up0: 10.0, up1: 10.6,       // the child looks up at the parent
+  wave0: 10.2, wave1: 11.5,   // the volunteer waves and nods
+  aside0: 11.7,               // the family steps aside
+  // beat 2 (the rest follows from the Marine's walk: see createDonation)
+  m0: 13.6,                   // the Marine looks up from the wagon
+  mWalk0: 13.85,              // …walks to the box
+};
+
+// places (Toy Town units: x along the street, z towards the near sidewalk, y up)
+const BOX = { x: 2.3, z: 1.25, w: 1.05, h: 0.755, d: 0.75 };
+const BOX_BACK = BOX.z - BOX.d / 2, BOX_FRONT = BOX.z + BOX.d / 2;
+const SLOT = V(BOX.x, BOX.h, BOX_FRONT - 0.2);              // the slot sits near the front edge, within a child's reach
+const CARTON_BASE = 0.055;                                   // the carton stands on the box's floor
+const DOOR = { hingeX: -0.7, z: 0.09, w: 1.4, h: 2.4, y: 1.22, faceZ: 0.03 };
+const WAGON = [-2.05, 0.78];
+const VOL = V(1.35, 0, 0.85);
+
+export async function createDonation(town, { assets = './assets/', b64 = null, tier = 'high' } = {}) {
+  const root = town.root;
+  const load = (n) => loadGLB(assets + n, b64 && b64[n]);
+  const [gm, gp, gc, gv, gprops] = await Promise.all(['marine.glb', 'ch1_parent.glb', 'ch1_child.glb', 'ch1_volunteer.glb', 'ch1_props.glb'].map(load));
+  const group = new THREE.Group(); group.name = 'DonationScene'; root.add(group);
+  const clipPlane = new THREE.Plane(V(0, 0, 1), 0);                  // the hall's doorway: who walks in is cut there
+
+  // ---------------------------------------------------------------- the cast (Chapter 1's sculpts, rig and clips)
+  function makeChar(g, { scale = 1, colors = [], clip = false } = {}) {
+    const obj = skClone(g.scene);
+    obj.scale.setScalar(scale);
+    obj.traverse((o) => {
+      if (!o.isMesh) return;
+      o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
+      const many = Array.isArray(o.material), out = (many ? o.material : [o.material]).map((m) => {
+        const c = m.clone();
+        for (const [re, col] of colors) if (re.test(m.name)) c.color.set(col);
+        const felt = (m.userData && m.userData.kind === 'felt') || /Coat|Trouser/.test(m.name);
+        claySurface(c, felt ? 'fabric' : 'clay', true, S * scale);
+        if (clip) c.clippingPlanes = [clipPlane];
+        return c;
+      });
+      o.material = many ? out : out[0];
+    });
+    group.add(obj);
+    const mixer = new THREE.AnimationMixer(obj), acts = {};
+    for (const c of g.animations) { const a = mixer.clipAction(c); a.play(); a.setEffectiveWeight(0); acts[c.name] = a; }
+    const bones = {}, rest = []; obj.traverse((o) => { if (o.isBone) { bones[o.name.replace(/\./g, '')] = o; rest.push([o, o.quaternion.clone(), o.position.clone()]); } });
+    return { obj, mixer, acts, bones, rest, scale, stride: 1.3 * scale };
+  }
+  const marine = makeChar(gm, { clip: true });
+  const parent = makeChar(gp);
+  const child = makeChar(gc, { scale: 0.64 });
+  const volunteer = makeChar(gv, { clip: true });
+  const passer = makeChar(gp, { colors: [[/PCoat/, 0x6b3d6e], [/PHat/, 0x3e8a8c], [/PScarf/, 0xf0e2c4], [/PMitt/, 0x3e8a8c]] });
+  const passer2 = makeChar(gv, { colors: [[/PCoat|PVest/, 0xd9a93f], [/PHat/, 0x2d5fae], [/PSkin/, 0xc98a62], [/PHair/, 0x2a1a12]] });
+  const passerKid = makeChar(gc, { scale: 0.6, colors: [[/PCoat/, 0xa8322f], [/PHat/, 0x3f6f57], [/PSkin/, 0xc98a62]] });
+  const shoveller = makeChar(gp, { colors: [[/PCoat/, 0x2f5d46], [/PHat/, 0xc8302a], [/PScarf/, 0xe8c55a], [/PMitt/, 0xc8302a], [/PSkin/, 0xd7a07a]] });
+
+  // ---------------------------------------------------------------- props (cloned, own materials: the doorway cut is theirs alone)
+  const prop = (name, { clip = false } = {}) => {
+    const o = gprops.scene.getObjectByName(name).clone(true);
+    o.traverse((m) => {
+      if (!m.isMesh) return;
+      m.castShadow = true; m.receiveShadow = true;
+      m.material = m.material.clone();
+      if (LOOK.felt) LOOK.townScale = S; claySurface(m.material, 'clay', false); if (LOOK.felt) LOOK.townScale = null;
+      if (clip) m.material.clippingPlanes = [clipPlane];
+    });
+    group.add(o); return o;
+  };
+  const truck = prop('Truck', { clip: true });
+  const carton = prop('Carton', { clip: true });
+  const wagon = prop('Wagon');
+  { const t = wagon.getObjectByName('Wagon_truck'); if (t) t.visible = false; }   // one red truck in this story: the child's
+  const place = (o, x, z, yaw, s = 1) => { o.position.set(x, town.groundAt(x, z), z); o.rotation.set(0, yaw, 0); o.scale.setScalar(s); };
+  place(wagon, WAGON[0], WAGON[1], 0.0, 1.05);
+  carton.scale.setScalar(1.0);
+
+  // ---------------------------------------------------------------- the toy drop-off box, rebuilt so it can be opened
+  // The street model's red box (CrateRed) is one solid block. This one has walls, a dark inside, a carton of toys on its
+  // floor and a lid hinged along the back edge, with the slot near the front.
+  let boxMat = null;
+  root.traverse((o) => { if (o.isMesh && o.name === 'CrateRed') { boxMat = o.material; o.visible = false; } });
+  boxMat = boxMat ? boxMat.clone() : new THREE.MeshStandardMaterial({ color: 0xb8302a, roughness: 0.8 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x2a1512, roughness: 1 });
+  const slab = (w, h, d, m) => { const s = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); s.castShadow = true; s.receiveShadow = true; return s; };
+  const box = new THREE.Group(); box.position.set(BOX.x, 0, BOX.z); group.add(box);
+  const WT = 0.05, Hw = BOX.h - 0.04;
+  for (const [w, d, x, z] of [[BOX.w, WT, 0, BOX.d / 2 - WT / 2], [BOX.w, WT, 0, -BOX.d / 2 + WT / 2], [WT, BOX.d, BOX.w / 2 - WT / 2, 0], [WT, BOX.d, -BOX.w / 2 + WT / 2, 0]]) {
+    const s = slab(w, Hw, d, boxMat); s.position.set(x, Hw / 2, z); box.add(s);
+    const inner = slab(Math.max(0.01, w - 0.012), Hw - 0.02, Math.max(0.01, d - 0.012), darkMat); inner.position.copy(s.position); inner.scale.set(1, 1, 1); inner.renderOrder = -1; box.add(inner);
+  }
+  const floor = slab(BOX.w - 2 * WT, 0.03, BOX.d - 2 * WT, darkMat); floor.position.y = 0.04; box.add(floor);
+  // the lid: a frame round the slot, hinged at the back top edge
+  const lidPivot = new THREE.Group(); lidPivot.position.set(0, Hw, -BOX.d / 2); box.add(lidPivot);
+  const LT = 0.055, slotW = 0.46, slotD = 0.27, slotZ = SLOT.z - BOX.z + BOX.d / 2;   // slot centre, measured from the hinge
+  const lidPart = (w, d, x, z) => { const s = slab(w, LT, d, boxMat); s.position.set(x, LT / 2, z); lidPivot.add(s); return s; };
+  lidPart(BOX.w + 0.04, slotZ - slotD / 2, 0, (slotZ - slotD / 2) / 2);                                   // behind the slot
+  lidPart(BOX.w + 0.04, BOX.d + 0.02 - (slotZ + slotD / 2), 0, (slotZ + slotD / 2 + BOX.d + 0.02) / 2);   // in front of it
+  lidPart((BOX.w + 0.04 - slotW) / 2, slotD, -(slotW / 2 + (BOX.w + 0.04 - slotW) / 4), slotZ);             // left of it
+  lidPart((BOX.w + 0.04 - slotW) / 2, slotD, (slotW / 2 + (BOX.w + 0.04 - slotW) / 4), slotZ);              // right of it
+  { const lip = slab(BOX.w + 0.06, 0.04, 0.05, boxMat); lip.position.set(0, 0.0, BOX.d + 0.03); lidPivot.add(lip); }   // the front lip the hand takes
+  // the carton of donated toys, on the box's floor
+  box.add(carton); carton.position.set(0, CARTON_BASE, 0); carton.rotation.set(0, 0, 0);
+  const cartonHome = () => box.localToWorld(V(0, CARTON_BASE, 0));                 // (town units, via root below)
+
+  // ---------------------------------------------------------------- the hall door, hinged; a warm doorway behind it
+  let doorMesh = null; root.traverse((o) => { if (o.isMesh && o.name === 'Door_Hall') doorMesh = o; });
+  const doorPivot = new THREE.Group(); doorPivot.position.set(DOOR.hingeX, 0, DOOR.z); root.add(doorPivot);
+  if (doorMesh) { const p = doorMesh.position.clone(); doorMesh.parent.remove(doorMesh); doorMesh.position.set(p.x - DOOR.hingeX, p.y, p.z - DOOR.z); doorPivot.add(doorMesh); }
+  const glowTex = (() => {   // the lit hall seen through the doorway: warm, brightest low and in the middle
+    const c = document.createElement('canvas'); c.width = 64; c.height = 128; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(32, 92, 6, 32, 80, 90); gr.addColorStop(0, '#fff2cc'); gr.addColorStop(0.45, '#ffc46e'); gr.addColorStop(1, '#a35a2a');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+  const doorway = new THREE.Mesh(new THREE.PlaneGeometry(DOOR.w - 0.06, DOOR.h - 0.04), new THREE.MeshBasicMaterial({ map: glowTex, toneMapped: false }));
+  doorway.position.set(0, DOOR.y, DOOR.faceZ); doorway.visible = false; root.add(doorway);
+  const poolTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const gr = g.createRadialGradient(64, 40, 4, 64, 54, 70);
+    gr.addColorStop(0, 'rgba(255,214,150,1)'); gr.addColorStop(0.5, 'rgba(255,170,90,0.45)'); gr.addColorStop(1, 'rgba(255,150,80,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+  const pool = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.4), new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
+  pool.rotation.x = -Math.PI / 2; pool.position.set(0, 0.06, 1.15); pool.visible = false; root.add(pool);
+  const spill = new THREE.PointLight(0xffc37a, 0, 6 * S, 2); spill.position.set(0, 1.25, 0.55); root.add(spill);
+  const doorAngle = (t) => {
+    if (t < T.door0) return 0;
+    if (t < T.door1) return 1.66 * backOut((t - T.door0) / (T.door1 - T.door0));
+    if (t < T.shut0) return 1.66;
+    if (t > T.shut1) return 0;
+    const k = (t - T.shut0) / (T.shut1 - T.shut0); return k < 0.85 ? 1.66 * (1 - smooth(k / 0.85)) : 0.035 * Math.sin(Math.PI * (k - 0.85) / 0.15);
+  };
+  const handleAt = (th) => { const lx = DOOR.w - 0.17, lz = 0.1; return V(DOOR.hingeX + lx * Math.cos(th) - lz * Math.sin(th), 1.02, DOOR.z + lx * Math.sin(th) + lz * Math.cos(th)); };
+  const doorStand = (th) => { const h = handleAt(th), n = V(-Math.sin(th), 0, Math.cos(th)); return V(h.x, 0, h.z).addScaledVector(n, 0.42).add(V(0.12 * Math.cos(th), 0, 0)); };
+
+  // ---------------------------------------------------------------- the glow of the box when a toy goes in, and a few sparks
+  const glow = new THREE.PointLight(0xffc27a, 0, 3.2 * S, 2); glow.position.copy(SLOT).add(V(0, 0.3, 0.1)); group.add(glow);
+  const NSP = 22, spark = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.035), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffd890).multiplyScalar(3), transparent: true, depthWrite: false }), NSP);
+  spark.frustumCulled = false; group.add(spark);
+  const seeds = Array.from({ length: NSP }, (_, i) => [Math.abs(Math.sin(i * 12.9898) * 43758.5453 % 1), Math.abs(Math.sin(i * 78.233) * 12543.123 % 1), (i * 0.618) % 1]);
+
+  // ---------------------------------------------------------------- town life: chimney smoke (found from the chimneys' bricks)
+  const chimneys = [];
+  { const cells = new Map(); const v = V();
+    root.updateMatrixWorld(true);
+    root.traverse((o) => {
+      if (!o.isMesh || o.name !== 'Brick') return;
+      const p = o.geometry.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        v.fromBufferAttribute(p, i); o.localToWorld(v); root.worldToLocal(v);
+        if (v.y < 3.4) continue;
+        const k = Math.round(v.x / 1.5) + ',' + Math.round(v.z / 1.5), c = cells.get(k) || { n: 0, x: 0, z: 0, top: 0 };
+        c.n++; c.x += v.x; c.z += v.z; c.top = Math.max(c.top, v.y); cells.set(k, c);
+      }
+    });
+    for (const c of cells.values()) if (c.n > 6) {
+      const p = V(c.x / c.n, c.top + 0.08, c.z / c.n), near = chimneys.find((q) => Math.hypot(q.x - p.x, q.z - p.z) < 1.1);
+      if (near) { near.x = (near.x + p.x) / 2; near.z = (near.z + p.z) / 2; near.y = Math.max(near.y, p.y); } else chimneys.push(p);
+    }
+  }
+  const PUFFS = tier === 'low' ? 5 : 8;
+  const puffMat = new THREE.MeshStandardMaterial({ color: 0xd8d2ca, roughness: 1, transparent: true, opacity: 0.88, depthWrite: false });
+  const smoke = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), puffMat, Math.max(1, chimneys.length * PUFFS));
+  smoke.frustumCulled = false; smoke.castShadow = false; group.add(smoke);
+  // snow tossed by the shoveller: a few small felt clumps
+  const clumps = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0xf4f6fb, roughness: 1 }), 6);
+  clumps.frustumCulled = false; group.add(clumps);
+  // the shovel: a turned wooden handle, a red felt blade
+  const shovel = new THREE.Group(); group.add(shovel);
+  { const wood = new THREE.MeshStandardMaterial({ color: 0x8a5a33, roughness: 0.8 }), blade = new THREE.MeshStandardMaterial({ color: 0xb33a2c, roughness: 0.9 });
+    const h = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.02, 1.15, 8), wood); h.position.y = 0.575; shovel.add(h);
+    const grip = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.016, 6, 12), wood); grip.position.y = 1.17; grip.rotation.y = Math.PI / 2; shovel.add(grip);
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.025, 0.3), blade); b.position.set(0, 0.0, 0.13); b.rotation.x = 0.25; shovel.add(b);
+    shovel.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); }
+
+  // ---------------------------------------------------------------- posing helpers
+  const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
+  function pose(M, p, yaw, W, w, extra = {}) {
+    // every bone back to the clips' pose of the last update first: the mixer only rewrites a bone when its clip value
+    // changes, and the reaches and bends of the last frame must not leak into this one (a pose is a pure function of time)
+    for (const [b, q, ps] of (M.snap || M.rest)) { b.quaternion.copy(q); b.position.copy(ps); }
+    M.obj.position.set(p.x, Number.isFinite(p.gy) ? p.gy : town.groundAt(p.x, p.z), p.z); M.obj.rotation.set(0, yaw, 0);
+    for (const [k, a] of Object.entries(M.acts)) {
+      const wt = W[k] || 0; a.setEffectiveWeight(wt);
+      const d = a.getClip().duration;
+      a.time = k.startsWith('Walk') ? (((extra.phase || 0) % 1 + 1) % 1) * d : k === 'Give' ? clamp(extra.give || 0, 0, d - 1e-3) : ((w + (extra.off || 0)) % d + d) % d;
+    }
+    M.mixer.update(0);
+    if (!M.snap) M.snap = M.rest.map(([b]) => [b, new THREE.Quaternion(), new THREE.Vector3()]);
+    for (const e of M.snap) { e[1].copy(e[0].quaternion); e[2].copy(e[0].position); }
+    M.obj.updateMatrixWorld(true);
+  }
+  const walkW = (s) => smooth(s.speed / 0.45);
+  function walker(path, L, v, t0, t, endYaw, stride, startYaw = null) {
+    const tr = travel(t, t0, L, v), u = clamp(tr.s / L);
+    const p = path.getPointAt(u);
+    // the ground under the feet, averaged a little along the way: a step (the hall's doorstep) is climbed, not popped onto
+    const gAt = (s2) => { const q = path.getPointAt(clamp(s2 / L)); return town.groundAt(q.x, q.z); };
+    // (cobbles: a wide window, so a puppet walks on the street's average surface rather than hopping stone to stone)
+    p.gy = (gAt(tr.s - 0.45) + 2 * gAt(tr.s - 0.22) + 3 * gAt(tr.s) + 2 * gAt(tr.s + 0.22) + gAt(tr.s + 0.45)) / 9;
+    let yaw = yawOf(path.getTangentAt(Math.min(u, 0.999)));
+    if (startYaw !== null) yaw = angLerp(startYaw, yaw, ramp(t, t0, t0 + 0.6));   // turn into the walk from where they stood
+    if (u > 0.8) yaw = angLerp(yaw, endYaw, ramp(u, 0.8, 1));
+    return { p, yaw, speed: tr.v, phase: tr.s / stride, done: u >= 1 };
+  }
+  // rotate a bone by a world-space rotation (keeps the rest of the pose)
+  function turnBone(bone, axis, ang) {
+    if (Math.abs(ang) < 1e-5) return;
+    const q = new THREE.Quaternion().setFromAxisAngle(axis, ang).multiply(bone.getWorldQuaternion(_q));
+    bone.parent.getWorldQuaternion(_q2).invert(); bone.quaternion.copy(_q2.multiply(q)); bone.updateMatrixWorld(true);
+  }
+  const axes = (M) => { const q = M.obj.getWorldQuaternion(new THREE.Quaternion()); return { q, fwd: V(0, 0, 1).applyQuaternion(q), right: V(1, 0, 0).applyQuaternion(q), up: V(0, 1, 0) }; };
+  // bend forward from the waist (spine and chest share it), a hand's-width of weight shift with it
+  function bend(M, ang) { if (Math.abs(ang) < 1e-4) return; const { right } = axes(M); turnBone(M.bones.spine, right, ang * 0.55); turnBone(M.bones.chest, right, ang * 0.45); }
+  // turn the head (and a little of the neck) towards a world point
+  function lookAt(M, target, w, { maxYaw = 1.05, maxPitch = 0.55 } = {}) {
+    if (w <= 1e-3 || !target) return;
+    const head = M.bones.head, { q, right } = axes(M);
+    const d = target.clone().sub(head.getWorldPosition(V())).applyQuaternion(q.clone().invert());
+    const yaw = clamp(Math.atan2(d.x, d.z), -maxYaw, maxYaw) * w, pitch = clamp(Math.atan2(d.y, Math.hypot(d.x, d.z)), -maxPitch, maxPitch) * w;
+    turnBone(M.bones.neck, V(0, 1, 0), yaw * 0.35); turnBone(head, V(0, 1, 0), yaw * 0.65);
+    turnBone(M.bones.neck, right, -pitch * 0.35); turnBone(head, right, -pitch * 0.65);
+  }
+  // two-bone arm reach towards a world point, the elbow bending towards `pole`; w blends from the clip's pose
+  function aimBone(bone, cur, want, w) {
+    const q = new THREE.Quaternion().setFromUnitVectors(cur, want).multiply(bone.getWorldQuaternion(_q));
+    bone.parent.getWorldQuaternion(_q2).invert(); const local = _q2.multiply(q);
+    bone.quaternion.slerp(local, w); bone.updateMatrixWorld(true);
+  }
+  function reach(M, side, target, w, pole) {
+    if (w <= 1e-3 || !target) return;
+    const up = M.bones['upper_arm' + side], fo = M.bones['forearm' + side], ha = M.bones['hand' + side];
+    const A = up.getWorldPosition(V()), B = fo.getWorldPosition(V()), C = ha.getWorldPosition(V());
+    const l1 = A.distanceTo(B), l2 = B.distanceTo(C);
+    const dv = target.clone().sub(A); const d = clamp(dv.length(), Math.abs(l1 - l2) + 1e-4, l1 + l2 - 1e-4); const dir = dv.normalize();
+    const pv = pole.clone().sub(A); pv.addScaledVector(dir, -pv.dot(dir)); if (pv.lengthSq() < 1e-10) pv.set(0, -1, 0); pv.normalize();
+    const a = Math.acos(clamp((l1 * l1 + d * d - l2 * l2) / (2 * l1 * d), -1, 1));
+    const E = A.clone().addScaledVector(dir, l1 * Math.cos(a)).addScaledVector(pv, l1 * Math.sin(a)), Tt = A.clone().addScaledVector(dir, d);
+    aimBone(up, B.clone().sub(A).normalize(), E.clone().sub(A).normalize(), w);
+    const B2 = fo.getWorldPosition(V()), C2 = ha.getWorldPosition(V());
+    aimBone(fo, C2.sub(B2).normalize(), Tt.sub(B2).normalize(), w);
+  }
+  // an elbow pole a little behind, below and outside a character's shoulder
+  const elbowPole = (M, side, out = 0.35) => { const { fwd, right } = axes(M); const sh = M.bones['upper_arm' + side].getWorldPosition(V()); const k = M.scale * S;
+    return sh.addScaledVector(fwd, -0.5 * k).addScaledVector(V(0, 1, 0), -0.9 * k).addScaledVector(right, (side === 'L' ? 1 : -1) * out * k); };
+  const W = (v) => root.localToWorld(v.clone());           // town units → world
+  const L = (v) => root.worldToLocal(v.clone());           // world → town units
+  const handMid = (M) => M.bones.handL.getWorldPosition(V()).add(M.bones.handR.getWorldPosition(V())).multiplyScalar(0.5);
+
+  // ---------------------------------------------------------------- paths
+  const C_PATH = curve([[-4.6, 2.35], [-2.2, 2.42], [0.4, 2.44], [1.75, 2.28], [2.5, 1.88]]), LC = C_PATH.getLength();
+  const P_PATH = curve([[-5.3, 2.78], [-2.6, 2.84], [0.6, 2.86], [2.4, 2.9], [3.4, 2.7]]), LP = P_PATH.getLength();
+  const vC = 1.12, vP = vC * LP / LC;
+  const A_C = curve([[2.5, 1.88], [2.9, 1.94], [3.18, 1.66]]), LAC = A_C.getLength();      // stepping aside afterwards, beside the box
+  const A_P = curve([[3.4, 2.7], [3.52, 2.55], [3.58, 2.38]]), LAP = A_P.getLength();
+  const M_START = V(-2.78, 0, 1.42), M_STAND = V(2.3, 0, 2.0);
+  const M_PATH = curve([[M_START.x, M_START.z], [-1.6, 2.0], [0.4, 2.42], [1.65, 2.42], [M_STAND.x, M_STAND.z]]), LM = M_PATH.getLength(), vM = 1.25;
+  const M_IN = curve([[M_STAND.x, M_STAND.z], [1.55, 1.75], [0.62, 1.02], [0.1, 0.42], [0.0, -0.2], [0.0, -0.9]]), LMI = M_IN.getLength(), vMI = 1.05;
+  const V_DOOR = doorStand(0), V_OUT = doorStand(1.66);
+  const V_PATH = curve([[VOL.x, VOL.z], [1.05, 0.78], [V_DOOR.x, V_DOOR.z]]), LV = V_PATH.getLength();
+  const V_AFTER = curve([[V_DOOR.x, V_DOOR.z], [1.05, 0.82], [1.4, 0.95]]), LVA = V_AFTER.getLength();
+  const tFamilyArrive = T.walk0 + walkTime(LC, vC);
+  // beat 2's moments, from the Marine's walk to the box and to the hall
+  { const arr = T.mWalk0 + walkTime(LM, vM);
+    T.reach0 = arr + 0.2; T.lid0 = T.reach0 + 0.6; T.lid1 = T.lid0 + 0.8; T.lidGo = T.lid1 + 0.05;
+    T.in0 = T.lidGo + 0.25; T.grip = T.in0 + 0.6; T.lift2 = T.grip + 1.5; T.carry0 = T.lift2 + 0.45; T.go0 = T.carry0 + 0.15;
+    T.v0 = arr - 0.3; T.door0 = T.grip - 0.2; T.door1 = T.door0 + 1.5;
+    // inside once the Marine has walked past the doorway (path length to z < -0.45)
+    let sIn = LMI; for (let i = 0; i <= 200; i++) { if (M_IN.getPointAt(i / 200).z < -0.45) { sIn = LMI * i / 200; break; } }
+    T.inside = T.go0 + sIn / vMI + 0.6; T.shut0 = T.inside + 0.15; T.shut1 = T.shut0 + 1.15; T.end = T.shut1 + 1.1;
+    BEATS.collection[1] = +T.end.toFixed(2); }
+  const YAW_BOX = Math.PI;                                         // facing the box (towards the hall)
+
+  // ---------------------------------------------------------------- one moment of the scene
+  const state = {};
+  function evaluate(t, w) {
+    const tc = Math.floor(t * 12) / 12, wc = Math.floor(w * 12) / 12;     // puppets move on twos
+    root.updateMatrixWorld(true);
+    // the doorway cut, in world space (z of the wall's face)
+    const face = W(V(0, 0, DOOR.faceZ + 0.02)); clipPlane.normal.set(0, 0, 1); clipPlane.constant = -face.z;
+
+    // ---- the family
+    let c = walker(C_PATH, LC, vC, T.walk0, tc, YAW_BOX, child.stride);
+    let p = walker(P_PATH, LP, vP, T.walk0 + 0.18, tc, yawOf(V(-0.62, 0, -0.78)), parent.stride);
+    if (tc > T.aside0) {                                                  // stepping aside, then turning to watch
+      const a = walker(A_C, LAC, 0.75, T.aside0, tc, yawOf(V(-1, 0, 0.35)), child.stride, YAW_BOX);
+      const b = walker(A_P, LAP, 0.75, T.aside0 + 0.2, tc, yawOf(V(-1, 0, 0.2)), parent.stride, yawOf(V(-0.62, 0, -0.78)));
+      c = a; p = b;
+    }
+    const carryT = 1 - ramp(tc, T.drop1 - 0.05, T.drop1 + 0.3);           // holding the truck until it is let go
+    const cw = walkW(c);
+    pose(child, c.p, c.yaw, { WalkCarry: cw * carryT, Walk: cw * (1 - carryT), IdleCarry: (1 - cw) * carryT, Idle: (1 - cw) * (1 - carryT) }, wc, { phase: c.phase, off: 0.6 });
+    const pw = walkW(p);
+    pose(parent, p.p, p.yaw, { Walk: pw, Idle: (1 - pw) }, wc, { phase: p.phase, off: 1.3 });
+    // the truck: in the child's arms, lifted over the box, lowered into the slot, let go; it lands on the toys inside
+    // carried steadily in front of the chest (the clip's arm swing made the truck sway 0.12 a stride); the body's bob
+    // still carries it, and the hands are put on its two ends below
+    const held = (() => {                                                 // (town units, like the state trace)
+      const wp = child.obj.getWorldPosition(V()), cp = L(wp), f = L(wp.clone().add(axes(child).fwd)).sub(cp).setY(0).normalize();
+      return W(cp.addScaledVector(f, 0.09).add(V(0, 0.6, 0)));
+    })();
+    const over = W(V(SLOT.x, SLOT.y + 0.24, SLOT.z)), inSlot = W(V(SLOT.x, SLOT.y - 0.06, SLOT.z));
+    const restOn = () => carton.localToWorld(V(0.02, 0.33, -0.01));       // on top of the toys in the carton
+    let tp, ty = c.yaw + Math.PI / 2;
+    if (tc < T.lift0) tp = held;
+    else if (tc < T.lift1) { const k = smooth((tc - T.lift0) / (T.lift1 - T.lift0)); tp = held.clone().lerp(over, k); tp.y += Math.sin(Math.PI * k) * 0.05 * S; ty = angLerp(ty, 0, k); }
+    else if (tc < T.show1) { tp = over.clone(); tp.y += Math.sin((tc - T.lift1) * 6) * 0.006 * S; ty = 0; }
+    else if (tc < T.lower1) { tp = over.clone().lerp(inSlot, smooth((tc - T.show1) / (T.lower1 - T.show1))); ty = 0; }
+    else if (tc < T.drop1) { tp = inSlot.clone(); ty = 0; }
+    else {
+      const k = clamp((tc - T.drop1) / 0.32), dest = restOn();
+      tp = k < 1 ? inSlot.clone().lerp(dest, k * k) : dest; ty = 0.25 * smooth(k);
+    }
+    const riding = tc >= T.drop1 + 0.32;          // from here the truck rides on the carton (placed after the carton below)
+    if (!riding) { truck.position.copy(L(tp)); truck.rotation.set(0, ty, 0); }
+    // the child's hands follow the truck while it is lifted and lowered, then come back
+    const handsOn = 1 - ramp(tc, T.drop1, T.drop1 + 0.45);
+    if (handsOn > 0) {
+      bend(child, 0.12 * handsOn * ramp(tc, T.lift0 - 0.15, T.lift0 + 0.2));
+      const side = V(Math.cos(ty), 0, -Math.sin(ty)).multiplyScalar(0.15 * S);    // the truck's two ends
+      const tw = truck.getWorldPosition(V()).add(V(0, 0.08 * S, 0));
+      const lr = side.dot(axes(child).right) > 0 ? 1 : -1;                          // left hand at the end on the child's left
+      reach(child, 'L', tw.clone().addScaledVector(side, lr), handsOn, elbowPole(child, 'L'));
+      reach(child, 'R', tw.clone().addScaledVector(side, -lr), handsOn, elbowPole(child, 'R'));
+    }
+    // eye lines: the child watches the box and the truck, then looks up at the parent; the parent watches the child
+    const childHead = child.bones.head.getWorldPosition(V()), parentHead = parent.bones.head.getWorldPosition(V());
+    const marineHead = () => marine.bones.head.getWorldPosition(V());
+    if (tc < T.up0) lookAt(child, tc > tFamilyArrive - 1.2 ? truck.getWorldPosition(V()) : W(V(BOX.x, 0.6, BOX.z)), ramp(tc, tFamilyArrive - 1.6, tFamilyArrive - 0.6));
+    else if (tc < T.aside0 + 0.4) lookAt(child, parentHead, ramp(tc, T.up0, T.up1));
+    lookAt(parent, childHead, ramp(tc, tFamilyArrive - 0.4, tFamilyArrive + 0.4) * (1 - ramp(tc, T.aside0 + 2.2, T.aside0 + 3)));
+    if (tc > T.up0 && tc < T.aside0 + 0.6) { const nodK = ramp(tc, T.up1, T.up1 + 0.25) * (1 - ramp(tc, T.up1 + 0.5, T.up1 + 0.8)); turnBone(parent.bones.head, axes(parent).right, 0.28 * nodK); }
+    if (tc > T.m0) { lookAt(child, marineHead(), ramp(tc, T.m0 + 1.2, T.m0 + 2.2)); lookAt(parent, marineHead(), ramp(tc, T.m0 + 1.6, T.m0 + 2.6)); }
+
+    // ---- the volunteer: waves the family over, watches the gift, waves and nods; then goes to the door and opens it
+    const vWave1 = ramp(tc, 1.9, 2.4) * (1 - ramp(tc, 4.4, 4.9)), vWave2 = ramp(tc, T.wave0, T.wave0 + 0.4) * (1 - ramp(tc, T.wave1 - 0.3, T.wave1));
+    const wv = Math.max(vWave1, vWave2);
+    const th = doorAngle(tc), handle = W(handleAt(th));
+    let vp = VOL.clone(), vy = angLerp(yawOf(V(-1, 0, 0.75)), yawOf(V(2.5 - VOL.x, 0, 2.1 - VOL.z)), ramp(tc, 4.6, 5.8)), vw = 0, vph = 0;
+    if (tc > T.v0) { const m = walker(V_PATH, LV, 0.8, T.v0, tc, Math.PI, volunteer.stride); vp = m.p; vy = m.yaw; vw = walkW(m); vph = m.phase; }
+    if (tc > T.door0) {                     // pulling the door open: stepping back along its swing, the hand on the handle
+      vp = doorStand(th); vy = yawOf(V(Math.sin(th), 0, -Math.cos(th)));
+      vw = (tc < T.door1) ? 0.6 * Math.sin(Math.PI * clamp((tc - T.door0) / (T.door1 - T.door0))) : 0; vph = -(tc - T.door0) * 1.1;
+    }
+    if (tc > T.shut0 && tc < T.shut1) { vw = 0.55 * Math.sin(Math.PI * clamp((tc - T.shut0) / (T.shut1 - T.shut0))); vph = (tc - T.shut0) * 1.1; }
+    if (tc >= T.shut1) { const m = walker(V_AFTER, LVA, 0.7, T.shut1 + 0.15, tc, yawOf(V(0.3, 0, 1)), volunteer.stride, Math.PI); vp = m.p; vy = m.yaw; vw = walkW(m); vph = m.phase; }
+    pose(volunteer, vp, vy, { Wave: wv * (1 - vw), Walk: vw, Idle: (1 - wv) * (1 - vw) }, wc, { off: 0.3, phase: vph });
+
+    if (tc < T.v0) lookAt(volunteer, tc < 6 ? childHead : truck.getWorldPosition(V()), 0.85);
+    if (tc > T.wave0 && tc < T.wave1 + 0.3) { const k = ramp(tc, T.wave1 - 0.35, T.wave1 - 0.1) * (1 - ramp(tc, T.wave1 + 0.05, T.wave1 + 0.3)); turnBone(volunteer.bones.head, axes(volunteer).right, 0.3 * k); }
+    const vHand = ramp(tc, T.door0 - 0.45, T.door0) * (1 - ramp(tc, T.shut1 - 0.1, T.shut1 + 0.35));
+    reach(volunteer, 'R', handle, vHand, elbowPole(volunteer, 'R'));
+    if (tc > T.door0 && tc < T.shut0) lookAt(volunteer, tc < T.door1 ? handle : marineHead(), 0.8);
+    else if (tc >= T.shut0) lookAt(volunteer, tc < T.shut1 ? handle : W(V(BOX.x, 0.9, BOX.z + 1)), 0.7);
+
+    // ---- the Marine: by the wagon; to the box; lid up; carton out; to the hall; in
+    let mp = M_START.clone(), my = yawOf(V(WAGON[0] - M_START.x, 0, WAGON[1] - M_START.z)), mw = 0, mph = 0, carryW = 0;
+    let lid = 0, bendM = 0;
+    // tidying the wagon while beat 1 plays (a hand on the toys, now and then)
+    const tidy = ramp((w % 7.0), 1.2, 1.6) * (1 - ramp((w % 7.0), 2.8, 3.2));
+    if (tc > T.mWalk0) { const m = walker(M_PATH, LM, vM, T.mWalk0, tc, YAW_BOX, marine.stride, my); mp = m.p; my = m.yaw; mw = walkW(m); mph = m.phase; }
+    // the lid: taken at its front lip, lifted to the vertical, let go; it falls open against its stay and rests
+    if (tc > T.lid0) lid = tc < T.lid1 ? 1.25 * smooth((tc - T.lid0) / (T.lid1 - T.lid0)) : tc < T.lidGo ? 1.25 : 1.25 + 0.7 * settle((tc - T.lidGo) / 0.6);
+    lidPivot.rotation.x = -lid;
+    const lip = () => lidPivot.localToWorld(V(0, 0.02, BOX.d + 0.04));
+    // the carton: in the box, gripped, lifted clear of the walls, brought to the chest, then carried
+    const cHome = box.localToWorld(V(0, CARTON_BASE, 0));
+    const bendIn = ramp(tc, T.reach0, T.lid0) * (1 - ramp(tc, T.lid1 - 0.2, T.lid1 + 0.1));
+    const bendDeep = ramp(tc, T.in0, T.grip) * (1 - ramp(tc, T.grip + 0.3, T.lift2));
+    bendM = 0.42 * bendIn + 0.62 * bendDeep;
+    if (tc > T.go0) { const m = walker(M_IN, LMI, vMI, T.go0, tc, Math.PI, marine.stride, YAW_BOX); mp = m.p; my = m.yaw; mw = walkW(m); mph = m.phase; }
+    carryW = ramp(tc, T.lift2 - 0.1, T.carry0) * 0.6;   // the carry clip's arms only as a base: the hands are placed on the carton
+    pose(marine, mp, my, { WalkCarry: mw * carryW, Walk: mw * (1 - carryW), IdleCarry: (1 - mw) * carryW, Idle: (1 - mw) * (1 - carryW) }, wc, { phase: mph });
+    bend(marine, bendM + 0.06 * carryW * (1 - mw));        // a little lean back against the weight once it is up
+    // where the carton sits in the carry pose (between the hands, a little forward)
+    // where the carton rides: in front of the chest at a steady height, bobbing a little with the steps (the hands hold its
+    // sides, so it never follows the clips' hand positions)
+    const carrySpot = () => { const { fwd } = axes(marine), bob = mw * 0.018 * Math.sin(mph * Math.PI * 4); return marine.obj.getWorldPosition(V()).addScaledVector(fwd, 0.32 * S).add(V(0, (0.77 + bob) * S, 0)); };
+    if (tc < T.grip) { if (carton.parent !== box) box.attach(carton); carton.position.set(0, CARTON_BASE, 0); carton.rotation.set(0, 0, 0); carton.updateMatrixWorld(true); }
+    else {
+      if (carton.parent !== group) group.attach(carton);
+      const startW = cHome, upW = cHome.clone().add(V(0, (BOX.h + 0.06) * S, 0));
+      // up out of the box (straight, so it clears the walls), then into the arms
+      // (weight: a beat of effort as the grip takes the load, then a steady rise; ~1 unit/s at its fastest)
+      const kl = clamp((tc - T.grip - 0.12) / ((T.lift2 - T.grip) * 0.82)), k1 = kl * kl * (3 - 2 * kl);
+      const k2 = smooth(clamp((tc - T.grip - (T.lift2 - T.grip) * 0.72) / ((T.lift2 - T.grip) * 0.28 + (T.carry0 - T.lift2))));
+      let cw2 = startW.clone().lerp(upW, k1);
+      if (k2 > 0) cw2 = cw2.lerp(carrySpot().add(V(0, -0.17 * S, 0)), k2);   // (carton origin: its base)
+      carton.position.copy(L(cw2)); carton.rotation.set(0, lerp(0, my - YAW_BOX, k2), 0);
+      carton.updateMatrixWorld(true);
+    }
+    if (riding) { const rw = restOn(); truck.position.copy(L(rw)); truck.quaternion.copy(carton.getWorldQuaternion(new THREE.Quaternion())); truck.rotateY(0.25); }
+    // hands: on the lid's lip while lifting it; on the carton's sides while lifting it out (the carry clip takes over after)
+    const onLid = ramp(tc, T.reach0 + 0.1, T.lid0) * (1 - ramp(tc, T.lid1 - 0.1, T.lidGo + 0.05));
+    const onCarton = ramp(tc, T.in0 + 0.1, T.grip);   // from the grip on, the hands stay on the carton's sides
+    if (onLid > 0) { const l = lip(), sd = V(0.32 * S, 0, 0); reach(marine, 'L', l.clone().add(sd), onLid, elbowPole(marine, 'L')); reach(marine, 'R', l.clone().sub(sd), onLid, elbowPole(marine, 'R')); }
+    if (onCarton > 0) { const cc = carton.localToWorld(V(0, 0.2, 0)), sd = V(0.27 * S, 0, 0).applyAxisAngle(V(0, 1, 0), my - YAW_BOX);
+      reach(marine, 'L', cc.clone().add(sd), onCarton, elbowPole(marine, 'L', 0.6)); reach(marine, 'R', cc.clone().sub(sd), onCarton, elbowPole(marine, 'R', 0.6)); }
+    if (tc < T.mWalk0 && tidy > 0) reach(marine, 'R', W(V(WAGON[0] - 0.1, 0.72, WAGON[1] + 0.1)), 0.8 * tidy, elbowPole(marine, 'R'));
+    // eye lines
+    if (tc < T.m0) lookAt(marine, W(V(WAGON[0], 0.5, WAGON[1])), 0.7);
+    else if (tc < T.reach0) lookAt(marine, tc < T.mWalk0 + 0.6 ? W(V(BOX.x, 0.8, BOX.z)) : W(V(BOX.x, 0.5, BOX.z)), ramp(tc, T.m0, T.m0 + 0.5));
+    else if (tc < T.go0) lookAt(marine, tc < T.in0 ? lip() : carton.localToWorld(V(0, 0.3, 0)), 0.9);
+    else lookAt(marine, W(V(0, 1.3, 0)), 0.6);
+    marine.obj.visible = !(tc > T.go0 && L(marine.obj.getWorldPosition(V())).z < -0.5);
+    carton.visible = !(tc > T.go0 && L(carton.getWorldPosition(V())).z < -0.4);
+    truck.visible = carton.visible || tc < T.go0;
+
+    // ---- the door, the doorway, the light
+    doorPivot.rotation.y = -th;
+    const open = clamp(th / 1.2);
+    doorway.visible = th > 0.01; pool.visible = open > 0.01; pool.material.opacity = 0.75 * open;
+    spill.intensity = 22 * S * S * open;
+
+    // ---- the box's glow and the sparks as the truck goes in
+    const gk = ramp(tc, T.drop1, T.drop1 + 0.3) * (1 - ramp(tc, T.drop1 + 1.3, T.drop1 + 3.4));
+    glow.intensity = 8 * S * S * gk;
+    const sp = clamp((tc - T.drop1) / 2.0), mtx = new THREE.Matrix4();
+    for (let i = 0; i < NSP; i++) {
+      const [a, b, e] = seeds[i], s = sp > 0 && sp < 1 ? (1 - sp) * (0.6 + 0.6 * e) : 0;
+      const r = 0.08 + 0.22 * sp * a, ang = i * 2.4 + sp * 2;
+      mtx.compose(V(SLOT.x + Math.cos(ang) * r, SLOT.y + 0.06 + sp * (0.45 + 0.6 * b), SLOT.z + Math.sin(ang) * r * 0.6), new THREE.Quaternion(), V(s, s, s));
+      spark.setMatrixAt(i, mtx);
+    }
+    spark.instanceMatrix.needsUpdate = true; spark.visible = sp > 0 && sp < 1;
+
+    // ---- town life (wall clock: it never waits)
+    const lane = (x0, x1, v, w0) => { const Ln = Math.abs(x1 - x0), s = ((wc * v + w0) % Ln + Ln) % Ln; return x0 + Math.sign(x1 - x0) * s; };
+    const x1 = lane(-11, 12, 0.8, 3), x2 = lane(12.5, -11, 0.75, 9);
+    pose(passer, V(x1, 0, 9.05), Math.PI / 2, { Walk: 1 }, wc, { phase: (wc * 0.8) / 1.3 });
+    pose(passer2, V(x2, 0, 8.95), -Math.PI / 2, { Walk: 1 }, wc, { phase: (wc * 0.75) / 1.3 + 0.3 });
+    pose(passerKid, V(x2 + 0.18, 0, 9.55), -Math.PI / 2, { Walk: 1 }, wc, { phase: (wc * 0.75) / (1.3 * 0.6) });
+    // the neighbour shovelling the far sidewalk: push, lift, toss to the side, a breath; about every 3.4 s
+    {
+      const SP = V(-7.1, 0, 1.95), sy = Math.PI / 2, per = 3.4, u = ((wc % per) + per) % per / per;
+      const push = ramp(u, 0.0, 0.25) * (1 - ramp(u, 0.3, 0.42)), lift = ramp(u, 0.3, 0.45) * (1 - ramp(u, 0.6, 0.72)), toss = ramp(u, 0.45, 0.58) * (1 - ramp(u, 0.7, 0.85));
+      const step = 0.1 * push;
+      pose(shoveller, SP.clone().add(V(-step, 0, 0)), sy + 0.45 * toss, { Idle: 1 }, wc, { off: 2 });
+      bend(shoveller, 0.42 * push + 0.25 * lift - 0.05 * toss);
+      const { fwd, right } = axes(shoveller), base = shoveller.obj.getWorldPosition(V()), k = S;
+      const bladeAt = base.clone().addScaledVector(fwd, (0.55 + 0.2 * push) * k).addScaledVector(V(0, 1, 0), (0.04 + 0.35 * lift + 0.3 * toss) * k).addScaledVector(right, -0.25 * toss * k);
+      const tilt = lerp(1.05, 0.55, lift) - 0.3 * toss;           // handle angle from the vertical, leaning back towards the body
+      shovel.position.copy(L(bladeAt)); shovel.rotation.set(0, shoveller.obj.rotation.y + Math.PI, 0); shovel.rotateX(tilt); shovel.updateMatrixWorld(true);
+      const top = shovel.localToWorld(V(0, 1.12, 0)), mid = shovel.localToWorld(V(0, 0.62, 0));
+      reach(shoveller, 'R', top, 1, elbowPole(shoveller, 'R')); reach(shoveller, 'L', mid, 1, elbowPole(shoveller, 'L'));
+      lookAt(shoveller, bladeAt, 0.6);
+      // the tossed snow
+      const fly = clamp((u - 0.55) / 0.3), m2 = new THREE.Matrix4();
+      for (let i = 0; i < 6; i++) {
+        const s = fly > 0 && fly < 1 ? 0.03 + 0.02 * ((i * 7) % 3) : 0;
+        const pt = L(bladeAt).add(V((i - 2.5) * 0.04 + fly * 0.15, fly * 0.5 - fly * fly * 0.55, 0.1 + fly * (0.5 + 0.08 * i)));
+        m2.compose(pt, new THREE.Quaternion(), V(s, s, s)); clumps.setMatrixAt(i, m2);
+      }
+      clumps.instanceMatrix.needsUpdate = true;
+    }
+    // chimney smoke: soft cotton puffs rising and drifting, growing then thinning away (on twos, like the puppets)
+    { const m3 = new THREE.Matrix4(), q0 = new THREE.Quaternion(); let n = 0;
+      chimneys.forEach((ch, ci) => {
+        for (let i = 0; i < PUFFS; i++, n++) {
+          const life = 4.6, ph = ((wc + i * life / PUFFS + ci * 0.37) % life) / life;
+          const s = (0.1 + 0.32 * Math.sqrt(ph)) * (ph < 0.75 ? 1 : 1 - (ph - 0.75) / 0.25);
+          const pt = ch.clone().add(V(0.55 * ph * ph + 0.06 * Math.sin(i * 1.7 + ph * 5), 1.5 * ph, 0.18 * ph + 0.05 * Math.cos(i * 2.3)));
+          m3.compose(pt, q0, V(s, s * 0.85, s)); smoke.setMatrixAt(n, m3);
+        }
+      });
+      smoke.instanceMatrix.needsUpdate = true; }
+
+    Object.assign(state, { t, truck: L(truck.getWorldPosition(V())), carton: L(carton.getWorldPosition(V())), lid, door: th,
+      child: L(child.obj.getWorldPosition(V())), parent: L(parent.obj.getWorldPosition(V())), marine: L(marine.obj.getWorldPosition(V())), volunteer: L(volunteer.obj.getWorldPosition(V())),
+      visible: { marine: marine.obj.visible, volunteer: volunteer.obj.visible, carton: carton.visible, truck: truck.visible } });
+  }
+
+  // ---------------------------------------------------------------- the camera: one directed path per screen shape
+  // Segments of a short film. Each gives a camera position and a point it looks at, in town units; neighbouring segments
+  // blend over 0.8 s so the camera never jumps. Tall (phone) screens have their own compositions, not a crop.
+  const ease = (t, a, b) => smooth((t - a) / (b - a));
+  const mix3 = (a, b, k) => a.clone().lerp(b, k);
+  // (the camera glides: it follows the smooth path, not the puppets' steps on twos)
+  const childAt = (t) => { const tc = t; return t < T.aside0 ? C_PATH.getPointAt(clamp(travel(tc, T.walk0, LC, vC).s / LC)) : A_C.getPointAt(clamp(travel(tc, T.aside0, LAC, 0.75).s / LAC)); };
+  const marineAt = (t) => { const tc = t; if (t < T.mWalk0) return M_START.clone(); if (t < T.go0) return M_PATH.getPointAt(clamp(travel(tc, T.mWalk0, LM, vM).s / LM)); return M_IN.getPointAt(clamp(travel(tc, T.go0, LMI, vMI).s / LMI)); };
+  const SEG = {
+    wide: [
+      { t0: 0, t1: 3.2, pos: (t) => mix3(V(7.6, 1.6, 7.8), V(6.3, 1.32, 6.4), ease(t, 0, 3.2)), look: (t) => mix3(V(-1.4, 1.0, 2.0), V(-1.6, 0.85, 2.3), ease(t, 0, 3.2)) },
+      { t0: 3.2, t1: 7.2, pos: (t) => mix3(V(6.3, 1.32, 6.4), V(5.0, 1.2, 5.05), ease(t, 3.2, 7.2)), look: (t) => { const c = childAt(t); return V(lerp(c.x, BOX.x, 0.25), 0.66, lerp(c.z, BOX.z, 0.25)); } },
+      { t0: 7.2, t1: 10.7, cut: true, pos: (t) => mix3(V(3.98, 0.86, 0.62), V(3.82, 0.82, 0.74), ease(t, 7.2, 10.7)), look: (t) => mix3(V(2.5, 0.78, 1.72), V(2.42, 0.74, 1.66), ease(t, 7.2, 10.7)) },
+      { t0: 10.7, t1: 13.6, cut: true, pos: (t) => mix3(V(0.95, 1.5, 4.7), V(0.8, 1.55, 4.95), ease(t, 10.7, 13.6)), look: (t) => mix3(V(3.0, 0.82, 1.8), V(2.85, 0.88, 1.85), ease(t, 10.7, 13.6)) },
+      { t0: 13.6, t1: T.reach0, pos: (t) => mix3(V(0.8, 1.55, 4.95), V(0.9, 1.35, 3.55), ease(t, 13.6, T.reach0)), look: (t) => { const m = marineAt(t); return mix3(V(2.85, 0.88, 1.85), V(lerp(m.x, BOX.x, 0.35), 0.95, lerp(m.z, BOX.z, 0.35)), ease(t, 13.6, 15.6)); } },
+      { t0: T.reach0, t1: T.go0, pos: (t) => mix3(V(0.9, 1.35, 3.4), V(1.1, 1.32, 3.1), ease(t, T.reach0, T.go0)), look: (t) => mix3(V(2.3, 0.62, 1.35), V(2.25, 0.86, 1.55), ease(t, T.in0, T.go0)) },
+      { t0: T.go0, t1: T.inside, pos: (t) => t < T.go0 + 1.8 ? mix3(V(1.1, 1.32, 3.1), V(1.7, 1.55, 3.85), ease(t, T.go0, T.go0 + 1.8)) : mix3(V(1.7, 1.55, 3.85), V(1.5, 1.45, 3.05), ease(t, T.go0 + 1.8, T.inside)), look: (t) => { const m = marineAt(t); const k = ease(t, T.go0, T.inside); return V(lerp(m.x, 0, 0.3 + 0.5 * k), lerp(1.0, 1.15, k), lerp(m.z, 0.1, 0.3 + 0.5 * k)); } },
+      { t0: T.inside, t1: T.end + 0.2, pos: (t) => mix3(V(1.5, 1.45, 3.05), V(1.3, 1.48, 2.7), ease(t, T.inside, T.end)), look: (t) => mix3(V(0.05, 1.18, 0.15), V(0.0, 1.3, 0.05), ease(t, T.inside, T.end)) },
+    ],
+  };
+  // tall screens: wider, a little higher; the subject centred and the action kept in the middle third
+  SEG.tall = SEG.wide.map((s, i) => ({ t0: s.t0, t1: s.t1, cut: s.cut,
+    pos: (t) => { const p = s.pos(t), l = s.look(t), k = [1.1, 1.18, 1.25, 1.45, 1.4, 1.35, 1.35, 1.3][i]; return l.clone().add(p.clone().sub(l).multiplyScalar(k)).add(V(0, [0.75, 0.6, 0.18, 0.3, 0.3, 0.32, 0.28, 0.2][i], 0)); },
+    look: (t) => { const l = s.look(t).add(V(0, [0.0, 0.12, 0.02, 0.05, 0.05, 0.05, 0.08, 0.0][i], 0)); if (i === 4) { const m = marineAt(t); return l.lerp(V(m.x, 0.95, m.z), 0.4 * ease(t, 13.6, 15.2)); } return l; } }));
+  const BLEND = 0.8;
+  function segIndex(t, segs) { let i = 0; while (i < segs.length - 1 && t >= segs[i].t1) i++; return i; }
+  function camera(t, { tall = innerWidth < innerHeight, reduced = false } = {}) {
+    const segs = tall ? SEG.tall : SEG.wide, i = segIndex(t, segs), s = segs[i];
+    if (reduced) {                          // a stable composition for each segment; the story crossfades between them
+      const tm = s.t0 + (s.t1 - s.t0) * 0.62; return { pos: W(s.pos(tm)), look: W(s.look(tm)), seg: i, cut: !!s.cut };
+    }
+    let pos = s.pos(t), look = s.look(t);
+    const prev = segs[i - 1];
+    if (prev && !s.cut && t < s.t0 + BLEND) { const k = smooth((t - s.t0) / BLEND); pos = prev.pos(t).lerp(pos, k); look = prev.look(t).lerp(look, k); }
+    return { pos: W(pos), look: W(look), seg: i, cut: !!s.cut };
+  }
+
+  return {
+    group, beats: BEATS, times: T, duration: BEATS.collection[1], evaluate, camera, state,
+    clipPlane, chimneys: chimneys.length, chimneyAt: chimneys.map((c) => c.toArray().map((x) => +x.toFixed(2))),
+    truckWorld: () => truck.getWorldPosition(V()),
+    debugBones: () => Object.fromEntries(Object.entries(marine.bones).map(([k, b]) => [k, b.quaternion.toArray().map((x) => +x.toFixed(3))])),
+  };
+}

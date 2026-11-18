@@ -22,9 +22,9 @@ export const STORY = {
     {
       id: 'how', title: 'How does it work?', next: 'How Can I Take Part?',
       beats: [
-        { id: 'collect', eyebrow: 'Collection · October to December', scene: { still: 'mh_box.jpg', focus: '50% 60%', alt: 'At the town’s red collection box, the little red truck goes in, new and unwrapped.' },
+        { id: 'collect', eyebrow: 'Collection · October to December', scene: { play: 'donation', still: 'donation.jpg', focus: '62% 50%', alt: 'A parent and child walk up the snowy street. The child carries a small red toy truck, lifts it over the red toy drop-off box and lowers it through the slot. The box glows softly, the child looks up at the parent, and a volunteer by the community hall waves.' },
           lines: ['In the holiday season, people drop new, unwrapped toys and books into collection boxes around town.'], confirm: ['Collection months', 'New and unwrapped', 'Books accepted'] },
-        { id: 'pickup', eyebrow: 'Collection', scene: { still: 'tt_story2.jpg', focus: '45% 60%', alt: 'A Marine lifts the donated toys out of the red box beside the toy shop.' },
+        { id: 'pickup', eyebrow: 'Collection', scene: { play: 'collection', still: 'collection.jpg', focus: '55% 50%', alt: 'A Marine walks to the drop-off box, lifts its lid and carries out the carton of donated toys, the red truck on top. A volunteer pulls open the community hall’s door; warm light spills onto the snow as the Marine carries the toys inside, and the volunteer swings the door shut.' },
           lines: ['Marines and volunteers collect the donations from the boxes.'], confirm: ['Who collects'] },
         { id: 'sort', eyebrow: 'Sorting · usually December', scene: { slate: 'The sorting hall', alt: 'Scene in development: volunteers and Marines sort toys on long tables into boxes by age.' },
           lines: ['The toys are gathered, sorted and prepared for children of different ages.', 'Each local campaign organizes this in its own way.'], confirm: ['Sorting month', 'Sorting by age', 'Roles of Marines and volunteers'] },

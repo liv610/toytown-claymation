@@ -1,6 +1,6 @@
 # Project state and hand-off
 
-Last updated: 11 November 2026. Repo: github.com/liv610/toytown-claymation (private).
+Last updated: 18 November 2026. Repo: github.com/liv610/toytown-claymation (private).
 
 ## The vision, in one paragraph
 
@@ -15,7 +15,20 @@ actions are always available without the world.
 
 ## Where we are now (updated)
 
-**Newest: `experiment/phase1-build` (from `experiment/visitor-flow` at `625a80b`). Phase 1 implementation, Milestone 1:
+**Newest: `experiment/milestone2a` (from `experiment/phase1-build` at `cc8184f`). Milestone 2A: the red truck, alive.**
+The owner approved Milestone 2A: the donation and collection of one red toy truck, animated at final quality, in two
+visitor-paced beats.
+- **Where it plays:** Chapter 2's first two beats, about 29.5 s in all, live in the Toy Town street.
+- **Beat 1 (donation):** a parent and child bring the truck to the drop-off box, and the child drops it in.
+- **Beat 2 (collection):** the Marine lifts the carton of toys, truck on top, and carries it into the community hall while the volunteer opens and closes the door.
+- **Code:** the scene is `web/national/src/scene_donation.js`, a pure function of story time. The story clock lives in `main.js`: a beat plays a stretch, then waits; the finder freezes the clock; Next and Back follow agreed rules.
+- **Fallbacks:** new stills `donation.jpg` and `collection.jpg`.
+- **Tests:** `tools/tests/scene_m2a.js`, plus the frame, still and video tools `scene_frames.js`, `scene_stills.js` and `scene_video.js`.
+- **Report:** `docs/MILESTONE2A.md`, with the tests, performance notes, creative assessment, effort and the next-milestone recommendation (the sorting room).
+- **Review material:** screenshots and videos in `docs/milestone2a/`. Preview: [Railroad of Hope · Milestone 2A](https://claude.ai/artifact/BnoagS2GRKUSGLYmYvgEkf).
+- **Stopped here for review.** The sorting room, distribution, the railroad and the interface redesign are not started.
+
+**Previous: `experiment/phase1-build` (from `experiment/visitor-flow` at `625a80b`). Phase 1 implementation, Milestone 1:
 the continuous-world spike.** The owner approved the implementation plan's foundation and Milestone 1 only (plan:
 `docs/PHASE1_IMPLEMENTATION_PLAN.md` on `experiment/ux-cohesion`).
 - The Maple Hollow street stands at the Toy Town hub (`?town=maple` puts it back).
@@ -428,6 +441,7 @@ New work should branch from `experiment/national` (it contains everything except
 | meshoptimizer | MIT |
 | esbuild | MIT |
 | Playwright (testing) | Apache-2.0 |
+| FFmpeg (tool: encodes the review videos; not part of the app) | LGPL/GPL |
 | us-atlas | ISC; the data is US Census Bureau boundaries, public domain |
 | d3-geo | ISC |
 | delaunator (textile panels) | ISC |

@@ -48,7 +48,7 @@ export function createStory(root, { finder, assets = './assets/story/', onEnter 
     },
     hide() { stageEl.replaceChildren(); },
   });
-  const stageFor = (scene) => (scene.shot && stages.has('shot') ? stages.get('shot') : stages.get('still'));
+  const stageFor = (scene) => ((scene.shot || scene.play) && stages.has('shot') ? stages.get('shot') : stages.get('still'));
 
   // ------------------------------------------------------------ chapter progress (four chapters; the finale fills all four)
   STORY.chapters.forEach((c, i) => {

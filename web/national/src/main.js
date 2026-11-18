@@ -14,6 +14,7 @@ import { buildRelief } from './relief.js';
 import { buildFeltRelief, threadScale } from './felt_relief.js';
 import { createCommunity, S } from './community.js';
 import { createChapter1, CH1 } from './chapter1.js';
+import { createDonation } from './scene_donation.js';
 import { fetchData } from '../../shared/data.js';
 import { attachCampaignFocus } from './campaign_focus.js';
 import { mapleHollow } from './features.js';
@@ -45,6 +46,7 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.AgXToneMapping; renderer.toneMappingExposure = 1.15;
 renderer.shadowMap.enabled = tier !== 'low'; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.domElement.setAttribute('aria-hidden', 'true');
+renderer.localClippingEnabled = true;   // Milestone 2A: who walks into the hall is cut at its doorway
 $('stage').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const sky = (() => { const c = document.createElement('canvas'); c.width = 4; c.height = 256; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
@@ -67,6 +69,10 @@ status(ONE_TOWN ? 'Building Toy Town…' : 'Building Maple Hollow…');
 const town = await createCommunity(scene, siteWorld, { assets: ASSETS, b64: window.NAT_B64, tier });
 status('Gathering the townspeople…');
 const ch1 = await createChapter1(town, { assets: ASSETS, b64: window.NAT_B64 });
+// Milestone 2A: the animated donation and collection scene (the red truck). In the one Toy Town it replaces Chapter 1's
+// cast in the street (Chapter 1 itself is kept for ?town=maple).
+const scene2 = ONE_TOWN ? await createDonation(town, { assets: ASSETS, b64: window.NAT_B64, tier }) : null;
+if (scene2) ch1.group.visible = false;
 const ttSite = geo.sites.toytown, [tx, tz] = toWorld(...ttSite.a);
 const toyTownWorld = V(tx, geo.siteBase(ttSite) + 0.25, tz);
 // Toy Town's place on the map: a little glowing hub where the lines meet (the real Toy Town is its own experience)
@@ -347,6 +353,53 @@ function travel(to, dur, done, say = '') {
 skipBtn.onclick = () => { if (flight && flight.travel) flight.t = 1; };
 addEventListener('keydown', (e) => { if (e.key === 'Escape' && flight && flight.travel && !skipBtn.hidden) { e.preventDefault(); flight.t = 1; } });
 const shotPose = (t) => rigFrom(ch1.shotWorld(t, REDUCED));
+// ------------------------------------------------------------------ Milestone 2A: beats that PLAY a stretch of the scene, then wait
+// seq.t is the scene's story clock. A play beat runs it from `from` to `to`, then the beat waits while the town keeps
+// living (wall clock). Next during the animation: a short fast-forward if little is left (the action resolves), otherwise
+// a dip through the night colour; Back: a dip, then the beat again from its start. The finder (or any open dialog)
+// freezes the story clock at that exact moment; the town keeps moving; closing resumes from the same frame.
+const seq = { t: 0, from: 0, to: 0, playing: false, ff: 0, then: null, blend: null, seg: -1, idleT: 0 };
+const sceneCam = (t) => rigFrom(scene2.camera(t, { reduced: REDUCED }));
+function startPlay(from, to) { mode = 'scene'; held = null; Object.assign(seq, { t: from, from, to, playing: true, ff: 0, then: null }); }
+function lerpRig(a, b, k) { const dAz = ((b.az - a.az + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+  return { target: a.target.clone().lerp(b.target, k), dist: Math.exp(lerp(Math.log(a.dist), Math.log(b.dist), k)), az: a.az + dAz * k, el: lerp(a.el, b.el, k) }; }
+function sceneTick(dt) {
+  const frozen = document.body.classList.contains('story-finder') || !!document.querySelector('dialog[open]');
+  if (mode === 'scene') {
+    if (seq.playing && !frozen) {
+      seq.t = Math.min(seq.to, seq.t + dt * (seq.ff || 1) * (window.__natRate || 1));   // (__natRate: a test hook; visitors never set it)
+      if (seq.t >= seq.to) { seq.playing = false; seq.ff = 0; const f = seq.then; seq.then = null; if (f) f(); }
+    }
+    scene2.evaluate(seq.t, timeU.value);
+    const cam = scene2.camera(seq.t, { reduced: REDUCED });
+    if (REDUCED && seq.seg !== -1 && cam.seg !== seq.seg) dipNow();        // a stable composition per shot, a gentle dip between them
+    seq.seg = cam.seg;
+    let r = rigFrom(cam);
+    if (seq.blend) { seq.blend.k = Math.min(1, seq.blend.k + dt / 0.9); r = lerpRig(seq.blend.from, r, smoother(seq.blend.k)); if (seq.blend.k >= 1) seq.blend = null; }
+    Object.assign(rig, r);
+  } else if (mode !== 'national' || !seq.posed) {
+    scene2.evaluate(seq.idleT, timeU.value); seq.posed = true;           // held shots and flights: the town at the moment they show
+  }                                                                       // (on the country map the town is a speck: pose it once, then skip the work)
+}
+function dipNow() { fadeEl.style.transition = 'none'; fadeEl.style.opacity = '0.85'; requestAnimationFrame(() => { fadeEl.style.transition = 'opacity 0.45s linear'; fadeEl.style.opacity = '0'; }); }
+function playBeat([from, to]) {
+  const far = rig.dist > 60;
+  if (far) {                                                              // from the map or the finale: fly down to the beat's first shot
+    held = null; seq.idleT = from; ui('flying-down');
+    travel(sceneCam(from), 7.5, () => startPlay(from, to), 'Flying down to Toy Town.'); return;
+  }
+  if (mode === 'scene' && Math.abs(seq.to - from) < 1e-3 && seq.t < seq.to) {   // Next while the beat is still playing
+    const left = seq.to - seq.t;
+    if (!REDUCED && left <= 4) { seq.playing = true; seq.ff = left / 0.7; seq.then = () => startPlay(from, to); }
+    else crossfade(() => startPlay(from, to));
+    return;
+  }
+  if (mode === 'scene' && Math.abs(seq.t - from) < 1e-3) { startPlay(from, to); return; }   // the beat follows on: continuous
+  if (mode === 'shot' && Math.abs(from) < 1e-3 && !REDUCED) {            // from a held moment of the town: the camera glides over
+    seq.blend = { from: snapshot(), k: 0 }; startPlay(from, to); return;
+  }
+  crossfade(() => { seq.blend = null; startPlay(from, to); });           // Back, or a jump: a dip, then from the beat's start
+}
 window.__natWorld = {
   oneTown: ONE_TOWN,
   // Explore Toy Town: from wherever the map is, down to the first story shot
@@ -356,9 +409,11 @@ window.__natWorld = {
     travel(shotPose(held), 7.5, () => { mode = 'shot'; onArrive(); }, 'Flying down to Toy Town.');
     return true;
   },
+  // a story beat: { play: [from, to] } plays a stretch of the animated scene (Milestone 2A); { shot } holds a place
+  beat(scene) { if (scene.play && scene2) { playBeat(typeof scene.play === 'string' ? scene2.beats[scene.play] : scene.play); return; } seq.idleT = 0; this.shot(scene.shot); },
   // a story beat's shot: a place in the street, or 'country' (the finale rises back over the map)
   shot(name) {
-    if (name === 'country') { if (mode === 'finale') return; held = null; ui('flying-up'); travel('country', 5.5, () => { mode = 'finale'; }, 'Rising back over the whole country.'); return; }
+    if (name === 'country') { if (mode === 'finale') return; held = null; seq.playing = false; seq.then = null; ui('flying-up'); travel('country', 5.5, () => { mode = 'finale'; }, 'Rising back over the whole country.'); return; }
     const t = SHOTS[name] ?? 0;
     if (mode === 'shot' && held === t) return;
     const far = rig.dist > 60; held = t; ch1.evaluate(t, timeU.value);
@@ -366,11 +421,11 @@ window.__natWorld = {
   },
   // leaving Toy Town (Exit, Back to the map): rise to the country; from the finale the camera is already there
   ascend(onDone) {
-    held = null;
+    held = null; seq.playing = false; seq.then = null;
     if (mode === 'finale' || mode === 'national') { mode = 'national'; ui('national'); onDone(); campaigns.refollow(); return; }
     ui('flying-up'); travel('country', 5.5, () => { mode = 'national'; ui('national'); onDone(); campaigns.refollow(); }, 'Back over the whole country.');
   },
-  inTown: () => mode === 'shot' || mode === 'finale' || (mode === 'flying' && !!flight && !!flight.travel),
+  inTown: () => mode === 'shot' || mode === 'scene' || mode === 'finale' || (mode === 'flying' && !!flight && !!flight.travel),
 };
 
 // ------------------------------------------------------------------ loop
@@ -383,7 +438,8 @@ function frame(dt) {
     if (flight.t >= 1) { const f = flight; flight = null; f.onDone(); }
   }
   if (mode === 'story' && story) storyStep(dt);
-  if (held !== null && (mode === 'shot' || (mode === 'flying' && flight && flight.travel))) ch1.evaluate(held, timeU.value);   // the townspeople hold the shot's moment
+  if (scene2) sceneTick(dt);
+  else if (held !== null && (mode === 'shot' || (mode === 'flying' && flight && flight.travel))) ch1.evaluate(held, timeU.value);   // the townspeople hold the shot's moment
   applyRig(); atmosphere(timeU.value); relief.update(dt, timeU.value); placePins(); campaigns.update(); wholeCountryButton();
   composer.render(dt);
 }
@@ -415,6 +471,24 @@ window.__nat = {
     applyRig(); atmosphere(20); relief.update(0, 12); placePins(); composer.render(0.016);
     return renderer.domElement.toDataURL('image/jpeg', 0.9);
   },
+  // Milestone 2A: one frame of the animated scene at story time t (the town's own life at wall clock w)
+  sceneFrame(t, w = 20 + t) {
+    renderer.setAnimationLoop(null); mode = 'scene'; held = null; Object.assign(seq, { t, playing: false, blend: null });
+    scene2.evaluate(t, w); Object.assign(rig, rigFrom(scene2.camera(t, { reduced: REDUCED }))); ui('story');
+    applyRig(); atmosphere(w); relief.update(0, 12); placePins(); composer.render(0.016);
+    return renderer.domElement.toDataURL('image/jpeg', 0.9);
+  },
+  // the scene's state sampled from t0 to t1 every dt (no rendering): positions for continuity checks, and the camera
+  sceneTrace(t0, t1, dt = 1 / 30, tall = false) {
+    const out = [];
+    for (let t = t0; t <= t1 + 1e-6; t += dt) { scene2.evaluate(t, 20 + t); const c = scene2.camera(t, { tall }); out.push({ ...JSON.parse(JSON.stringify(scene2.state)), cam: c.pos.toArray(), look: c.look.toArray(), seg: c.seg, cut: c.cut }); }
+    return out;
+  },
+  sceneTraceReduced(t0, t1, dt = 0.1) { const out = []; for (let t = t0; t <= t1 + 1e-6; t += dt) { const c = scene2.camera(t, { reduced: true }); out.push({ t, cam: c.pos.toArray(), seg: c.seg }); } return out; },
+  sceneEnd: () => scene2.beats.collection[1],
+  sceneTimes: () => JSON.parse(JSON.stringify(scene2.times)),
+  sceneDebug: (t) => { scene2.evaluate(t, 20 + t); return scene2.debugBones(); },
+  scene: () => scene2 && { t: seq.t, playing: seq.playing, ff: seq.ff, from: seq.from, to: seq.to, chimneys: scene2.chimneys, chimneyAt: scene2.chimneyAt },
   pose(p) { renderer.setAnimationLoop(null); Object.assign(rig, p); applyRig(); atmosphere(3); relief.update(0, 12); composer.render(0.016); return renderer.domElement.toDataURL('image/jpeg', 0.9); },
   // Chapter 1 at story time t (given: whether the toy has been given yet)
   story(t, given = true) {

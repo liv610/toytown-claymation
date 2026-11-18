@@ -95,7 +95,7 @@ world.then((ok) => { if (ok) document.body.classList.add('map-ready'); });   // 
 world.then((ok) => {
   if (!ok || !window.__natWorld || !window.__natWorld.oneTown) return;
   registerStage('shot', {
-    show(scene) { $('story').classList.add('live'); document.body.classList.add('story-live'); window.__natWorld.shot(scene.shot); },
+    show(scene) { $('story').classList.add('live'); document.body.classList.add('story-live'); window.__natWorld.beat(scene); },
     hide() { $('story').classList.remove('live'); document.body.classList.remove('story-live'); },
   });
 });
