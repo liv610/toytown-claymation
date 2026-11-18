@@ -100,8 +100,8 @@ The existing assets support the four-step sequence, with the little red truck fr
 | | Hours |
 | --- | --- |
 | Plan estimate for Milestone 1 | 9–11 |
-| Session time, 17 Nov 21:26 to 18 Nov 00:00 UTC | 2.6 |
-| of which unattended waits for the software renderer (frames, test runs) | about 1.3 |
+| Session time, 17 Nov 21:26 to 18 Nov 00:32 UTC | 3.1 |
+| of which unattended waits for the software renderer (frames, test runs) | about 1.7 |
 
 The plan's estimates are developer hours; this was AI session time, so the two are not the same unit. Count whichever your budget tracks.
 Milestone 1 needed less than estimated for two reasons: the flights and the street already existed, and the lines needed no trimming.
