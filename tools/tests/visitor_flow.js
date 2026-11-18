@@ -266,6 +266,7 @@ async function nextTimes(p, n) { for (let i = 0; i < n; i++) await p.click('.sto
     await p.waitForSelector('#pinToy:not([hidden])');
     const d0 = await p.evaluate(() => window.__nat.rig.dist);
     await p.click('#pinToy');
+    await p.waitForSelector('#story:not([hidden])', { timeout: 300000 });   // Phase 1: after the flight down (a fade here: reduced motion)
     ok(await p.isVisible('#story'), 'J: the Toy Town star on the map opens the story');
     await p.click('.story-find'); await search(p, '00201'); await p.click('.finder-hide');
     await p.click('.story-exit');

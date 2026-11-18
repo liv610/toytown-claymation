@@ -210,6 +210,8 @@ export function attachCampaignFocus(ctx) {
 
   return {
     pose,
+    // back over the country after Toy Town (Phase 1): frame the campaign chosen while the camera was in the town
+    refollow() { const cur = selection.get(); if (cur) follow(cur); },
     update() {
       if (outline) outline.visible = ctx.showing();
       pin.visible = !!at && ctx.showing();

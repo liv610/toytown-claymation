@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!--PAGE-START-->
 <meta charset="utf-8">
-<title>Felt National Map</title>
+<title>Railroad of Hope</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
@@ -26,6 +26,13 @@
   :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
   #stage { position: fixed; inset: 0; }
   #stage canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; }
+  /* Milestone 1 spike: flights into and out of Toy Town */
+  .world-fade { position: absolute; inset: 0; background: #120f22; opacity: 0; pointer-events: none; }
+  .skip-flight { position: fixed; z-index: 12; left: 50%; translate: -50% 0; bottom: calc(28px + env(safe-area-inset-bottom, 0px)); }
+  body.traveling .landing, body.traveling .controls, body.traveling .note, body.traveling .pin, body.traveling .actions { display: none !important; }
+  body.story-open.flying .story-card, body.story-open.flying .story-bar { opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+  .story.live { background: transparent; }
+  body.story-live .topbar, body.traveling .topbar .actions, body.traveling .help-menu { visibility: hidden; }   /* the page's own bar would show through the live story */
   .status { position: fixed; inset: 0; display: grid; place-items: center; padding: 0 24px; text-align: center; font: 500 1.2rem var(--display); color: var(--muted); }
   .topbar { position: fixed; z-index: 5; inset: 0 0 auto; display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap;
             padding: calc(10px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
@@ -363,6 +370,8 @@
   <p class="small">Draft story text for review. Maple Hollow and its people are fictional.</p>
   <button type="button" class="btn" data-close>Close</button>
 </dialog>
+<button type="button" id="skipFlight" class="btn primary skip-flight" hidden>Skip the flight</button>
+<p id="flightLive" class="sr" aria-live="polite"></p>
 <section id="story" class="story" hidden aria-label="Toy Town story">
   <div class="story-stage" aria-hidden="true"></div>
   <header class="story-bar">

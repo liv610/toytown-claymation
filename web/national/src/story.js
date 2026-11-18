@@ -22,7 +22,7 @@ export function createStory(root, { finder, assets = './assets/story/', onEnter 
   const textDialog = document.getElementById('storyText');
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const CH = [...STORY.chapters, STORY.finale], LAST = CH.length - 1;     // the finale is the last "chapter"
-  let pos = null, returnTo = null;                                          // pos: { chapter, beat } while a story exists
+  let pos = null, returnTo = null, stageNow = null;                         // pos: { chapter, beat } while a story exists
 
   const h = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
@@ -64,7 +64,9 @@ export function createStory(root, { finder, assets = './assets/story/', onEnter 
   function render({ announce = false, focusText = false } = {}) {
     const ch = CH[pos.chapter], beat = ch.beats[pos.beat], fin = pos.chapter === LAST;
     root.dataset.chapter = ch.id; root.dataset.beat = beat.id;
-    stageFor(beat.scene).show(beat.scene, { reduced: reduced() });
+    const st = stageFor(beat.scene);
+    if (stageNow && stageNow !== st && stageNow.hide) stageNow.hide();   // e.g. from the live street back to a still
+    stageNow = st; st.show(beat.scene, { reduced: reduced() });
     $('.story-scene-alt').textContent = beat.scene.alt || '';
     progress.querySelectorAll('.story-step').forEach((b, i) => {
       const cur = i === pos.chapter; b.classList.toggle('done', i < pos.chapter || fin); b.classList.toggle('current', cur);
@@ -126,7 +128,7 @@ export function createStory(root, { finder, assets = './assets/story/', onEnter 
   // while the story is open, the page behind it (map, top bar, labels) is inert: keyboard and screen-reader focus stay in
   // the story, the shared finder (#landing) and the dialogs
   function setBehind(inert) {
-    if (inert) for (const e of document.body.children) { if (e === root || e.id === 'landing' || e.tagName === 'DIALOG' || e.tagName === 'SCRIPT' || e.inert) continue; e.inert = true; e.dataset.storyInert = '1'; }
+    if (inert) for (const e of document.body.children) { if (e === root || e.id === 'landing' || e.id === 'skipFlight' || e.id === 'flightLive' || e.tagName === 'DIALOG' || e.tagName === 'SCRIPT' || e.inert) continue; e.inert = true; e.dataset.storyInert = '1'; }
     else for (const e of document.querySelectorAll('[data-story-inert]')) { e.inert = false; delete e.dataset.storyInert; }
   }
   function enter({ restart = false } = {}) {
@@ -140,7 +142,7 @@ export function createStory(root, { finder, assets = './assets/story/', onEnter 
   function exit() {
     if (document.body.classList.contains('story-finder')) { finder.release(); finder.collapse(); }   // finder open over the story: let go of it
     document.body.classList.remove('story-open', 'story-finder'); setBehind(false);
-    root.hidden = true; stages.forEach((s) => s.hide && s.hide());
+    root.hidden = true; stages.forEach((s) => s.hide && s.hide()); stageNow = null;
     finder.show();
     onLeave(pos);
   }

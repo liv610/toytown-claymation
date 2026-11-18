@@ -15,6 +15,18 @@ actions are always available without the world.
 
 ## Where we are now (updated)
 
+**Newest: `experiment/phase1-build` (from `experiment/visitor-flow` at `625a80b`). Phase 1 implementation, Milestone 1:
+the continuous-world spike.** The owner approved the implementation plan's foundation and Milestone 1 only (plan:
+`docs/PHASE1_IMPLEMENTATION_PLAN.md` on `experiment/ux-cohesion`).
+- The Maple Hollow street stands at the Toy Town hub (`?town=maple` puts it back).
+- Explore Toy Town flies down into it and lands on the first story shot.
+- The finale and Exit rise back to the whole country.
+- Reduced motion uses a fade instead of a flight; long flights have Skip the flight.
+- Preview: [Railroad of Hope](https://claude.ai/artifact/RPMJvLSQ3wNfAiyAbQi5ts).
+- Report, findings, the assessment of reusable Toy Town assets and the effort: `docs/MILESTONE1_SPIKE.md`. Frames: `docs/milestone1-spike/frames`.
+- Tests: `tools/tests/toytown_spike.js`, `tools/tests/toytown_frames.js`.
+- The cinematic interface and Chapters 2–4 wait for the owner's next approval.
+
 **Newest: `experiment/visitor-flow` (from `experiment/campaign-finder` at `c8a812b`). Phase 1, Milestone 1: the visitor
 flow skeleton.** Preview: [Toy Town Visitor Flow](https://claude.ai/artifact/ApfEe3B7HobJooA5JRmvzc) (prototype, published from
 `tools/build_national.sh`). Review screenshots: `docs/milestone1/`. Plan: [Phase 1 visitor experience](https://claude.ai/artifact/KGMGwiFCR4kubUSyrB94hF) (also in

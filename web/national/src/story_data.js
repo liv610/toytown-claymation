@@ -11,11 +11,11 @@ export const STORY = {
     {
       id: 'what', title: 'What is Toys for Tots?', next: 'See How It Works',
       beats: [
-        { id: 'welcome', scene: { still: 'tt_village.jpg', focus: '35% 55%', alt: 'A snowy felt town at dusk: a toy shop with a striped awning, a lit tree, and a Marine on the street.' },
+        { id: 'welcome', scene: { shot: 'arrival', still: 'tt_village.jpg', focus: '35% 55%', alt: 'A snowy felt town at dusk: a toy shop with a striped awning, a lit tree, and a Marine on the street.' },
           lines: ['Welcome to Toy Town.', 'A small town that shows how a big idea works.'] },
-        { id: 'community', scene: { still: 'mh_community.jpg', focus: '50% 55%', alt: 'Neighbors walk along a snowy street toward the community hall, where a volunteer waves.' },
+        { id: 'community', scene: { shot: 'street', still: 'mh_community.jpg', focus: '50% 55%', alt: 'Neighbors walk along a snowy street toward the community hall, where a volunteer waves.' },
           lines: ['Every holiday season, neighbors, volunteers and Marines come together so more children have a gift to open.'], confirm: ['Mission wording'] },
-        { id: 'follow', scene: { still: 'tt_window.jpg', focus: '40% 55%', alt: 'A toy shop window full of felt toys: a teddy bear, a rocking horse and a little red truck.' },
+        { id: 'follow', scene: { shot: 'box', still: 'tt_window.jpg', focus: '40% 55%', alt: 'A toy shop window full of felt toys: a teddy bear, a rocking horse and a little red truck.' },
           lines: ['Toys for Tots helps communities give toys to children whose families need support.', 'Let’s follow one toy, a little red truck, and see how it works.'], confirm: ['Mission wording'] },
       ],
     },
@@ -68,7 +68,7 @@ export const STORY = {
   finale: {
     id: 'finale', title: 'Your community',
     beats: [
-      { id: 'yours', scene: { still: 'country.jpg', focus: '55% 45%', alt: 'The felt map of the whole country, with three railroad lines meeting at Toy Town.' },
+      { id: 'yours', scene: { shot: 'country', still: 'country.jpg', focus: '55% 45%', alt: 'The felt map of the whole country, with three railroad lines meeting at Toy Town.' },
         lines: ['Every community has a part to play. Find yours.'], actions: ['finder', 'donate'] },
     ],
   },

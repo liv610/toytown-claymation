@@ -33,6 +33,9 @@ const status = (t) => { const s = $('status'); if (s) s.textContent = t; };
 // the look: felt (the project's direction, default) or the original clay map (?look=clay, for comparison)
 const FELT = (Q.get('look') || window.NAT_LOOK || 'felt') !== 'clay';
 const MAPLE = mapleHollow();   // Maple Hollow's entrance on the landing (kept, off in Phase 1: features.js)
+// Phase 1, Milestone 1 spike (experiment/phase1-build): ONE Toy Town. The Maple Hollow street is placed at the Toy Town
+// hub, where the three lines meet, and Explore Toy Town flies down into it. ?town=maple puts it back in Ohio.
+const ONE_TOWN = Q.get('town') !== 'maple';
 LOOK.felt = FELT;
 
 // ------------------------------------------------------------------ renderer + scene
@@ -58,9 +61,9 @@ status(FELT ? 'Sewing the country…' : 'Sculpting the country…');
 const geo = await loadGeography(ASSETS + 'states-albers-10m.json', FELT ? { neighbours: await fetchData(ASSETS + 'neighbours-albers.json') } : {});
 await new Promise((r) => setTimeout(r, 0));
 const relief = (FELT ? buildFeltRelief : buildRelief)(scene, geo, { tier });
-const site = geo.sites.maple, [sx, sz] = toWorld(...site.a);
+const site = ONE_TOWN ? geo.sites.toytown : geo.sites.maple, [sx, sz] = toWorld(...site.a);
 const siteWorld = V(sx, geo.siteBase(site) + 0.25, sz);
-status('Building Maple Hollow…');
+status(ONE_TOWN ? 'Building Toy Town…' : 'Building Maple Hollow…');
 const town = await createCommunity(scene, siteWorld, { assets: ASSETS, b64: window.NAT_B64, tier });
 status('Gathering the townspeople…');
 const ch1 = await createChapter1(town, { assets: ASSETS, b64: window.NAT_B64 });
@@ -95,7 +98,9 @@ composer.addPass(new OutputPass());
 // ------------------------------------------------------------------ the camera rig: target, distance, heading, tilt
 const rig = { target: V(0, 0, 18), dist: 1000, az: 0, el: THREE.MathUtils.degToRad(56) };
 function nationalPose() {
-  const aspect = innerWidth / innerHeight, fv = THREE.MathUtils.degToRad(camera.fov) / 2;
+  // the country view's own lens (32°), not the camera's current one: from down in the street the lens is wide, and a
+  // rise planned with it would stop short of the whole country (Phase 1 spike finding)
+  const aspect = innerWidth / innerHeight, fv = THREE.MathUtils.degToRad(32) / 2;
   const d = Math.max((MAP_H * 0.5) / Math.tan(fv), (MAP_W * 0.47) / (Math.tan(fv) * aspect));
   // the felt map is a museum diorama: seen from a three-quarter overhead angle, the whole display in view so its
   // height (mountains, trees, houses) reads; the clay map as before
@@ -117,14 +122,14 @@ function applyRig() {
 
 // ------------------------------------------------------------------ the descent: one continuous move, even perceived zoom speed
 let flight = null;
-function makeFlight(from, to, dur, onDone) {
+function makeFlight(from, to, dur, onDone, { azBy = 1 } = {}) {   // azBy < 1: the turn is done by then (Toy Town flights)
   const az0 = from.az, dAz = ((to.az - from.az + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
   return { t: 0, dur: REDUCED ? 0.0001 : dur, onDone, at(u) {
     const e = smoother(u), eT = smoother(Math.min(1, u * 1.35)), eTilt = smoother(clamp((u - 0.45) / 0.55));
     return {
       target: from.target.clone().lerp(to.target, eT),
       dist: Math.exp(lerp(Math.log(from.dist), Math.log(to.dist), e)),
-      az: az0 + dAz * smoother(clamp((u - 0.3) / 0.7)),
+      az: az0 + dAz * smoother(clamp((u - 0.3 * azBy) / (0.7 * azBy))),
       el: lerp(from.el, to.el, to.el < from.el ? eTilt : e),
     };
   } };
@@ -241,6 +246,7 @@ function atmosphere(t) {
   relief.setLineFade(smooth((Math.log(rig.dist) - Math.log(14)) / (Math.log(60) - Math.log(14))));
   town.setDusk(smooth((dusk - 0.35) / 0.65), t, px);
   hubGlow.intensity = lerp(0, FELT ? 160 : 900, k); star.rotation.y = t * 0.6;
+  if (ONE_TOWN) { const sk = smooth((Math.log(rig.dist) - Math.log(30)) / (Math.log(110) - Math.log(30))); star.scale.setScalar(Math.max(0.001, sk)); star.visible = sk > 0.01; }
   threadScale.value = lerp(0.05, 1, smooth((Math.log(rig.dist) - Math.log(12)) / (Math.log(420) - Math.log(12))));   // felt: floss slims on the way down
   if (relief.landmarks) relief.landmarks.setScale(smooth((Math.log(rig.dist) - Math.log(28)) / (Math.log(260) - Math.log(28))));   // picture-map icons recede on the way down
   // up close, lit windows fill much of the frame: keep their bloom from washing the scene out
@@ -259,8 +265,8 @@ function placePins() {
 }
 const CAPTIONS = {
   national: FELT ? 'A miniature United States, sewn in felt. Three symbolic lines connect communities across the country.' : 'A miniature United States, sculpted in clay. Three symbolic lines connect communities across the country.',
-  'flying-down': 'Maple Hollow, Ohio — a small town getting ready for the holidays.',
-  town: 'Maple Hollow at dusk.',
+  'flying-down': ONE_TOWN ? 'Toy Town, where the lines meet. A small town getting ready for the holidays.' : 'Maple Hollow, Ohio — a small town getting ready for the holidays.',
+  town: ONE_TOWN ? 'Toy Town at dusk.' : 'Maple Hollow at dusk.',
   story: '',
   'flying-up': 'Back to the whole country…',
 };
@@ -299,6 +305,74 @@ function wholeCountryButton() {
   if (wholeBtn.hidden === show) wholeBtn.hidden = !show;
 }
 
+// ------------------------------------------------------------------ Milestone 1 spike: travel between the map and Toy Town
+// Explore Toy Town flies down to the story's first shot; each story beat with a shot holds the camera in the street (a
+// frozen moment of the Chapter 1 timeline, so the townspeople are where they were); the finale rises back to the
+// country. Reduced motion: no camera travel, a short fade through the night colour instead. Long flights can be skipped.
+const SHOTS = { arrival: 0, street: 4.2, box: ch1.beats.hold };   // story times of the Chapter 1 timeline
+let held = null;                                                    // the story time the townspeople hold, in Toy Town
+const fadeEl = document.createElement('div'); fadeEl.className = 'world-fade'; $('stage').appendChild(fadeEl);
+const skipBtn = $('skipFlight'), flightLive = $('flightLive');
+function crossfade(apply) {
+  fadeEl.style.transition = 'opacity 0.18s linear'; fadeEl.style.opacity = '1';
+  setTimeout(() => { apply(); setTimeout(() => { fadeEl.style.transition = 'opacity 0.35s linear'; fadeEl.style.opacity = '0'; }, 80); }, 200);
+}
+// the rise out of Toy Town = the descent played backwards (the descent's own path, which reads well both ways; a direct
+// move from the street to the country skims low over the snow and the felt)
+function makeRise(from, dur, onDone) {
+  const down = makeFlight(nationalPose(), from, dur, onDone, { azBy: 0.7 });
+  return { t: 0, dur: down.dur, onDone, at: (u) => down.at(1 - u) };
+}
+// on the way down (and back up) the camera stays above the roofs until it is over the street itself: a tall phone
+// screen's path otherwise dips through the snow banks and houses at the town's edge (spike finding, phone frames)
+const ROOF = 2.4 * S / 0.2, STREET_R = 2.6 * S / 0.2;   // map units: roof height, the street's half-width round the shot
+function clearRoofs(f) {
+  const at = f.at;
+  // the minimum height eases from roof height (outside the street) to nothing over the shot itself
+  f.at = (u) => { const r = at(u), horiz = r.dist * Math.cos(r.el), need = ROOF * smooth((horiz - STREET_R * 0.5) / (STREET_R * 0.5)); if (r.dist * Math.sin(r.el) < need) r.el = Math.asin(Math.min(1, need / r.dist)); return r; };
+  return f;
+}
+function travel(to, dur, done, say = '') {
+  const go = () => {
+    mode = 'flying';
+    const end = () => { skipBtn.hidden = true; document.body.classList.remove('flying'); done(); };
+    flight = to === 'country' ? makeRise(snapshot(), dur, end) : makeFlight(snapshot(), to, dur, end, dur > 2 ? { azBy: 0.7 } : {});
+    if (dur > 2) clearRoofs(flight);                                 // the long flights only; moves within the street keep their shots
+    flight.travel = true;
+    const long = !REDUCED && dur > 2; skipBtn.hidden = !long; document.body.classList.toggle('flying', long);
+    if (say) flightLive.textContent = say;
+  };
+  if (REDUCED) crossfade(go); else go();
+}
+skipBtn.onclick = () => { if (flight && flight.travel) flight.t = 1; };
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && flight && flight.travel && !skipBtn.hidden) { e.preventDefault(); flight.t = 1; } });
+const shotPose = (t) => rigFrom(ch1.shotWorld(t, REDUCED));
+window.__natWorld = {
+  oneTown: ONE_TOWN,
+  // Explore Toy Town: from wherever the map is, down to the first story shot
+  descend(onArrive) {
+    if (mode === 'flying' && !campaignFlight()) return false;
+    held = SHOTS.arrival; ch1.evaluate(held, timeU.value); ui('flying-down');
+    travel(shotPose(held), 7.5, () => { mode = 'shot'; onArrive(); }, 'Flying down to Toy Town.');
+    return true;
+  },
+  // a story beat's shot: a place in the street, or 'country' (the finale rises back over the map)
+  shot(name) {
+    if (name === 'country') { if (mode === 'finale') return; held = null; ui('flying-up'); travel('country', 5.5, () => { mode = 'finale'; }, 'Rising back over the whole country.'); return; }
+    const t = SHOTS[name] ?? 0;
+    if (mode === 'shot' && held === t) return;
+    const far = rig.dist > 60; held = t; ch1.evaluate(t, timeU.value);
+    travel(shotPose(t), far ? 7.5 : 1.6, () => { mode = 'shot'; }, far ? 'Flying down to Toy Town.' : '');
+  },
+  // leaving Toy Town (Exit, Back to the map): rise to the country; from the finale the camera is already there
+  ascend(onDone) {
+    held = null;
+    if (mode === 'finale' || mode === 'national') { mode = 'national'; ui('national'); onDone(); campaigns.refollow(); return; }
+    ui('flying-up'); travel('country', 5.5, () => { mode = 'national'; ui('national'); onDone(); campaigns.refollow(); }, 'Back over the whole country.');
+  },
+  inTown: () => mode === 'shot' || mode === 'finale' || (mode === 'flying' && !!flight && !!flight.travel),
+};
+
 // ------------------------------------------------------------------ loop
 let last = performance.now(), paused = false;
 function frame(dt) {
@@ -309,6 +383,7 @@ function frame(dt) {
     if (flight.t >= 1) { const f = flight; flight = null; f.onDone(); }
   }
   if (mode === 'story' && story) storyStep(dt);
+  if (held !== null && (mode === 'shot' || (mode === 'flying' && flight && flight.travel))) ch1.evaluate(held, timeU.value);   // the townspeople hold the shot's moment
   applyRig(); atmosphere(timeU.value); relief.update(dt, timeU.value); placePins(); campaigns.update(); wholeCountryButton();
   composer.render(dt);
 }
@@ -318,7 +393,9 @@ $('status').remove();
 ui('national');
 if (Q.get('chapter') === '1' || location.hash === '#chapter1') { Object.assign(rig, rigFrom(ch1.shotWorld(0, REDUCED))); startStory(); }
 // while the Toy Town story covers the map, the map stops drawing (it picks up where it was when the story closes)
-renderer.setAnimationLoop((now) => { const dt = Math.min(0.1, (now - last) / 1000); last = now; if (!paused && !document.body.classList.contains('story-open')) frame(dt); });
+// (the spike's shot stage keeps it drawing: body.story-live = the story is shown in the live 3D street)
+const drawing = () => !document.body.classList.contains('story-open') || document.body.classList.contains('story-live');
+renderer.setAnimationLoop((now) => { const dt = Math.min(0.1, (now - last) / 1000); last = now; if (!paused && drawing()) frame(dt); });
 
 // test hooks (no effect for visitors): pose the camera along the descent at u ∈ [0,1] and grab a frame
 window.__nat = {
@@ -327,6 +404,15 @@ window.__nat = {
     const f = makeFlight(nationalPose(), town.streetPose(), 1, () => {});
     Object.assign(rig, f.at(u)); mode = u >= 1 ? 'town' : u <= 0 ? 'national' : 'flying'; ui(u >= 1 ? 'town' : u <= 0 ? 'national' : 'flying-down');
     applyRig(); atmosphere(timeU.value + 3); relief.update(0, 12); placePins(); composer.render(0.016);
+    return renderer.domElement.toDataURL('image/jpeg', 0.9);
+  },
+  // Milestone 1 spike: a frame u ∈ [0,1] along the Explore Toy Town descent (national view → first story shot), or
+  // along the finale's rise (rise=true: from the 'box' shot back to the national view)
+  travelFrame(u, rise = false) {
+    renderer.setAnimationLoop(null);
+    const f = clearRoofs(rise ? makeRise(shotPose(SHOTS.box), 1, () => {}) : makeFlight(nationalPose(), shotPose(SHOTS.arrival), 1, () => {}, { azBy: 0.7 })); held = rise ? SHOTS.box : SHOTS.arrival; ch1.evaluate(held, 20);
+    Object.assign(rig, f.at(u)); mode = u >= 1 && !rise ? 'shot' : 'flying'; ui(rise ? 'flying-up' : 'flying-down');
+    applyRig(); atmosphere(20); relief.update(0, 12); placePins(); composer.render(0.016);
     return renderer.domElement.toDataURL('image/jpeg', 0.9);
   },
   pose(p) { renderer.setAnimationLoop(null); Object.assign(rig, p); applyRig(); atmosphere(3); relief.update(0, 12); composer.render(0.016); return renderer.domElement.toDataURL('image/jpeg', 0.9); },
@@ -339,7 +425,7 @@ window.__nat = {
     return renderer.domElement.toDataURL('image/jpeg', 0.9);
   },
   beats: () => ch1.beats,
-  state: () => ({ mode, t: story && story.t, given: story && story.given, waited: story && story.waited, ended: story && story.ended }),
+  state: () => ({ mode, held, flying: !!flight, t: story && story.t, given: story && story.given, waited: story && story.waited, ended: story && story.ended }),
   campaign: () => campaigns.state(),
   project: (lon, lat) => campaigns.project(lon, lat),
   rig, siteWorld, S,

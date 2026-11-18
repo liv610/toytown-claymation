@@ -6,7 +6,7 @@
 import { loadDirectory } from '../../shared/campaigns.js';
 import { createFinder } from './finder.js';
 import { selection } from './selection.js';
-import { createStory } from './story.js';
+import { createStory, registerStage } from './story.js';
 
 const $ = (id) => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
@@ -54,11 +54,25 @@ const story = createStory($('story'), { finder, notYet, onLeave: (pos) => {
   $('exploreBtn').querySelector('.explore-title').textContent = done ? 'Explore Toy Town' : 'Continue Toy Town';
   $('exploreBtn').querySelector('.explore-sub').textContent = done ? 'Discover how toys travel from neighbors to families.' : `Pick up at chapter ${pos.chapter + 1}.`;
   $('exploreRestart').hidden = done;
-  $('exploreBtn').focus();
+  // Milestone 1 spike: in the live street, the camera rises back to the country first
+  const w = window.__natWorld;
+  if (w && w.inTown()) { document.body.classList.add('traveling'); w.ascend(() => { document.body.classList.remove('traveling'); $('exploreBtn').focus(); }); }
+  else $('exploreBtn').focus();
 } });
-$('exploreBtn').addEventListener('click', () => story.enter());
-$('exploreRestart').addEventListener('click', () => story.enter({ restart: true }));
-addEventListener('explore-toytown', () => story.enter());
+// Explore Toy Town: with the 3D map, fly down into Toy Town first (Milestone 1 spike); without it, straight to the story
+function explore(opts = {}) {
+  const w = window.__natWorld;
+  if (!w || story.isOpen()) { story.enter(opts); return; }
+  const pos = story.position(), first = opts.restart || !pos || (pos.chapter === 0 && pos.beat === 0);
+  if (!first) { story.enter(opts); return; }                 // continuing mid-story: the beat's own stage takes over
+  finder.collapse(); document.body.classList.add('traveling');
+  const started = w.descend(() => { document.body.classList.remove('traveling'); story.enter(opts); });
+  if (!started) { document.body.classList.remove('traveling'); story.enter(opts); return; }
+  if (!$('skipFlight').hidden) $('skipFlight').focus();
+}
+$('exploreBtn').addEventListener('click', () => explore());
+$('exploreRestart').addEventListener('click', () => explore({ restart: true }));
+addEventListener('explore-toytown', () => explore());
 document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => b.closest('dialog').close()));
 
 // ------------------------------------------------------------ the 3D map, loaded after the page works
@@ -77,6 +91,14 @@ const world = Q.get('map') === 'off'
   });
 
 world.then((ok) => { if (ok) document.body.classList.add('map-ready'); });   // map-only extras (e.g. "See it on the map")
+// Milestone 1 spike: beats that name a shot are shown in the live 3D street (stills stay the fallback without 3D)
+world.then((ok) => {
+  if (!ok || !window.__natWorld || !window.__natWorld.oneTown) return;
+  registerStage('shot', {
+    show(scene) { $('story').classList.add('live'); document.body.classList.add('story-live'); window.__natWorld.shot(scene.shot); },
+    hide() { $('story').classList.remove('live'); document.body.classList.remove('story-live'); },
+  });
+});
 
 // test hooks (no effect for visitors)
 window.__natShell = { world, finder, directory, selection, story };
