@@ -96,6 +96,45 @@ frames (desktop and phone), not only on the test log.
 - **Hall sign:** the "Community Hall" board ran across both upper windows. It is now narrowed to the wall between the windows' inner shutters, with the lettering scaled to fit.
 - **Drop-off box:** the opened lid went through the drop-off sign behind the box. The sign (post, board and lettering) now stands 0.185 further back, on a post of its own reaching the ground. The lid stops on its hinge just past upright, a finger's width short of it.
 
+## Visual polish pass 1 (19 November)
+
+Reviewed with the new QUICK / INTERACTIVE tools: 18 moments from the visitor's camera at both sizes, plus close
+inspection views (feet, hands, the box, the doorway). Each fix was judged on before-and-after frames. Pairs, review sheets
+and short clips are in `docs/milestone2a/polish/`.
+
+**Audit, most distracting first:**
+1. **Snow:** the drifts were hard-faceted shards, the brightest thing in most close shots, reading as broken paper or glass.
+2. **The drop-off box:** an untextured red slab that dominated the donation close-up (half the phone frame).
+3. **The glow when the truck goes in:** a point light above the lid burned its cream top to white.
+4. **The puppets:** smooth painted plastic next to the felt town.
+5. **The donation close-up:** the box filled the lower half of the frame, the parent was cut in half and the sign's post stood in the corner.
+6. **The sparks:** they read as large white confetti.
+7. **Grounding:** checked close up and sound since the first refinement. Feet rest on the snow with contact shadows, at the wagon, at the box and on the doorstep. No change needed.
+
+**Changes (all in `scene_donation.js`):**
+- **Snow:** the snow and ground-snow meshes are welded and smooth-shaded (the street model flat-shades them), so the drifts are soft mounds. Steep sides take a cool, slightly deeper tone.
+- **Box:** painted planks (five boards per face, dark seams, brush strokes, a light bump), cream corner posts and a plinth. It reads as a crate someone built and painted.
+- **Glow:** it now comes from inside the box. The light sits under the lid, so it warms the child's face and the snow, and the slot shines softly amber; it is no longer a light above the lid.
+- **Puppets:** a pressed-wool surface on top of the felt look. The wool varies in colour and has fine fibre and a relief the light can catch, gentler on skin, and it fades below pixel size. The felt look's own relief is sized for walls and was invisible at puppet scale.
+- **The donation close-up:** it is now filmed from beside the box on the hall side. The truck is held up over the slot, the child's face is seen as it goes in, the parent watches in full, and the lamp-lit street is behind.
+  - The phone composition looks down from higher, so the volunteer's wave doesn't cross the lens and the slot stays in the narrow frame.
+- **Sparks:** fewer, smaller, gold.
+
+**Checks:**
+- `scene_m2a` sections A and C (continuity, collisions, smooth camera within shots, steady reduced-motion compositions): 15 ok.
+- The fallback stills `donation.jpg` and `collection.jpg` are regenerated (the donation shot changed).
+- No full videos: three short clips (`polish/clips/`).
+
+**Trade-off:** on phones the truck was framed against the night sky. It now sits against the tree, red on green: still readable, but the old silhouette was crisper. In exchange the shot gains the child's face and the watching parent.
+
+**Still to improve:**
+- the cobbles in the opening wide shots (large pale polygons);
+- the carton (a plain tan block);
+- the volunteer's hat edging into the phone frame just before the cut at 10.7 s;
+- faces (no blinks or expressions);
+- sound;
+- the story card and the chapter bar still sit over the scene.
+
 **Not yet done:** the cinematic interface (the story card and the chapter bar still sit over the scene), faces and blinks, sound. The interface is the planned next step.
 
 ## Tests

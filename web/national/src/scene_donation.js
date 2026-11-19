@@ -81,7 +81,7 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
   // The puppets' shapes were perfect primitives: next to the lumpy, handmade buildings they read as plastic toys. Their
   // surfaces get a gentle unevenness (pressed by hand: the silhouette and the shading both), and a faint "boil" that
   // changes 12 times a second, the way a stop-motion puppet's clay shifts a little between frames.
-  function sculpted(mat) {
+  function sculpted(mat, skin = false) {
     const prev = mat.onBeforeCompile, key = mat.customProgramCacheKey ? mat.customProgramCacheKey() : '';
     mat.onBeforeCompile = (sh, r) => {
       if (prev) prev(sh, r);
@@ -99,8 +99,24 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
         { vec3 gq = sculptG(sculptP); objectNormal = normalize(objectNormal - sculptA * 1.6 * (gq - dot(gq, objectNormal) * objectNormal)); }`)
         .replace('#include <begin_vertex>', `#include <begin_vertex>
         transformed += sculptN * sculptA * sculptF(sculptP);`);
+      // pressed wool: the felt look's own relief is sized for walls and reads as smooth paint at puppet scale. Here the
+      // wool is uneven in colour (thicker and thinner patches), with fine fibre on top and a relief the light can catch.
+      // It fades below a pixel, like the town's felt (no shimmer at a distance). Skin is the same wool, gentler.
+      if (sh.fragmentShader.includes('varying vec3 vFP')) {
+        const k = skin ? 0.55 : 1.0;
+        sh.fragmentShader = sh.fragmentShader
+          .replace('#include <color_fragment>', `#include <color_fragment>
+            vec3 woolQ = vFP * 95.0; float woolA = 1.0 - smoothstep(0.35, 1.2, length(fwidth(woolQ)));
+            float woolN1 = ffbm(woolQ), woolN2 = fvn(woolQ * 4.3 + 1.7);
+            diffuseColor.rgb *= mix(1.0, 1.0 + ${(0.6 * k).toFixed(3)} * (woolN1 - 0.45) + ${(0.22 * k).toFixed(3)} * (woolN2 - 0.5), woolA);`)
+          .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+            { float h = (0.65 * woolN1 + 0.35 * woolN2) * ${(0.0022 * k).toFixed(5)} * woolA;
+              vec3 dpx = dFdx(-vViewPosition), dpy = dFdy(-vViewPosition); float dhx = dFdx(h), dhy = dFdy(h);
+              vec3 r1 = cross(dpy, normal), r2 = cross(normal, dpx); float det = dot(dpx, r1);
+              vec3 nb = abs(det) * normal - sign(det) * (dhx * r1 + dhy * r2); normal = dot(nb, nb) > 1e-12 ? normalize(nb) : normal; }`);
+      }
     };
-    mat.customProgramCacheKey = () => key + '-sculpted';
+    mat.customProgramCacheKey = () => key + '-sculpted' + (skin ? '-s' : '');
   }
 
   // ---------------------------------------------------------------- the cast (Chapter 1's sculpts, rig and clips)
@@ -115,7 +131,7 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
         for (const [re, col] of colors) if (re.test(m.name)) c.color.set(col);
         const felt = (m.userData && m.userData.kind === 'felt') || /Coat|Trouser/.test(m.name);
         claySurface(c, felt ? 'fabric' : 'clay', true, S * scale);
-        if (!/Eye|Cheek/.test(m.name)) sculpted(c);
+        if (!/Eye|Cheek/.test(m.name)) sculpted(c, /Skin/.test(m.name));
         if (clip) c.clippingPlanes = [clipPlane];
         return c;
       });
@@ -243,12 +259,50 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
       cob.geometry = g; cob.material.vertexColors = true; cob.material.color.set(0xffffff); cob.material.needsUpdate = true;
     } }
 
+  // ---------------------------------------------------------------- softer snow
+  // The drifts were faceted shards: up close they read as broken paper, and their flat white faces were the brightest
+  // thing in the shot. They are welded and smoothed into soft, pillowy drifts, and their steep sides take a cool,
+  // slightly deeper tone, so a drift has form and the eye goes to the people instead.
+  root.traverse((o) => {
+    if (!o.isMesh || !/^(Snow|GroundSnow)$/.test(o.name)) return;
+    const P0 = o.geometry.attributes.position, flat = new Float32Array(P0.count * 3);   // (interleaved in the compressed model: copy it out)
+    for (let i = 0; i < P0.count; i++) flat.set([P0.getX(i), P0.getY(i), P0.getZ(i)], i * 3);
+    const g0 = new THREE.BufferGeometry(); g0.setAttribute('position', new THREE.BufferAttribute(flat, 3)); if (o.geometry.index) g0.setIndex(o.geometry.index.clone());
+    const g = mergeVertices(g0, 1e-4); g.computeVertexNormals();     // welded and smoothed: pillowy drifts, no hard ridges
+    const N = g.attributes.normal, col = new Float32Array(N.count * 3);
+    const top = new THREE.Color(0xf4f2ee), side = new THREE.Color(0xd3dae6), c = new THREE.Color();
+    for (let i = 0; i < N.count; i++) { c.copy(top).lerp(side, smooth((0.95 - N.getY(i)) / 0.7)); col.set([c.r, c.g, c.b], i * 3); }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    o.geometry = g; o.material.vertexColors = true; o.material.color.set(0xffffff); o.material.flatShading = false; o.material.needsUpdate = true;   // (the street model flat-shades it)
+  });
+
   // ---------------------------------------------------------------- the toy drop-off box, rebuilt so it can be opened
   // The street model's red box (CrateRed) is one solid block. This one has walls, a dark inside, a carton of toys on its
   // floor and a lid hinged along the back edge, with the slot near the front.
   let boxMat = null;
   root.traverse((o) => { if (o.isMesh && o.name === 'CrateRed') { boxMat = o.material; o.visible = false; } });
   boxMat = boxMat ? boxMat.clone() : new THREE.MeshStandardMaterial({ color: 0xb8302a, roughness: 0.8 });
+  // painted planks, not a plastic slab: five boards per face with dark seams, brush streaks and a little wear at the edges
+  { const W = 256, cv = document.createElement('canvas'); cv.width = cv.height = W; const x = cv.getContext('2d');
+    const bump = document.createElement('canvas'); bump.width = bump.height = W; const bx = bump.getContext('2d');
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    bx.fillStyle = '#808080'; bx.fillRect(0, 0, W, W);
+    for (let k = 0; k < 5; k++) {
+      const x0 = k * W / 5, l = 0.92 + 0.12 * rnd();
+      x.fillStyle = `rgb(${Math.round(176 * l)},${Math.round(46 * l)},${Math.round(40 * l)})`; x.fillRect(x0, 0, W / 5, W);
+      for (let j = 0; j < 26; j++) {                                   // brush strokes along the board
+        const sx = x0 + 3 + rnd() * (W / 5 - 6), a = 0.04 + 0.06 * rnd();
+        x.strokeStyle = rnd() < 0.5 ? `rgba(255,190,170,${a})` : `rgba(60,10,10,${a})`; x.lineWidth = 1 + rnd() * 2;
+        x.beginPath(); x.moveTo(sx, 0); x.bezierCurveTo(sx + rnd() * 4 - 2, W * 0.3, sx + rnd() * 4 - 2, W * 0.7, sx + rnd() * 3 - 1.5, W); x.stroke();
+        bx.strokeStyle = `rgba(${rnd() < 0.5 ? 170 : 90},${rnd() < 0.5 ? 170 : 90},128,0.35)`; bx.lineWidth = 1; bx.beginPath(); bx.moveTo(sx, 0); bx.lineTo(sx + 1, W); bx.stroke();
+      }
+      x.fillStyle = 'rgba(40,8,8,0.55)'; x.fillRect(x0, 0, 2.5, W);   // the seam between two boards
+      bx.fillStyle = '#202020'; bx.fillRect(x0, 0, 3, W);
+    }
+    const g = x.createLinearGradient(0, 0, 0, W); g.addColorStop(0, 'rgba(255,220,200,0.10)'); g.addColorStop(0.15, 'rgba(0,0,0,0)'); g.addColorStop(0.85, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(40,10,10,0.22)');
+    x.fillStyle = g; x.fillRect(0, 0, W, W);                           // a little light wear along the top, grime at the foot
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    boxMat.map = tex; boxMat.bumpMap = new THREE.CanvasTexture(bump); boxMat.bumpScale = 1.2; boxMat.color.set(0xffffff); boxMat.roughness = 0.82; boxMat.needsUpdate = true; }
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x2a1512, roughness: 1 });
   // the street model's cream top and dark slot sat over this box (arms, the truck and the carton went through them):
   // cut them out; the sign's post and board behind stay
@@ -264,6 +318,9 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     const inner = slab(Math.max(0.01, w - 0.012), Hw - 0.02, Math.max(0.01, d - 0.012), darkMat); inner.position.copy(s.position); inner.scale.set(1, 1, 1); inner.renderOrder = -1; box.add(inner);
   }
   const floor = slab(BOX.w - 2 * WT, 0.03, BOX.d - 2 * WT, darkMat); floor.position.y = 0.04; box.add(floor);
+  // cream corner posts and a plinth: the box is a made thing, a crate someone built and painted for the season
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const c = slab(0.07, Hw, 0.07, creamMat); c.position.set(sx * (BOX.w / 2 - 0.025), Hw / 2, sz * (BOX.d / 2 - 0.025)); box.add(c); }
+  { const pl = slab(BOX.w + 0.03, 0.07, BOX.d + 0.03, creamMat); pl.position.y = 0.035; box.add(pl); }
   // the top, cream like the street's box: a fixed strip along the back (the sign's post stands on it) and the lid, hinged
   // to that strip, with the slot near its front. Open, the lid stands up and leans back against the sign.
   const LT = 0.07, BACK = 0.13, LD = BOX.d + 0.03 - BACK;                       // lid thickness, back strip depth, lid depth
@@ -389,8 +446,12 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
   const doorStand = (th) => { const h = handleAt(th), n = V(-Math.sin(th), 0, Math.cos(th)); return V(h.x, 0, h.z).addScaledVector(n, 0.42).add(V(0.12 * Math.cos(th), 0, 0)); };
 
   // ---------------------------------------------------------------- the glow of the box when a toy goes in, and a few sparks
-  const glow = new THREE.PointLight(0xffc27a, 0, 3.2 * S, 2); glow.position.copy(SLOT).add(V(0, 0.3, 0.1)); group.add(glow);
-  const NSP = 22, spark = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.035), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffd890).multiplyScalar(3), transparent: true, depthWrite: false }), NSP);
+  // The glow comes from inside: the light sits under the lid (it was above it and burned the lid's cream top to white),
+  // so it warms the child's face, the hands and the snow around, and the slot itself shines softly.
+  const glow = new THREE.PointLight(0xffb066, 0, 3.0 * S, 2); glow.position.copy(SLOT).add(V(0, -0.1, 0)); group.add(glow);
+  const slotGlow = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.25), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.55, 0.22).multiplyScalar(0.8), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+  slotGlow.rotation.x = -Math.PI / 2; slotGlow.position.copy(SLOT).add(V(0, -0.035, 0)); group.add(slotGlow);
+  const NSP = 14, spark = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.018), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffc458).multiplyScalar(1.6), transparent: true, depthWrite: false }), NSP);
   spark.frustumCulled = false; group.add(spark);
   const seeds = Array.from({ length: NSP }, (_, i) => [Math.abs(Math.sin(i * 12.9898) * 43758.5453 % 1), Math.abs(Math.sin(i * 78.233) * 12543.123 % 1), (i * 0.618) % 1]);
 
@@ -710,7 +771,7 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
 
     // ---- the box's glow and the sparks as the truck goes in
     const gk = ramp(tc, T.drop1, T.drop1 + 0.3) * (1 - ramp(tc, T.drop1 + 1.3, T.drop1 + 3.4));
-    glow.intensity = 8 * S * S * gk;
+    glow.intensity = 3.5 * S * S * gk; slotGlow.material.opacity = 0.45 * gk; slotGlow.visible = gk > 0.001;
     const sp = clamp((tc - T.drop1) / 2.0), mtx = new THREE.Matrix4();
     for (let i = 0; i < NSP; i++) {
       const [a, b, e] = seeds[i], s = sp > 0 && sp < 1 ? (1 - sp) * (0.6 + 0.6 * e) : 0;
@@ -779,7 +840,10 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     wide: [
       { t0: 0, t1: 3.2, pos: (t) => mix3(V(7.6, 1.6, 7.8), V(6.3, 1.32, 6.4), ease(t, 0, 3.2)), look: (t) => mix3(V(-1.4, 1.0, 2.0), V(-1.6, 0.85, 2.3), ease(t, 0, 3.2)) },
       { t0: 3.2, t1: 7.2, pos: (t) => mix3(V(6.3, 1.32, 6.4), V(5.0, 1.2, 5.05), ease(t, 3.2, 7.2)), look: (t) => { const c = childAt(t); return V(lerp(c.x, BOX.x, 0.25), 0.66, lerp(c.z, BOX.z, 0.25)); } },
-      { t0: 7.2, t1: 10.7, cut: true, pos: (t) => mix3(V(3.98, 0.86, 0.62), V(3.82, 0.82, 0.74), ease(t, 7.2, 10.7)), look: (t) => mix3(V(2.5, 0.78, 1.72), V(2.42, 0.74, 1.66), ease(t, 7.2, 10.7)) },
+      // the donation, from beside the box on the hall's side: the truck held up over the slot, the child's face as it goes
+      // in, the parent watching in full, the warm street behind (it was low behind the box: the box filled half the frame,
+      // the parent was cut in half and the sign's post stood in the corner)
+      { t0: 7.2, t1: 10.7, cut: true, pos: (t) => mix3(V(1.1, 1.14, 1.36), V(1.28, 1.05, 1.55), ease(t, 7.2, 10.7)), look: (t) => mix3(V(2.6, 0.99, 1.95), V(2.72, 0.9, 2.06), ease(t, 7.2, 10.7)) },
       { t0: 10.7, t1: 13.6, cut: true, pos: (t) => mix3(V(0.95, 1.5, 4.7), V(0.8, 1.55, 4.95), ease(t, 10.7, 13.6)), look: (t) => mix3(V(3.0, 0.82, 1.8), V(2.85, 0.88, 1.85), ease(t, 10.7, 13.6)) },
       { t0: 13.6, t1: T.reach0, pos: (t) => mix3(V(0.8, 1.55, 4.95), V(0.9, 1.35, 3.55), ease(t, 13.6, T.reach0)), look: (t) => { const m = marineAt(t); return mix3(V(2.85, 0.88, 1.85), V(lerp(m.x, BOX.x, 0.35), 0.95, lerp(m.z, BOX.z, 0.35)), ease(t, 13.6, 15.6)); } },
       // the collection: from the Marine's left and a little in front, high enough to see into the box: his hands, the lid,
@@ -791,8 +855,8 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
   };
   // tall screens: wider, a little higher; the subject centred and the action kept in the middle third
   SEG.tall = SEG.wide.map((s, i) => ({ t0: s.t0, t1: s.t1, cut: s.cut,
-    pos: (t) => { const p = s.pos(t), l = s.look(t), k = [1.1, 1.18, 1.25, 1.45, 1.4, 1.35, 1.35, 1.3][i]; return l.clone().add(p.clone().sub(l).multiplyScalar(k)).add(V(0, [0.75, 0.6, 0.18, 0.3, 0.3, 0.32, 0.28, 0.2][i], 0)); },
-    look: (t) => { const l = s.look(t).add(V(0, [0.0, 0.12, 0.02, 0.05, 0.05, 0.05, 0.08, 0.0][i], 0)); if (i === 4) { const m = marineAt(t); return l.lerp(V(m.x, 0.95, m.z), 0.4 * ease(t, 13.6, 15.2)); } return l; } }));
+    pos: (t) => { const p = s.pos(t), l = s.look(t), k = [1.1, 1.18, 1.35, 1.45, 1.4, 1.35, 1.35, 1.3][i]; return l.clone().add(p.clone().sub(l).multiplyScalar(k)).add(V(0, [0.75, 0.6, 0.6, 0.3, 0.3, 0.32, 0.28, 0.2][i], 0)); },   // (the donation on phones looks down from higher: lower, the volunteer's wave crossed the lens)
+    look: (t) => { const l = s.look(t).add(V(0, [0.0, 0.12, 0.02, 0.05, 0.05, 0.05, 0.08, 0.0][i], 0)); if (i === 4) { const m = marineAt(t); return l.lerp(V(m.x, 0.95, m.z), 0.4 * ease(t, 13.6, 15.2)); } if (i === 2) return l.lerp(V(2.4, 0.9, 1.75), 0.3); return l; } }));   // (the donation: the slot and the truck stay in the narrow frame)
   const BLEND = 0.8;
   function segIndex(t, segs) { let i = 0; while (i < segs.length - 1 && t >= segs[i].t1) i++; return i; }
   function camera(t, { tall = innerWidth < innerHeight, reduced = false } = {}) {

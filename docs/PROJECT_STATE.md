@@ -42,6 +42,8 @@ visitor-paced beats.
   - `?dev=1`: a development-only panel to scrub, pause, replay beats and switch to the phone composition, with direct links to any moment.
   - `tools/run_regression.sh`: the full suite, for FULL reviews.
   - `scene_video.js` needs `FULL=1` for full-length videos.
+- **Visual polish pass 1 (19 November):** soft, smooth-shaded snow; a painted plank drop-off box; the truck's glow from inside the box; pressed-wool puppets; a new donation close-up (the child's face, the truck over the slot, the parent watching) with its own phone framing; gold sparks.
+  - The audit, the trade-offs and what's left are in `docs/MILESTONE2A.md` ("Visual polish pass 1"); before-and-after frames and clips are in `docs/milestone2a/polish/`.
 - **Still to do:** the cinematic interface (story card and chapter bar), faces and sound.
 - **Stopped here for review.** The sorting room, distribution, the railroad and the interface redesign are not started.
 

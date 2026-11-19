@@ -5,7 +5,7 @@
 //   node tools/tests/review_shots.js OUTDIR lid                 a group (lid, hall, door) or view names
 //   node tools/tests/review_shots.js OUTDIR hall-front lid-open-side
 //   SIZE=phone|desktop,phone   (default desktop)     URL=…/national/index.html   (default http://localhost:8765/…)
-//   VIEW='name|at|px,py,pz|lx,ly,lz'   an ad hoc view (at: seconds or a timeline mark like lidGo+0.8; town units)
+//   VIEW='name|at|px,py,pz|lx,ly,lz; name2|…'   ad hoc views (at: seconds or a timeline mark like lidGo+0.8; town units)
 //
 // Writes OUTDIR/<view>_<size>.jpg, a labelled contact sheet OUTDIR/sheet_<size>.jpg (ImageMagick, if installed) and
 // prints the dev-panel link for each view, to follow up interactively.
@@ -20,8 +20,8 @@ for (const n of names) {
   const list = CFG.groups[n] || [n];
   for (const v of list) { if (!CFG.views[v]) { console.error(`unknown view or group "${v}". Views: ${Object.keys(CFG.views).join(', ')}; groups: ${Object.keys(CFG.groups).join(', ')}`); process.exit(2); } views.push([v, CFG.views[v]]); }
 }
-if (process.env.VIEW) {
-  const [name, at, p, l] = process.env.VIEW.split('|');
+for (const v of (process.env.VIEW || '').split(';').filter((x) => x.trim())) {   // several ad hoc views: separate them with ;
+  const [name, at, p, l] = v.trim().split('|');
   views.push([name, { at, pos: p.split(',').map(Number), look: l.split(',').map(Number) }]);
 }
 if (!views.length) { console.error('name at least one view or group, or set VIEW'); process.exit(2); }
@@ -31,7 +31,8 @@ if (!views.length) { console.error('name at least one view or group, or set VIEW
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   for (const size of (process.env.SIZE || 'desktop').split(',')) {
     const p = await b.newPage({ viewport: SIZES[size], deviceScaleFactor: 1 }); p.setDefaultTimeout(600000);
-    const errors = []; p.on('pageerror', (e) => errors.push(e.message));
+    const errors = []; p.on('pageerror', (e) => { errors.push(e.message); console.error('page error:', e.message); });
+    p.on('console', (m) => { if (m.type() === 'warning' && /unavailable/.test(m.text())) console.error('page warning:', m.text()); });   // the 3D map failing falls back quietly   // shown at once: a scene that fails to build would otherwise only time out
     await p.goto(BASE + '?capture=1&q=medium', { timeout: 600000 });
     await p.waitForFunction(() => window.__nat && window.__nat.s2 && window.__nat.s2(), null, { timeout: 600000, polling: 500 });
     const T = await p.evaluate(() => window.__nat.sceneTimes());
