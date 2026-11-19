@@ -92,6 +92,10 @@ frames (desktop and phone), not only on the test log.
 - **The cobbles** are pressed lower and shaded as rounded pebbles rather than facets, in a softer colour, with snow on their tops.
 - **The puppets** get a gentle hand-pressed unevenness (silhouette and shading), and a faint clay "boil" that changes on twos.
 
+**Second review (19 November):**
+- **Hall sign:** the "Community Hall" board ran across both upper windows. It is now narrowed to the wall between the windows' inner shutters, with the lettering scaled to fit.
+- **Drop-off box:** the opened lid went through the drop-off sign behind the box. The sign (post, board and lettering) now stands 0.185 further back, on a post of its own reaching the ground. The lid stops on its hinge just past upright, a finger's width short of it.
+
 **Not yet done:** the cinematic interface (the story card and the chapter bar still sit over the scene), faces and blinks, sound. The interface is the planned next step.
 
 ## Tests

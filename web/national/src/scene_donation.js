@@ -188,6 +188,13 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     src.parent.add(piece); piece.position.copy(src.position); piece.quaternion.copy(src.quaternion); piece.scale.copy(src.scale); piece.updateMatrixWorld(true);
     return piece;
   }
+  // reshape(): move a carved piece's corners in town units (f takes and changes a town-space point)
+  function reshape(piece, f) {
+    if (!piece) return; root.updateMatrixWorld(true);
+    const P = piece.geometry.attributes.position, v = V(), used = new Set(piece.geometry.index.array);
+    for (const i of used) { v.fromBufferAttribute(P, i); piece.localToWorld(v); root.worldToLocal(v); f(v); root.localToWorld(v); piece.worldToLocal(v); P.setXYZ(i, v.x, v.y, v.z); }
+    P.needsUpdate = true; piece.geometry.computeBoundingBox(); piece.geometry.computeBoundingSphere();
+  }
 
   // punch(): a hole through a mesh's front face (its triangles with every corner in front of zMin), for the hall's door.
   // The hall's wall is one solid lump of clay; the triangles over the doorway are cut against the opening's rectangle
@@ -269,7 +276,18 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
   lidPart((BOX.w + 0.05 - slotW) / 2, slotD, -(slotW / 2 + (BOX.w + 0.05 - slotW) / 4), slotZ);   // left of it
   lidPart((BOX.w + 0.05 - slotW) / 2, slotD, (slotW / 2 + (BOX.w + 0.05 - slotW) / 4), slotZ);    // right of it
   { const lip = slab(BOX.w * 0.4, 0.035, 0.04, creamMat); lip.position.set(0, LT * 0.35, LD + 0.02); lidPivot.add(lip); }   // the front lip the hand takes
-  const LID_OPEN = Math.PI / 2 + 0.05;                                            // just past upright: resting on the sign
+  const LID_OPEN = Math.PI / 2 + 0.12;                                            // just past upright, held by its hinge stop
+  // The drop-off sign stood right behind the hinge, so the opened lid went through its board. Move the sign (post, board,
+  // lettering) back so the lid, tipped just past upright, stops a finger's width short of it; a new post reaches the
+  // ground, since the old one stood on the box's back strip.
+  { const SIGN_BACK = 0.185, reg = (y0) => [BOX.x - 0.55, BOX.x + 0.55, y0, 1.8, BOX_BACK - 0.05, BOX_BACK + 0.2];
+    for (const n of ['SignBoard', 'SignLetters', 'CreamWood']) reshape(carve(n, reg(n === 'CreamWood' ? 0.6 : 1.2), true), (v) => { v.z -= SIGN_BACK; });
+    const post = slab(0.06, 0.7, 0.06, creamMat); post.position.set(0, 0.35, 0.93 - SIGN_BACK - BOX.z); box.add(post); }   // (the old post's centre was at town z 0.93)
+  // The hall's name board ran across both upper windows. Narrow the board and its red edge to the wall between the
+  // windows' inner shutters, and scale the lettering to fit (keeping its proportions).
+  { const reg = [-3, 3, 3.1, 4.0, -0.1, 0.2], CY = 3.57, HALF = 1.7;
+    for (const n of ['SignBoard', 'SignEdge']) reshape(carve(n, reg, true), (v) => { v.x *= HALF / 2.875; });
+    reshape(carve('SignLetters', reg, true), (v) => { const k = 0.83; v.x *= k; v.y = CY + (v.y - CY) * k; v.z = 0.06 + (v.z - 0.06) * k; }); }
   // the carton of donated toys, on the box's floor
   box.add(carton); carton.position.set(0, CARTON_BASE, 0); carton.rotation.set(0, 0, 0);
   const cartonHome = () => box.localToWorld(V(0, CARTON_BASE, 0));                 // (town units, via root below)
@@ -634,7 +652,7 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     const tidy = ramp((w % 7.0), 1.2, 1.6) * (1 - ramp((w % 7.0), 2.8, 3.2));
     if (tc > T.mWalk0) { const m = walker(M_PATH, LM, vM, T.mWalk0, tc, YAW_BOX, marine.stride, my); mp = m.p; my = m.yaw; mw = walkW(m); mph = m.phase; }
     // the lid: taken at its front lip, lifted to the vertical, let go; it falls open against its stay and rests
-    // (let go short of upright, it tips over under its own weight and knocks against the sign's board, once, softly)
+    // (let go short of upright, it tips over under its own weight and bounces once, softly, on its hinge stop)
     if (tc > T.lid0) { const u = tc - T.lidGo, kf = clamp(u / 0.28);
       lid = tc < T.lid1 ? 1.2 * smooth((tc - T.lid0) / (T.lid1 - T.lid0)) : tc < T.lidGo ? 1.2
         : u < 0.28 ? 1.2 + (LID_OPEN - 1.2) * kf * kf : LID_OPEN - 0.07 * Math.exp(-6 * (u - 0.28)) * Math.abs(Math.sin(11 * (u - 0.28))); }
