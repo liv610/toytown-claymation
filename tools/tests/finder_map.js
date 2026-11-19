@@ -86,8 +86,12 @@ const still = async (p, path) => { const u = await p.evaluate(() => window.__nat
     await search(p, '00103'); await p.click('.finder-row-btn >> nth=1');
     const flying = await p.evaluate(() => window.__nat.state().mode);
     ok(flying === 'flying' && await p.$('.finder-card') !== null, '2: card shown while the camera is still flying');
-    const [popup] = await Promise.all([ctx.waitForEvent('page'), p.click('a.finder-site')]);
-    ok(popup.url() === 'https://example.org/test-campaigns/lanternfield' && await p.evaluate(() => window.__nat.state().mode) === 'flying', '2: the website link opens mid-flight');
+    // the campaign flight lasts 1.4 s. Under SwiftShader (frames ~200 ms apart) Playwright's stability checks alone can
+    // outlast it, and the popup takes another second to open, so: click without the stability wait, and note the
+    // camera mode at the moment the click reaches the link rather than after the popup has loaded
+    await p.evaluate(() => document.addEventListener('click', (e) => { if (e.target.closest('a.finder-site')) window.__clickMode = window.__nat.state().mode; }, true));
+    const [popup] = await Promise.all([ctx.waitForEvent('page'), p.click('a.finder-site', { force: true })]);
+    ok(popup.url() === 'https://example.org/test-campaigns/lanternfield' && await p.evaluate(() => window.__clickMode) === 'flying', '2: the website link opens mid-flight');
     await popup.close();
     await p.click('.finder-back');
     ok(await sel(p) === null, '2: Back works mid-flight');

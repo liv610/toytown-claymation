@@ -26,6 +26,15 @@ visitor-paced beats.
 - **Tests:** `tools/tests/scene_m2a.js`, plus the frame, still and video tools `scene_frames.js`, `scene_stills.js` and `scene_video.js`.
 - **Report:** `docs/MILESTONE2A.md`, with the tests, performance notes, creative assessment, effort and the next-milestone recommendation (the sorting room).
 - **Review material:** screenshots and videos in `docs/milestone2a/`. Preview: [Railroad of Hope · Milestone 2A](https://claude.ai/artifact/BnoagS2GRKUSGLYmYvgEkf).
+- **Refinement pass after the owner's review (18–19 November):**
+  - grounded characters with soft contact shadows;
+  - a drop-off box whose lid really opens, and a carton lifted with the truck on top;
+  - a hall door that swings with its wreath, revealing a warm lit entrance room instead of an overexposed glow;
+  - curtained windows with a warm glow (no longer flat white);
+  - a wider collection shot;
+  - softer cobbles and lightly hand-sculpted puppets.
+  Details are under "Refinement pass" in `docs/MILESTONE2A.md`.
+- **Still to do:** the cinematic interface (story card and chapter bar), faces and sound.
 - **Stopped here for review.** The sorting room, distribution, the railroad and the interface redesign are not started.
 
 **Previous: `experiment/phase1-build` (from `experiment/visitor-flow` at `625a80b`). Phase 1 implementation, Milestone 1:

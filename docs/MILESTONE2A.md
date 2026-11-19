@@ -66,13 +66,41 @@ two beats.
 twos therefore leaked the last frame's reaches and bends into the next frame, which made the carton jitter. Each
 character now snapshots the clip pose after every update and restores it before the next.
 
+## Refinement pass (after the owner's review, 18–19 November)
+
+The owner's screenshots of the first cut showed problems the tests could not see. Each fix below was judged on rendered
+frames (desktop and phone), not only on the test log.
+
+**Grounding**
+- **The floating Marine** stood beside the wagon on a spot inside the bench's end. The town's ground lookup takes the first surface below it, so it put him on the snow on top of the bench. The scene now has its own ground lookup that only sees the street, sidewalk, curb, drifts and steps. The Marine waits clear of the bench.
+- **The family** walked along the drifts and the curb stones. They now walk the clear sidewalk: the child leads, eager, and the parent catches up at the box.
+- **Contact shadows.** At night the moon's shadow is faint and the lamps cast none. Every puppet now has a soft shadow under the body and one under each foot, darkest when the foot is planted. They are multiplied into the ground's light, because the snow is brighter than white before tone mapping and a dark overlay barely showed.
+
+**Physical interactions**
+- **The box.** The street model's cream top and dark slot were still drawn over the box built for this scene, so the child's arms, the truck and the carton went through a solid top. They are cut out of the street model. The box has a cream lid that the Marine lifts by its lip; it tips back and rests against the sign.
+- **The door.** The wreath and the handle are part of the town's merged holly and brass, so they stayed hanging in the doorway when the door opened. They are cut out and hung on the door.
+
+**Lighting**
+- **The doorway** was a flat card that burned out to white. A real hole is now cut through the hall's wall and its door surround. Behind it is a small entrance room: plaster over a wooden wainscot, a plank floor, a table with cartons of toys waiting to be sorted, paper bunting, and a hanging lamp, the room's only light. The Marine walks in silhouetted against it, and the room sets up the sorting scene.
+- **Lit windows** burned out to flat white rectangles. Each window now shows a lamp-lit room behind curtains: golden in the middle and low, darker towards the frame, at a lower intensity.
+
+**Camera**
+- **The collection** is now filmed from the Marine's left and a little in front, wider and higher: his hands, the lid, the carton rising out of the box with the red truck on top, and the family watching beyond him.
+- **The carry** starts on a cut. The glide passed right by the Marine's face.
+
+**Materials**
+- **The cobbles** are pressed lower and shaded as rounded pebbles rather than facets, in a softer colour, with snow on their tops.
+- **The puppets** get a gentle hand-pressed unevenness (silhouette and shading), and a faint clay "boil" that changes on twos.
+
+**Not yet done:** the cinematic interface (the story card and the chapter bar still sit over the scene), faces and blinks, sound. The interface is the planned next step.
+
 ## Tests
 
 Headless Chromium with SwiftShader (no GPU). These check behaviour, not real-device speed.
 
 | Test | Result |
 | --- | --- |
-| `scene_m2a.js` (new): continuity, collisions, camera, controls, reduced motion, no 3D | 33 ok, 0 fail |
+| `scene_m2a.js` (new): continuity, collisions, camera, controls, reduced motion, no 3D | 33 ok, 0 fail (rerun after the refinement pass) |
 | `toytown_spike.js` (Milestone 1 spike) | 25 ok, 0 fail |
 | `visitor_flow.js` | 140 ok, 0 fail |
 | `national_shell.js` | 42 ok, 0 fail |
@@ -97,6 +125,12 @@ What `scene_m2a.js` measures, sampled every 1/30 s of story time:
 Two fixes came out of the regression run:
 - The 3D chunk no longer poses the town's people on every frame while the country map is shown. It was wasted work, and under SwiftShader it starved the page.
 - The Milestone 1 spike test now checks the still fallback on Chapter 3, because Chapter 2 now plays live.
+
+After the refinement pass every suite above was run again, with the same counts. One `finder_map` check ("the website link
+opens mid-flight") failed twice, and the reason was the test, not the page. The campaign flight lasts 1.4 s. Under
+SwiftShader, Playwright's wait for a stable element took about 1.5 s on its own, so the flight had landed before the check
+read the camera. The link always opened the right page. The test now clicks without that wait and notes the camera mode
+at the moment of the click: 39 ok.
 
 ## Review material
 
@@ -146,8 +180,20 @@ Two fixes came out of the regression run:
   - the ground-following and carry fixes;
   - the per-carrier continuity test;
   - the stills and video tools.
+- **Refinement pass:** about 10 more hours of AI session time (18–19 November), much of it on SwiftShader renders, and an
+  estimated 12–16 developer hours:
+  - the ground lookup and contact shadows;
+  - the opening lid and the door cut into the wall;
+  - the entrance room;
+  - the window texture;
+  - the camera changes;
+  - the material pass.
 
 ## Next milestone: recommendation
+
+**Update after the owner's review:** the owner asked to finish refining this sequence before expanding the world, so 2B
+waits. The next step on this sequence is the cinematic interface (the story card and chapter bar, which still sit over
+the scene), then faces and sound. The original recommendation follows.
 
 **Recommended: the sorting room (Milestone 2B), with interface fixes folded in only where the live scene needs them.**
 - It continues the red truck's thread directly: the carton goes in the door, and the next shot is the sorting room.

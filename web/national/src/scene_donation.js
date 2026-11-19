@@ -18,7 +18,8 @@
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { loadGLB, S } from './community.js';
-import { clay as claySurface, LOOK } from './clay.js';
+import { clay as claySurface, LOOK, timeU } from './clay.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
@@ -76,6 +77,32 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
   const group = new THREE.Group(); group.name = 'DonationScene'; root.add(group);
   const clipPlane = new THREE.Plane(V(0, 0, 1), 0);                  // the hall's doorway: who walks in is cut there
 
+  // ---------------------------------------------------------------- hand-sculpted puppets
+  // The puppets' shapes were perfect primitives: next to the lumpy, handmade buildings they read as plastic toys. Their
+  // surfaces get a gentle unevenness (pressed by hand: the silhouette and the shading both), and a faint "boil" that
+  // changes 12 times a second, the way a stop-motion puppet's clay shifts a little between frames.
+  function sculpted(mat) {
+    const prev = mat.onBeforeCompile, key = mat.customProgramCacheKey ? mat.customProgramCacheKey() : '';
+    mat.onBeforeCompile = (sh, r) => {
+      if (prev) prev(sh, r);
+      sh.uniforms.uT = timeU;
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', `#include <common>
+        uniform float uT;
+        float sculptF(vec3 p) { return sin(p.x * 7.1 + 1.3) * sin(p.y * 6.3 + 0.7) * sin(p.z * 7.7 + 2.1) + 0.5 * sin(p.x * 13.3 - p.z * 11.1 + p.y * 3.0); }
+        vec3 sculptG(vec3 p) { return vec3(7.1 * cos(p.x * 7.1 + 1.3) * sin(p.y * 6.3 + 0.7) * sin(p.z * 7.7 + 2.1) + 6.65 * cos(p.x * 13.3 - p.z * 11.1 + p.y * 3.0),
+          6.3 * sin(p.x * 7.1 + 1.3) * cos(p.y * 6.3 + 0.7) * sin(p.z * 7.7 + 2.1) + 1.5 * cos(p.x * 13.3 - p.z * 11.1 + p.y * 3.0),
+          7.7 * sin(p.x * 7.1 + 1.3) * sin(p.y * 6.3 + 0.7) * cos(p.z * 7.7 + 2.1) - 5.55 * cos(p.x * 13.3 - p.z * 11.1 + p.y * 3.0)); }`)
+        .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+        float sculptB = fract(sin(floor(uT * 12.0) * 12.9898) * 43758.5453);            // the boil: a new frame on twos
+        vec3 sculptP = position + vec3(sculptB * 0.04, sculptB * 0.03, -sculptB * 0.05);
+        vec3 sculptN = objectNormal; float sculptA = 0.0055;
+        { vec3 gq = sculptG(sculptP); objectNormal = normalize(objectNormal - sculptA * 1.6 * (gq - dot(gq, objectNormal) * objectNormal)); }`)
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+        transformed += sculptN * sculptA * sculptF(sculptP);`);
+    };
+    mat.customProgramCacheKey = () => key + '-sculpted';
+  }
+
   // ---------------------------------------------------------------- the cast (Chapter 1's sculpts, rig and clips)
   function makeChar(g, { scale = 1, colors = [], clip = false } = {}) {
     const obj = skClone(g.scene);
@@ -88,6 +115,7 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
         for (const [re, col] of colors) if (re.test(m.name)) c.color.set(col);
         const felt = (m.userData && m.userData.kind === 'felt') || /Coat|Trouser/.test(m.name);
         claySurface(c, felt ? 'fabric' : 'clay', true, S * scale);
+        if (!/Eye|Cheek/.test(m.name)) sculpted(c);
         if (clip) c.clippingPlanes = [clipPlane];
         return c;
       });
@@ -187,6 +215,26 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     const m = new THREE.Mesh(ng, src.material); m.name = name + '_doorway'; m.castShadow = src.castShadow; m.receiveShadow = true; root.add(m);
     return m;
   }
+
+  // ---------------------------------------------------------------- softer cobbles
+  // The street's cobbles were tall, faceted, dark stones: angular and loud against the soft snow and felt. They are
+  // pressed lower, their facets smoothed into rounded pebbles, their colour softened, and their tops dusted with snow.
+  { let cob = null; root.traverse((o) => { if (o.isMesh && o.name === 'Cobble' && !cob) cob = o; });
+    if (cob) {
+      const g0 = cob.geometry.clone(); g0.deleteAttribute('normal');
+      const P0 = g0.attributes.position, pos = new Float32Array(P0.count * 3);
+      for (let i = 0; i < P0.count; i++) pos.set([P0.getX(i), P0.getY(i) * 0.55, P0.getZ(i)], i * 3);
+      g0.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      const g = mergeVertices(g0, 1e-4); g.computeVertexNormals();
+      const N = g.attributes.normal, P = g.attributes.position, col = new Float32Array(P.count * 3), stone = new THREE.Color(0x8f7c6e), snow = new THREE.Color(0xeef0f6), c = new THREE.Color();
+      for (let i = 0; i < P.count; i++) {
+        const h = Math.abs(Math.sin(Math.round(P.getX(i) * 60) * 12.9898 + Math.round(P.getZ(i) * 60) * 78.233) * 43758.5453) % 1;   // a little per-stone variation
+        c.copy(stone).multiplyScalar(0.88 + 0.22 * h).lerp(snow, 0.42 * smooth((N.getY(i) - 0.75) / 0.25));
+        col.set([c.r, c.g, c.b], i * 3);
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      cob.geometry = g; cob.material.vertexColors = true; cob.material.color.set(0xffffff); cob.material.needsUpdate = true;
+    } }
 
   // ---------------------------------------------------------------- the toy drop-off box, rebuilt so it can be opened
   // The street model's red box (CrateRed) is one solid block. This one has walls, a dark inside, a carton of toys on its
