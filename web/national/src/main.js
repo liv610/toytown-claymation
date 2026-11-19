@@ -485,6 +485,16 @@ window.__nat = {
     return out;
   },
   sceneTraceReduced(t0, t1, dt = 0.1) { const out = []; for (let t = t0; t <= t1 + 1e-6; t += dt) { const c = scene2.camera(t, { reduced: true }); out.push({ t, cam: c.pos.toArray(), seg: c.seg }); } return out; },
+  s2: () => scene2,
+  // a frame of the scene at story time t from any camera (town units): for close visual checks
+  sceneLook(t, pos, look, noContact = false) {
+    window.__noContact = noContact;
+    renderer.setAnimationLoop(null); mode = 'scene'; held = null; Object.assign(seq, { t, playing: false, blend: null });
+    scene2.evaluate(t, 20 + t); const r = scene2.town.root; r.updateMatrixWorld(true);
+    Object.assign(rig, rigFrom({ pos: r.localToWorld(new THREE.Vector3(...pos)), look: r.localToWorld(new THREE.Vector3(...look)) })); ui('story');
+    applyRig(); atmosphere(20 + t); relief.update(0, 12); placePins(); composer.render(0.016);
+    return renderer.domElement.toDataURL('image/jpeg', 0.9);
+  },
   sceneEnd: () => scene2.beats.collection[1],
   sceneTimes: () => JSON.parse(JSON.stringify(scene2.times)),
   sceneDebug: (t) => { scene2.evaluate(t, 20 + t); return scene2.debugBones(); },

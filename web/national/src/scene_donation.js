@@ -66,6 +66,7 @@ const SLOT = V(BOX.x, BOX.h, BOX_FRONT - 0.2);              // the slot sits nea
 const CARTON_BASE = 0.055;                                   // the carton stands on the box's floor
 const DOOR = { hingeX: -0.7, z: 0.09, w: 1.4, h: 2.4, y: 1.22, faceZ: 0.03 };
 const WAGON = [-2.05, 0.78];
+const BENCH = { x0: -4.25, x1: -2.45, z0: 1.35, z1: 1.92 };   // the street's bench, beside the wagon (kept clear of)
 const VOL = V(1.35, 0, 0.85);
 
 export async function createDonation(town, { assets = './assets/', b64 = null, tier = 'high' } = {}) {
@@ -123,9 +124,69 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
   const carton = prop('Carton', { clip: true });
   const wagon = prop('Wagon');
   { const t = wagon.getObjectByName('Wagon_truck'); if (t) t.visible = false; }   // one red truck in this story: the child's
-  const place = (o, x, z, yaw, s = 1) => { o.position.set(x, town.groundAt(x, z), z); o.rotation.set(0, yaw, 0); o.scale.setScalar(s); };
+  // the ground under a foot: street, sidewalk, curb, drifts and steps, never the snow on a bench, a sill or a roof (the
+  // town's own lookup takes the first surface below 1.6 units, which put a puppet standing beside the bench on top of it)
+  const groundMeshes = []; root.traverse((o) => { if (o.isMesh && /^(Snow|GroundSnow|Cobble|Curb|Footing)/.test(o.name)) groundMeshes.push(o); });
+  const grc = new THREE.Raycaster(), gcache = new Map();
+  function ground(x, z) {
+    const k = Math.round(x * 24) + ',' + Math.round(z * 24); if (gcache.has(k)) return gcache.get(k);
+    root.updateMatrixWorld(true); grc.set(root.localToWorld(V(Math.round(x * 24) / 24, 0.42, Math.round(z * 24) / 24)), V(0, -1, 0)); grc.far = 0.9 * S;
+    let y = 0; for (const h of grc.intersectObjects(groundMeshes, false)) { const ly = root.worldToLocal(h.point.clone()).y; if (ly <= 0.36) { y = ly; break; } }
+    gcache.set(k, y); return y;
+  }
+  // where a puppet stands: the lowest point of a foot-sized patch, so feet press into a drift rather than hover over a dip
+  const footing = (x, z, r = 0.09) => Math.min(ground(x, z), ground(x + r, z), ground(x - r, z), ground(x, z + r), ground(x, z - r));
+  const place = (o, x, z, yaw, s = 1) => { o.position.set(x, footing(x, z), z); o.rotation.set(0, yaw, 0); o.scale.setScalar(s); };
   place(wagon, WAGON[0], WAGON[1], 0.0, 1.05);
   carton.scale.setScalar(1.0);
+
+  // ---------------------------------------------------------------- cutting pieces out of the street model
+  // The street model merges everything of one material into one mesh (all the town's holly, all its cream wood…), so
+  // the box's old top and the door's wreath can't simply be hidden or moved. carve() takes the triangles of a mesh that
+  // lie wholly inside a region (town units) out of it; with keep, they come back as a mesh of their own (same material).
+  function carve(name, [x0, x1, y0, y1, z0, z1], keep = false) {
+    let src = null; root.traverse((o) => { if (!src && o.isMesh && o.name === name && o.parent && o.parent.name !== 'DonationScene') src = o; });
+    if (!src || !src.geometry.index) return null;
+    root.updateMatrixWorld(true);
+    const g = src.geometry, P = g.attributes.position, I = g.index.array, v = V(), inR = new Uint8Array(P.count);
+    for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i); src.localToWorld(v); root.worldToLocal(v); inR[i] = v.x > x0 && v.x < x1 && v.y > y0 && v.y < y1 && v.z > z0 && v.z < z1 ? 1 : 0; }
+    const rest = [], out = [];
+    for (let i = 0; i < I.length; i += 3) (inR[I[i]] && inR[I[i + 1]] && inR[I[i + 2]] ? out : rest).push(I[i], I[i + 1], I[i + 2]);
+    if (!out.length) return null;
+    g.setIndex(rest);
+    if (!keep) return true;
+    const piece = new THREE.Mesh(g.clone().setIndex(out), src.material); piece.name = name + '_carved';
+    piece.castShadow = src.castShadow; piece.receiveShadow = src.receiveShadow;
+    src.parent.add(piece); piece.position.copy(src.position); piece.quaternion.copy(src.quaternion); piece.scale.copy(src.scale); piece.updateMatrixWorld(true);
+    return piece;
+  }
+
+  // punch(): a hole through a mesh's front face (its triangles with every corner in front of zMin), for the hall's door.
+  // The hall's wall is one solid lump of clay; the triangles over the doorway are cut against the opening's rectangle
+  // and what lies outside it is kept (as a mesh of its own, same material). Town units.
+  function punch(name, zMin, [x0, x1, y1], zMax = 1) {
+    let src = null; root.traverse((o) => { if (!src && o.isMesh && o.name === name && o.parent && o.parent.name !== 'DonationScene') src = o; });
+    if (!src || !src.geometry.index) return null;
+    root.updateMatrixWorld(true);
+    const g = src.geometry, P = g.attributes.position, I = g.index.array, pts = [];
+    for (let i = 0; i < P.count; i++) pts.push(root.worldToLocal(src.localToWorld(V().fromBufferAttribute(P, i))));
+    const clip = (poly, f) => { const out = []; for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length], fa = f(a), fb = f(b);
+      if (fa <= 0) out.push(a); if ((fa < 0 && fb > 0) || (fa > 0 && fb < 0)) out.push(a.clone().lerp(b, fa / (fa - fb))); } return out; };
+    const keep = [], cut = [];
+    for (let i = 0; i < I.length; i += 3) {
+      const t = [pts[I[i]], pts[I[i + 1]], pts[I[i + 2]]];
+      const front = t.every((v) => v.z > zMin && v.z < zMax), over = Math.max(...t.map((v) => v.x)) > x0 && Math.min(...t.map((v) => v.x)) < x1 && Math.min(...t.map((v) => v.y)) < y1;
+      if (!front || !over) { keep.push(I[i], I[i + 1], I[i + 2]); continue; }
+      for (const region of [[(v) => v.x - x0], [(v) => x1 - v.x], [(v) => x0 - v.x, (v) => v.x - x1, (v) => y1 - v.y]]) {
+        let poly = t; for (const f of region) { poly = clip(poly, f); if (poly.length < 3) break; }
+        for (let k = 1; k + 1 < poly.length; k++) cut.push(poly[0], poly[k], poly[k + 1]);
+      }
+    }
+    g.setIndex(keep);
+    const ng = new THREE.BufferGeometry().setFromPoints(cut); ng.computeVertexNormals();
+    const m = new THREE.Mesh(ng, src.material); m.name = name + '_doorway'; m.castShadow = src.castShadow; m.receiveShadow = true; root.add(m);
+    return m;
+  }
 
   // ---------------------------------------------------------------- the toy drop-off box, rebuilt so it can be opened
   // The street model's red box (CrateRed) is one solid block. This one has walls, a dark inside, a carton of toys on its
@@ -134,6 +195,12 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
   root.traverse((o) => { if (o.isMesh && o.name === 'CrateRed') { boxMat = o.material; o.visible = false; } });
   boxMat = boxMat ? boxMat.clone() : new THREE.MeshStandardMaterial({ color: 0xb8302a, roughness: 0.8 });
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x2a1512, roughness: 1 });
+  // the street model's cream top and dark slot sat over this box (arms, the truck and the carton went through them):
+  // cut them out; the sign's post and board behind stay
+  let creamMat = null; root.traverse((o) => { if (o.isMesh && o.name === 'CreamWood' && !creamMat) creamMat = o.material; });
+  creamMat = creamMat ? creamMat.clone() : new THREE.MeshStandardMaterial({ color: 0xeee2c8, roughness: 0.8 });
+  carve('CreamWood', [BOX.x - BOX.w / 2 - 0.1, BOX.x + BOX.w / 2 + 0.1, 0.55, 0.9, BOX_BACK - 0.08, BOX_FRONT + 0.1]);
+  carve('DarkPane', [BOX.x - BOX.w / 2, BOX.x + BOX.w / 2, 0.6, 0.9, BOX_BACK, BOX_FRONT]);
   const slab = (w, h, d, m) => { const s = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); s.castShadow = true; s.receiveShadow = true; return s; };
   const box = new THREE.Group(); box.position.set(BOX.x, 0, BOX.z); group.add(box);
   const WT = 0.05, Hw = BOX.h - 0.04;
@@ -142,15 +209,19 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     const inner = slab(Math.max(0.01, w - 0.012), Hw - 0.02, Math.max(0.01, d - 0.012), darkMat); inner.position.copy(s.position); inner.scale.set(1, 1, 1); inner.renderOrder = -1; box.add(inner);
   }
   const floor = slab(BOX.w - 2 * WT, 0.03, BOX.d - 2 * WT, darkMat); floor.position.y = 0.04; box.add(floor);
-  // the lid: a frame round the slot, hinged at the back top edge
-  const lidPivot = new THREE.Group(); lidPivot.position.set(0, Hw, -BOX.d / 2); box.add(lidPivot);
-  const LT = 0.055, slotW = 0.46, slotD = 0.27, slotZ = SLOT.z - BOX.z + BOX.d / 2;   // slot centre, measured from the hinge
-  const lidPart = (w, d, x, z) => { const s = slab(w, LT, d, boxMat); s.position.set(x, LT / 2, z); lidPivot.add(s); return s; };
-  lidPart(BOX.w + 0.04, slotZ - slotD / 2, 0, (slotZ - slotD / 2) / 2);                                   // behind the slot
-  lidPart(BOX.w + 0.04, BOX.d + 0.02 - (slotZ + slotD / 2), 0, (slotZ + slotD / 2 + BOX.d + 0.02) / 2);   // in front of it
-  lidPart((BOX.w + 0.04 - slotW) / 2, slotD, -(slotW / 2 + (BOX.w + 0.04 - slotW) / 4), slotZ);             // left of it
-  lidPart((BOX.w + 0.04 - slotW) / 2, slotD, (slotW / 2 + (BOX.w + 0.04 - slotW) / 4), slotZ);              // right of it
-  { const lip = slab(BOX.w + 0.06, 0.04, 0.05, boxMat); lip.position.set(0, 0.0, BOX.d + 0.03); lidPivot.add(lip); }   // the front lip the hand takes
+  // the top, cream like the street's box: a fixed strip along the back (the sign's post stands on it) and the lid, hinged
+  // to that strip, with the slot near its front. Open, the lid stands up and leans back against the sign.
+  const LT = 0.07, BACK = 0.13, LD = BOX.d + 0.03 - BACK;                       // lid thickness, back strip depth, lid depth
+  { const st = slab(BOX.w + 0.05, LT, BACK + 0.02, creamMat); st.position.set(0, Hw + LT / 2, -BOX.d / 2 + (BACK - 0.02) / 2); box.add(st); }
+  const lidPivot = new THREE.Group(); lidPivot.position.set(0, Hw, -BOX.d / 2 + BACK); box.add(lidPivot);
+  const slotW = 0.46, slotD = 0.27, slotZ = SLOT.z - (BOX.z - BOX.d / 2 + BACK);   // slot centre, measured from the hinge
+  const lidPart = (w, d, x, z) => { const s = slab(w, LT, d, creamMat); s.position.set(x, LT / 2, z); lidPivot.add(s); return s; };
+  lidPart(BOX.w + 0.05, slotZ - slotD / 2, 0, (slotZ - slotD / 2) / 2);                         // behind the slot
+  lidPart(BOX.w + 0.05, LD - (slotZ + slotD / 2), 0, (slotZ + slotD / 2 + LD) / 2);             // in front of it
+  lidPart((BOX.w + 0.05 - slotW) / 2, slotD, -(slotW / 2 + (BOX.w + 0.05 - slotW) / 4), slotZ);   // left of it
+  lidPart((BOX.w + 0.05 - slotW) / 2, slotD, (slotW / 2 + (BOX.w + 0.05 - slotW) / 4), slotZ);    // right of it
+  { const lip = slab(BOX.w * 0.4, 0.035, 0.04, creamMat); lip.position.set(0, LT * 0.35, LD + 0.02); lidPivot.add(lip); }   // the front lip the hand takes
+  const LID_OPEN = Math.PI / 2 + 0.05;                                            // just past upright: resting on the sign
   // the carton of donated toys, on the box's floor
   box.add(carton); carton.position.set(0, CARTON_BASE, 0); carton.rotation.set(0, 0, 0);
   const cartonHome = () => box.localToWorld(V(0, CARTON_BASE, 0));                 // (town units, via root below)
@@ -159,12 +230,82 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
   let doorMesh = null; root.traverse((o) => { if (o.isMesh && o.name === 'Door_Hall') doorMesh = o; });
   const doorPivot = new THREE.Group(); doorPivot.position.set(DOOR.hingeX, 0, DOOR.z); root.add(doorPivot);
   if (doorMesh) { const p = doorMesh.position.clone(); doorMesh.parent.remove(doorMesh); doorMesh.position.set(p.x - DOOR.hingeX, p.y, p.z - DOOR.z); doorPivot.add(doorMesh); }
-  const glowTex = (() => {   // the lit hall seen through the doorway: warm, brightest low and in the middle
-    const c = document.createElement('canvas'); c.width = 64; c.height = 128; const g = c.getContext('2d');
-    const gr = g.createRadialGradient(32, 92, 6, 32, 80, 90); gr.addColorStop(0, '#fff2cc'); gr.addColorStop(0.45, '#ffc46e'); gr.addColorStop(1, '#a35a2a');
-    g.fillStyle = gr; g.fillRect(0, 0, 64, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
-  const doorway = new THREE.Mesh(new THREE.PlaneGeometry(DOOR.w - 0.06, DOOR.h - 0.04), new THREE.MeshBasicMaterial({ map: glowTex, toneMapped: false }));
-  doorway.position.set(0, DOOR.y, DOOR.faceZ); doorway.visible = false; root.add(doorway);
+  // the wreath and the handle are part of the town's merged holly, berries, ribbon and brass: cut them out and hang them
+  // on the door, so they swing with it (they used to stay hanging in the open doorway)
+  for (const [n, reg] of [['Pine', [-0.45, 0.45, 1.1, 2.25, 0.0, 0.4]], ['Berry', [-0.45, 0.45, 1.1, 2.25, 0.0, 0.4]], ['RibbonRed', [-0.45, 0.45, 1.0, 2.25, 0.0, 0.4]],
+    ['Holly', [-0.45, 0.45, 1.0, 2.25, 0.0, 0.4]], ['Gold', [-0.7, 0.7, 0.6, 1.5, 0.0, 0.4]], ['Iron', [-0.7, 0.7, 0.5, 1.6, 0.0, 0.3]]]) {
+    const piece = carve(n, reg, true); if (piece) doorPivot.attach(piece);
+  }
+  // the street model backs the doorway with a cream panel (the door was never meant to open): cut it away, keeping the frame
+  punch('Hall_wall', -0.06, [-0.68, 0.68, 2.4]);
+  punch('CreamWood', -0.08, [-0.68, 0.68, 2.4], 0.14);   // (the door's surround is a solid cream slab: the hole goes through it too)
+  // the hall's entrance room, seen through the open door (it was a flat glowing card: a white rectangle on screen).
+  // A small warm room: plaster walls over a wooden wainscot, a plank floor, a table along the back with cartons of toys
+  // waiting to be sorted, paper bunting, and a lamp hanging over it all. The lamp is the only light: it fills the room
+  // with gold and spills out through the door onto the snow, so the Marine walks in silhouetted against it.
+  const ROOM = { x: 1.1, z0: -1.95, y0: 0.27, y1: 2.8 };
+  const roomMat = (color, kind = 'clay', extra = {}) => { const m = new THREE.MeshStandardMaterial({ color, roughness: 0.9, ...extra });
+    if (LOOK.felt) LOOK.townScale = S; claySurface(m, kind, false); if (LOOK.felt) LOOK.townScale = null; return m; };
+  const room = new THREE.Group(); room.name = 'HallEntrance'; root.add(room);
+  { const plaster = roomMat(0xe2bf92), wains = roomMat(0x7b4c2e, 'wood'), floorM = roomMat(0x94603a, 'wood'), ceil = roomMat(0xcfa77c);
+    const W2 = ROOM.x * 2, D = -ROOM.z0, H = ROOM.y1 - ROOM.y0, cz = ROOM.z0 / 2;
+    const quad = (w, h, m, pos, ry = 0, rx = 0) => { const q = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m); q.position.set(...pos); q.rotation.set(rx, ry, 0); q.receiveShadow = true; room.add(q); return q; };
+    const fl = quad(W2, D, floorM, [0, ROOM.y0, cz], 0, -Math.PI / 2); groundMeshes.push(fl);
+    quad(W2, D, ceil, [0, ROOM.y1, cz], 0, Math.PI / 2);
+    quad(W2, H, plaster, [0, ROOM.y0 + H / 2, ROOM.z0]);
+    quad(D, H, plaster, [-ROOM.x, ROOM.y0 + H / 2, cz], Math.PI / 2);
+    quad(D, H, plaster, [ROOM.x, ROOM.y0 + H / 2, cz], -Math.PI / 2);
+    for (const [w, x, z, ry] of [[W2, 0, ROOM.z0 + 0.02, 0], [D, -ROOM.x + 0.02, cz, Math.PI / 2], [D, ROOM.x - 0.02, cz, -Math.PI / 2]]) quad(w, 0.62, wains, [x, ROOM.y0 + 0.31, z], ry);
+    // the table along the back, cartons on it and beside it
+    const tableTop = slab(1.5, 0.06, 0.42, wains); tableTop.position.set(0, ROOM.y0 + 0.62, ROOM.z0 + 0.3); room.add(tableTop);
+    for (const [lx, lz] of [[-0.68, -0.17], [0.68, -0.17], [-0.68, 0.17], [0.68, 0.17]]) { const leg = slab(0.05, 0.6, 0.05, wains); leg.position.set(lx, ROOM.y0 + 0.3, ROOM.z0 + 0.3 + lz); room.add(leg); }
+    for (const [x, y, z, ry, sc] of [[-0.42, ROOM.y0 + 0.65, ROOM.z0 + 0.3, 0.15, 0.9], [0.38, ROOM.y0 + 0.65, ROOM.z0 + 0.28, -0.2, 0.85], [0.82, ROOM.y0, ROOM.z0 + 0.75, 0.5, 1.0], [-0.85, ROOM.y0, ROOM.z0 + 0.8, -0.3, 0.95], [-0.85, ROOM.y0 + 0.4, ROOM.z0 + 0.8, -0.15, 0.85]]) {
+      const c = prop('Carton'); room.attach(c); c.position.set(x, y, z); c.rotation.set(0, ry, 0); c.scale.setScalar(sc); }
+    // paper bunting along the back wall and down the sides
+    const flags = [0xc8302a, 0x2f6b4a, 0xf0dcae, 0xd9a93f].map((c) => roomMat(c, 'clay', { side: THREE.DoubleSide }));
+    const tri = new THREE.BufferGeometry().setFromPoints([V(-0.07, 0, 0), V(0.07, 0, 0), V(0, -0.15, 0)]); tri.computeVertexNormals();
+    for (let i = 0; i < 13; i++) { const x = -0.96 + i * 0.16, y = ROOM.y0 + 1.98 - 0.16 * Math.sin(Math.PI * i / 12); const f = new THREE.Mesh(tri, flags[i % 4]); f.position.set(x, y, ROOM.z0 + 0.04); room.add(f); }
+    // the hanging lamp: a cord, a cream shade, a warm bulb
+    const cord = slab(0.012, 0.42, 0.012, wains); cord.position.set(0, ROOM.y1 - 0.21, -0.95); room.add(cord);
+    const shade = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.14, 16, 1, true), roomMat(0xf2e3c4, 'clay', { side: THREE.DoubleSide })); shade.position.set(0, ROOM.y1 - 0.47, -0.95); room.add(shade);
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 8), new THREE.MeshStandardMaterial({ color: 0xffe0a8, emissive: 0xffc070, emissiveIntensity: 3 })); bulb.position.set(0, ROOM.y1 - 0.55, -0.95); room.add(bulb);
+  }
+  const roomLight = new THREE.PointLight(0xffb469, 0, 4.2 * S, 2); roomLight.position.set(0, ROOM.y1 - 0.62, -0.95); root.add(roomLight);
+
+  // ---------------------------------------------------------------- lit windows: a warm room behind curtains, not a white card
+  // The town's lit windows are one glowing material with no texture coordinates, and at dusk they burned out to flat
+  // white rectangles. Each window (its panes, grouped) gets its own coordinates here, and the glow becomes a picture of
+  // a lamp-lit room: golden in the middle and low, darker towards the frame, with curtains drawn back at the sides.
+  { let win = null; root.traverse((o) => { if (o.isMesh && o.material && o.material.name === 'rt_StoryGlow' && !win) win = o; });
+    if (win && win.geometry.index) {
+      const g = win.geometry, P = g.attributes.position, I = g.index.array, n = P.count, par = Array.from({ length: n }, (_, i) => i);
+      const find = (i) => { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; };
+      for (let i = 0; i < I.length; i += 3) { const a = find(I[i]); par[find(I[i + 1])] = a; par[find(I[i + 2])] = a; }
+      root.updateMatrixWorld(true);
+      const wp = []; for (let i = 0; i < n; i++) wp.push(root.worldToLocal(win.localToWorld(V().fromBufferAttribute(P, i))));
+      // panes → windows: panes of one window lie in one plane and nearly touch
+      const panes = new Map(); for (let i = 0; i < n; i++) { const r = find(i); if (!panes.has(r)) panes.set(r, []); panes.get(r).push(i); }
+      const boxes = [...panes.values()].map((vs) => { const b = new THREE.Box3(); vs.forEach((i) => b.expandByPoint(wp[i])); return { vs, b }; });
+      const wins = [];
+      for (const pb of boxes) { const w = wins.find((q) => q.b.clone().expandByScalar(0.16).intersectsBox(pb.b)); if (w) { w.b.union(pb.b); w.vs.push(...pb.vs); } else wins.push({ b: pb.b.clone(), vs: [...pb.vs] }); }
+      const uv = new Float32Array(n * 2);
+      for (const w of wins) { const sz = w.b.getSize(V()), alongX = sz.x >= sz.z;
+        for (const i of w.vs) { const p = wp[i]; uv[i * 2] = alongX ? (p.x - w.b.min.x) / Math.max(1e-3, sz.x) : (p.z - w.b.min.z) / Math.max(1e-3, sz.z); uv[i * 2 + 1] = (p.y - w.b.min.y) / Math.max(1e-3, sz.y); } }
+      g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+      const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+      const gr = x.createRadialGradient(64, 92, 6, 64, 80, 96); gr.addColorStop(0, '#fff0c8'); gr.addColorStop(0.35, '#f6bf6e'); gr.addColorStop(0.8, '#9c5a2c'); gr.addColorStop(1, '#5e3418');
+      x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+      // curtains drawn back at both sides, with folds and a tie-back (the left one mirrored)
+      for (const side of [0, 1]) { x.save(); if (side) { x.translate(128, 0); x.scale(-1, 1); }
+        x.beginPath(); x.moveTo(0, 0); x.lineTo(30, 0); x.quadraticCurveTo(16, 50, 22, 70); x.quadraticCurveTo(30, 100, 26, 128); x.lineTo(0, 128); x.closePath();
+        x.fillStyle = '#5c1c16'; x.fill();
+        x.strokeStyle = 'rgba(40,10,6,0.45)'; x.lineWidth = 2; for (const fx of [7, 14, 21]) { x.beginPath(); x.moveTo(fx, 0); x.quadraticCurveTo(fx * 0.6, 60, fx * 0.9, 128); x.stroke(); }
+        x.fillStyle = '#d9a93f'; x.fillRect(4, 66, 20, 4); x.restore(); }
+      // a valance along the top, and the sill's shadow
+      x.fillStyle = '#6a2018'; x.fillRect(0, 0, 128, 10); x.fillStyle = 'rgba(30,12,4,0.35)'; x.fillRect(0, 118, 128, 10);
+      const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+      win.material.emissiveMap = tex; win.material.emissive.setRGB(1, 0.86, 0.66); win.material.userData.base = 1.7; win.material.needsUpdate = true;
+    } }
   const poolTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const gr = g.createRadialGradient(64, 40, 4, 64, 54, 70);
     gr.addColorStop(0, 'rgba(255,214,150,1)'); gr.addColorStop(0.5, 'rgba(255,170,90,0.45)'); gr.addColorStop(1, 'rgba(255,150,80,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
@@ -221,13 +362,46 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     const b = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.025, 0.3), blade); b.position.set(0, 0.0, 0.13); b.rotation.x = 0.25; shovel.add(b);
     shovel.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); }
 
+  // ---------------------------------------------------------------- contact shadows: what sets a puppet down on the set
+  // At night the moon's shadow is faint and the lamps cast none, so the puppets read as floating. Each gets a soft shadow
+  // under the body and one under each foot, darkest when the foot is planted and fading as it lifts.
+  // a soft disc: rings of a fan whose vertex alpha falls from the centre to the rim (no texture, no custom shader)
+  const blobGeo = (() => {
+    const R = [[0, 1], [0.16, 0.85], [0.3, 0.55], [0.42, 0.22], [0.5, 0]], N = 28, pos = [], col = [], idx = [];
+    R.forEach(([r, a], ri) => { for (let i = 0; i < (ri ? N : 1); i++) { const t = i / N * Math.PI * 2; pos.push(r * Math.cos(t), 0, r * Math.sin(t)); col.push(1, 1, 1, a); } });
+    for (let i = 0; i < N; i++) idx.push(0, 1 + (i + 1) % N, 1 + i);
+    for (let ri = 1; ri < R.length - 1; ri++) { const o = 1 + (ri - 1) * N, o2 = o + N;
+      for (let i = 0; i < N; i++) { const j = (i + 1) % N; idx.push(o + i, o + j, o2 + i, o + j, o2 + j, o2 + i); } }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 4)); g.setIndex(idx); return g;
+  })();
+  const contact = (M, clip) => {
+    const mk = () => { const m = new THREE.Mesh(blobGeo, new THREE.MeshBasicMaterial({ color: 0x1a1020, vertexColors: true, transparent: true, depthWrite: false, opacity: 0,
+      // multiplied into the ground's light (the snow is brighter than white before tone mapping: a dark overlay barely shows)
+      blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.ZeroFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+      clippingPlanes: clip ? [clipPlane] : null })); m.renderOrder = 2; group.add(m); return m; };
+    M.blobs = { body: mk(), L: mk(), R: mk() };
+  };
+  function setContact(M) {
+    const k = M.scale, b = M.blobs, vis = M.obj.visible && !window.__noContact;   // (__noContact: a test hook)
+    const o = L(M.obj.getWorldPosition(V()));
+    const gy = footing(o.x, o.z);
+    b.body.visible = vis; b.body.position.set(o.x, gy + 0.02, o.z); b.body.scale.set(0.95 * k, 1, 0.8 * k); b.body.rotation.y = M.obj.rotation.y; b.body.material.opacity = 0.82;
+    for (const side of ['L', 'R']) {
+      const f = L(M.bones['foot' + side].getWorldPosition(V())), g = ground(f.x, f.z), lift = clamp((f.y - g - 0.1 * k) / (0.16 * k));
+      const m = b[side]; m.visible = vis; m.position.set(f.x, g + 0.022, f.z + 0.02 * k); m.scale.set((0.26 + 0.1 * lift) * k, 1, (0.38 + 0.1 * lift) * k);
+      m.rotation.y = M.obj.rotation.y; m.material.opacity = 0.9 * (1 - lift);
+    }
+  }
+  const CAST = [marine, parent, child, volunteer, passer, passer2, passerKid, shoveller];
+  CAST.forEach((M) => contact(M, M === marine || M === volunteer));
+
   // ---------------------------------------------------------------- posing helpers
   const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
   function pose(M, p, yaw, W, w, extra = {}) {
     // every bone back to the clips' pose of the last update first: the mixer only rewrites a bone when its clip value
     // changes, and the reaches and bends of the last frame must not leak into this one (a pose is a pure function of time)
     for (const [b, q, ps] of (M.snap || M.rest)) { b.quaternion.copy(q); b.position.copy(ps); }
-    M.obj.position.set(p.x, Number.isFinite(p.gy) ? p.gy : town.groundAt(p.x, p.z), p.z); M.obj.rotation.set(0, yaw, 0);
+    M.obj.position.set(p.x, Number.isFinite(p.gy) ? p.gy : footing(p.x, p.z), p.z); M.obj.rotation.set(0, yaw, 0);
     for (const [k, a] of Object.entries(M.acts)) {
       const wt = W[k] || 0; a.setEffectiveWeight(wt);
       const d = a.getClip().duration;
@@ -243,7 +417,7 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     const tr = travel(t, t0, L, v), u = clamp(tr.s / L);
     const p = path.getPointAt(u);
     // the ground under the feet, averaged a little along the way: a step (the hall's doorstep) is climbed, not popped onto
-    const gAt = (s2) => { const q = path.getPointAt(clamp(s2 / L)); return town.groundAt(q.x, q.z); };
+    const gAt = (s2) => { const q = path.getPointAt(clamp(s2 / L)); return footing(q.x, q.z); };
     // (cobbles: a wide window, so a puppet walks on the street's average surface rather than hopping stone to stone)
     p.gy = (gAt(tr.s - 0.45) + 2 * gAt(tr.s - 0.22) + 3 * gAt(tr.s) + 2 * gAt(tr.s + 0.22) + gAt(tr.s + 0.45)) / 9;
     let yaw = yawOf(path.getTangentAt(Math.min(u, 0.999)));
@@ -296,13 +470,16 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
   const handMid = (M) => M.bones.handL.getWorldPosition(V()).add(M.bones.handR.getWorldPosition(V())).multiplyScalar(0.5);
 
   // ---------------------------------------------------------------- paths
-  const C_PATH = curve([[-4.6, 2.35], [-2.2, 2.42], [0.4, 2.44], [1.75, 2.28], [2.5, 1.88]]), LC = C_PATH.getLength();
-  const P_PATH = curve([[-5.3, 2.78], [-2.6, 2.84], [0.6, 2.86], [2.4, 2.9], [3.4, 2.7]]), LP = P_PATH.getLength();
-  const vC = 1.12, vP = vC * LP / LC;
-  const A_C = curve([[2.5, 1.88], [2.9, 1.94], [3.18, 1.66]]), LAC = A_C.getLength();      // stepping aside afterwards, beside the box
-  const A_P = curve([[3.4, 2.7], [3.52, 2.55], [3.58, 2.38]]), LAP = A_P.getLength();
-  const M_START = V(-2.78, 0, 1.42), M_STAND = V(2.3, 0, 2.0);
-  const M_PATH = curve([[M_START.x, M_START.z], [-1.6, 2.0], [0.4, 2.42], [1.65, 2.42], [M_STAND.x, M_STAND.z]]), LM = M_PATH.getLength(), vM = 1.25;
+  // the family walks the clear sidewalk: the child on the house side (past the bench's front), the parent on the street
+  // side along the edge of the drifts (the old line ran over the drifts and the curb stones)
+  const C_PATH = curve([[-4.6, 2.02], [-2.4, 2.0], [-0.4, 1.84], [1.6, 1.84], [2.5, 1.88]]), LC = C_PATH.getLength();
+  const P_PATH = curve([[-5.3, 2.32], [-2.6, 2.3], [0.6, 2.22], [2.5, 2.4], [3.3, 2.62]]), LP = P_PATH.getLength();   // (ends behind the child's right shoulder, out of the donation close-up's way)
+  const vC = 1.12, P_LAG = 0.75, vP = LP / (LC / vC - P_LAG + 0.3);   // the child leads, eager; the parent sets off a beat later and catches up at the box
+  const A_C = curve([[2.5, 1.88], [2.85, 2.1], [3.05, 2.42]]), LAC = A_C.getLength();      // stepping back from the box, to watch      // stepping aside afterwards, beside the box
+  const A_P = curve([[3.3, 2.62], [3.5, 2.45], [3.6, 2.25]]), LAP = A_P.getLength();
+  // the Marine waits beside the wagon (clear of the bench's end: he used to stand inside it, and so on top of it)
+  const M_START = V(-1.72, 0, 1.46), M_STAND = V(2.3, 0, 2.0);
+  const M_PATH = curve([[M_START.x, M_START.z], [-0.8, 1.85], [0.6, 2.05], [1.65, 2.1], [M_STAND.x, M_STAND.z]]), LM = M_PATH.getLength(), vM = 1.25;
   const M_IN = curve([[M_STAND.x, M_STAND.z], [1.55, 1.75], [0.62, 1.02], [0.1, 0.42], [0.0, -0.2], [0.0, -0.9]]), LMI = M_IN.getLength(), vMI = 1.05;
   const V_DOOR = doorStand(0), V_OUT = doorStand(1.66);
   const V_PATH = curve([[VOL.x, VOL.z], [1.05, 0.78], [V_DOOR.x, V_DOOR.z]]), LV = V_PATH.getLength();
@@ -325,14 +502,15 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     const tc = Math.floor(t * 12) / 12, wc = Math.floor(w * 12) / 12;     // puppets move on twos
     root.updateMatrixWorld(true);
     // the doorway cut, in world space (z of the wall's face)
-    const face = W(V(0, 0, DOOR.faceZ + 0.02)); clipPlane.normal.set(0, 0, 1); clipPlane.constant = -face.z;
+    // (now at the entrance room's back wall: whoever walks in is seen inside the room, and never pokes through its wall)
+    const face = W(V(0, 0, ROOM.z0 + 0.03)); clipPlane.normal.set(0, 0, 1); clipPlane.constant = -face.z;
 
     // ---- the family
     let c = walker(C_PATH, LC, vC, T.walk0, tc, YAW_BOX, child.stride);
-    let p = walker(P_PATH, LP, vP, T.walk0 + 0.18, tc, yawOf(V(-0.62, 0, -0.78)), parent.stride);
+    let p = walker(P_PATH, LP, vP, T.walk0 + P_LAG, tc, yawOf(V(-0.85, 0, -0.5)), parent.stride);
     if (tc > T.aside0) {                                                  // stepping aside, then turning to watch
-      const a = walker(A_C, LAC, 0.75, T.aside0, tc, yawOf(V(-1, 0, 0.35)), child.stride, YAW_BOX);
-      const b = walker(A_P, LAP, 0.75, T.aside0 + 0.2, tc, yawOf(V(-1, 0, 0.2)), parent.stride, yawOf(V(-0.62, 0, -0.78)));
+      const a = walker(A_C, LAC, 0.75, T.aside0, tc, yawOf(V(-0.87, 0, -0.5)), child.stride, YAW_BOX);
+      const b = walker(A_P, LAP, 0.75, T.aside0 + 0.2, tc, yawOf(V(-1, 0, -0.25)), parent.stride, yawOf(V(-0.85, 0, -0.5)));
       c = a; p = b;
     }
     const carryT = 1 - ramp(tc, T.drop1 - 0.05, T.drop1 + 0.3);           // holding the truck until it is let go
@@ -408,9 +586,12 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     const tidy = ramp((w % 7.0), 1.2, 1.6) * (1 - ramp((w % 7.0), 2.8, 3.2));
     if (tc > T.mWalk0) { const m = walker(M_PATH, LM, vM, T.mWalk0, tc, YAW_BOX, marine.stride, my); mp = m.p; my = m.yaw; mw = walkW(m); mph = m.phase; }
     // the lid: taken at its front lip, lifted to the vertical, let go; it falls open against its stay and rests
-    if (tc > T.lid0) lid = tc < T.lid1 ? 1.25 * smooth((tc - T.lid0) / (T.lid1 - T.lid0)) : tc < T.lidGo ? 1.25 : 1.25 + 0.7 * settle((tc - T.lidGo) / 0.6);
+    // (let go short of upright, it tips over under its own weight and knocks against the sign's board, once, softly)
+    if (tc > T.lid0) { const u = tc - T.lidGo, kf = clamp(u / 0.28);
+      lid = tc < T.lid1 ? 1.2 * smooth((tc - T.lid0) / (T.lid1 - T.lid0)) : tc < T.lidGo ? 1.2
+        : u < 0.28 ? 1.2 + (LID_OPEN - 1.2) * kf * kf : LID_OPEN - 0.07 * Math.exp(-6 * (u - 0.28)) * Math.abs(Math.sin(11 * (u - 0.28))); }
     lidPivot.rotation.x = -lid;
-    const lip = () => lidPivot.localToWorld(V(0, 0.02, BOX.d + 0.04));
+    const lip = () => lidPivot.localToWorld(V(0, LT * 0.35, LD + 0.03));
     // the carton: in the box, gripped, lifted clear of the walls, brought to the chest, then carried
     const cHome = box.localToWorld(V(0, CARTON_BASE, 0));
     const bendIn = ramp(tc, T.reach0, T.lid0) * (1 - ramp(tc, T.lid1 - 0.2, T.lid1 + 0.1));
@@ -450,15 +631,16 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     else if (tc < T.reach0) lookAt(marine, tc < T.mWalk0 + 0.6 ? W(V(BOX.x, 0.8, BOX.z)) : W(V(BOX.x, 0.5, BOX.z)), ramp(tc, T.m0, T.m0 + 0.5));
     else if (tc < T.go0) lookAt(marine, tc < T.in0 ? lip() : carton.localToWorld(V(0, 0.3, 0)), 0.9);
     else lookAt(marine, W(V(0, 1.3, 0)), 0.6);
-    marine.obj.visible = !(tc > T.go0 && L(marine.obj.getWorldPosition(V())).z < -0.5);
-    carton.visible = !(tc > T.go0 && L(carton.getWorldPosition(V())).z < -0.4);
+    // inside, they stay in view in the lit room until the door is shut on them
+    marine.obj.visible = !(tc > T.shut1 && L(marine.obj.getWorldPosition(V())).z < 0);
+    carton.visible = !(tc > T.shut1 && L(carton.getWorldPosition(V())).z < 0);
     truck.visible = carton.visible || tc < T.go0;
 
     // ---- the door, the doorway, the light
     doorPivot.rotation.y = -th;
     const open = clamp(th / 1.2);
-    doorway.visible = th > 0.01; pool.visible = open > 0.01; pool.material.opacity = 0.75 * open;
-    spill.intensity = 22 * S * S * open;
+    pool.visible = open > 0.01; pool.material.opacity = 0.32 * open;
+    roomLight.intensity = 7 * S * S * clamp(th / 0.6); spill.intensity = 3.5 * S * S * open;   // (the room's lamp does the lighting; the spill only warms the step)
 
     // ---- the box's glow and the sparks as the truck goes in
     const gk = ramp(tc, T.drop1, T.drop1 + 0.3) * (1 - ramp(tc, T.drop1 + 1.3, T.drop1 + 3.4));
@@ -513,6 +695,7 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
       });
       smoke.instanceMatrix.needsUpdate = true; }
 
+    CAST.forEach(setContact);
     Object.assign(state, { t, truck: L(truck.getWorldPosition(V())), carton: L(carton.getWorldPosition(V())), lid, door: th,
       child: L(child.obj.getWorldPosition(V())), parent: L(parent.obj.getWorldPosition(V())), marine: L(marine.obj.getWorldPosition(V())), volunteer: L(volunteer.obj.getWorldPosition(V())),
       visible: { marine: marine.obj.visible, volunteer: volunteer.obj.visible, carton: carton.visible, truck: truck.visible } });
@@ -533,8 +716,10 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
       { t0: 7.2, t1: 10.7, cut: true, pos: (t) => mix3(V(3.98, 0.86, 0.62), V(3.82, 0.82, 0.74), ease(t, 7.2, 10.7)), look: (t) => mix3(V(2.5, 0.78, 1.72), V(2.42, 0.74, 1.66), ease(t, 7.2, 10.7)) },
       { t0: 10.7, t1: 13.6, cut: true, pos: (t) => mix3(V(0.95, 1.5, 4.7), V(0.8, 1.55, 4.95), ease(t, 10.7, 13.6)), look: (t) => mix3(V(3.0, 0.82, 1.8), V(2.85, 0.88, 1.85), ease(t, 10.7, 13.6)) },
       { t0: 13.6, t1: T.reach0, pos: (t) => mix3(V(0.8, 1.55, 4.95), V(0.9, 1.35, 3.55), ease(t, 13.6, T.reach0)), look: (t) => { const m = marineAt(t); return mix3(V(2.85, 0.88, 1.85), V(lerp(m.x, BOX.x, 0.35), 0.95, lerp(m.z, BOX.z, 0.35)), ease(t, 13.6, 15.6)); } },
-      { t0: T.reach0, t1: T.go0, pos: (t) => mix3(V(0.9, 1.35, 3.4), V(1.1, 1.32, 3.1), ease(t, T.reach0, T.go0)), look: (t) => mix3(V(2.3, 0.62, 1.35), V(2.25, 0.86, 1.55), ease(t, T.in0, T.go0)) },
-      { t0: T.go0, t1: T.inside, pos: (t) => t < T.go0 + 1.8 ? mix3(V(1.1, 1.32, 3.1), V(1.7, 1.55, 3.85), ease(t, T.go0, T.go0 + 1.8)) : mix3(V(1.7, 1.55, 3.85), V(1.5, 1.45, 3.05), ease(t, T.go0 + 1.8, T.inside)), look: (t) => { const m = marineAt(t); const k = ease(t, T.go0, T.inside); return V(lerp(m.x, 0, 0.3 + 0.5 * k), lerp(1.0, 1.15, k), lerp(m.z, 0.1, 0.3 + 0.5 * k)); } },
+      // the collection: from the Marine's left and a little in front, high enough to see into the box: his hands, the lid,
+      // the carton coming up, and the family watching beyond him (it was close behind his back, and cramped)
+      { t0: T.reach0, t1: T.go0, pos: (t) => mix3(V(0.45, 1.5, 3.0), V(0.62, 1.42, 2.8), ease(t, T.reach0, T.go0)), look: (t) => mix3(V(2.35, 0.72, 1.55), V(2.4, 0.86, 1.65), ease(t, T.in0, T.go0)) },
+      { t0: T.go0, t1: T.inside, cut: true, pos: (t) => t < T.go0 + 1.8 ? mix3(V(2.05, 1.6, 4.1), V(1.7, 1.55, 3.85), ease(t, T.go0, T.go0 + 1.8)) : mix3(V(1.7, 1.55, 3.85), V(1.5, 1.45, 3.05), ease(t, T.go0 + 1.8, T.inside)), look: (t) => { const m = marineAt(t); const k = ease(t, T.go0, T.inside); return V(lerp(m.x, 0, 0.3 + 0.5 * k), lerp(1.0, 1.15, k), lerp(m.z, 0.1, 0.3 + 0.5 * k)); } },
       { t0: T.inside, t1: T.end + 0.2, pos: (t) => mix3(V(1.5, 1.45, 3.05), V(1.3, 1.48, 2.7), ease(t, T.inside, T.end)), look: (t) => mix3(V(0.05, 1.18, 0.15), V(0.0, 1.3, 0.05), ease(t, T.inside, T.end)) },
     ],
   };
@@ -556,7 +741,10 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
   }
 
   return {
-    group, beats: BEATS, times: T, duration: BEATS.collection[1], evaluate, camera, state,
+    group, beats: BEATS, times: T, duration: BEATS.collection[1], evaluate, camera, state, town, ground, footing,
+    probeH: (x, y, z) => { let sc = root; while (sc.parent) sc = sc.parent; const rc = new THREE.Raycaster(root.localToWorld(V(x, y, z)), V(0, 0, -1)); return rc.intersectObjects(sc.children, true).filter((h) => !h.object.isSkinnedMesh && !h.object.isPoints).slice(0, 8).map((h) => [h.object.name || h.object.type, h.object.parent && h.object.parent.name, +L(h.point).z.toFixed(3), h.object.visible]); },
+    probeAll: (x, z) => { let sc = root; while (sc.parent) sc = sc.parent; const rc = new THREE.Raycaster(root.localToWorld(V(x, 1.2, z)), V(0, -1, 0)); return rc.intersectObjects(sc.children, true).slice(0, 6).map((h) => [h.object.name || h.object.type, +L(h.point).y.toFixed(3)]); },
+    cast: { marine, parent, child, volunteer },
     clipPlane, chimneys: chimneys.length, chimneyAt: chimneys.map((c) => c.toArray().map((x) => +x.toFixed(2))),
     truckWorld: () => truck.getWorldPosition(V()),
     debugBones: () => Object.fromEntries(Object.entries(marine.bones).map(([k, b]) => [k, b.quaternion.toArray().map((x) => +x.toFixed(3))])),
