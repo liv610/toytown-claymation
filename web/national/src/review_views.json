@@ -1,0 +1,19 @@
+{
+  "_about": "Named review views of the Chapter 2 scene, shared by the dev review panel (?dev=1&view=NAME) and tools/tests/review_shots.js. 'at' is story time: seconds, or a timeline mark from the scene (lid0, lidGo, door1 …) with an optional offset like 'lidGo+0.8'. 'pos'/'look' are town units; camera 'story' uses the visitor's own shot (desktop or phone composition) instead.",
+  "views": {
+    "hall-front":    { "at": 10, "pos": [0, 2.7, 7.5], "look": [0, 3.3, 0], "note": "the Community Hall sign and both upper windows, straight on" },
+    "hall-angle":    { "at": 10, "pos": [-3.2, 2.5, 5.6], "look": [0.6, 3.4, 0], "note": "the sign at an angle, both upper windows and their shutters" },
+    "lid-closed":    { "at": "lid0", "pos": [3.3, 1.6, 2.6], "look": [2.3, 1.0, 0.9], "note": "the drop-off box, lid shut, the Marine's hand at the lip" },
+    "lid-half":      { "at": "lid0+0.45", "pos": [3.25, 1.2, 0.9], "look": [2.3, 1.15, 0.9], "note": "the lid half open, from the side" },
+    "lid-open-side": { "at": "lidGo+0.8", "pos": [3.25, 1.2, 0.9], "look": [2.3, 1.15, 0.9], "note": "the lid fully open, edge-on: it must stop short of the sign" },
+    "lid-open":      { "at": "lidGo+0.8", "pos": [1.5, 1.9, 2.7], "look": [2.3, 1.15, 1.0], "note": "the open lid and the sign behind it, from the street" },
+    "lid-story":     { "at": "lidGo+0.8", "camera": "story", "note": "the visitor's own shot at that moment (desktop or phone)" },
+    "doorway":       { "at": "door1+0.3", "pos": [0.9, 1.4, 3.4], "look": [0, 1.3, -0.8], "note": "the hall door open, the lit entrance room behind it" },
+    "doorway-story": { "at": "door1+0.3", "camera": "story", "note": "the visitor's own shot of the open door" }
+  },
+  "groups": {
+    "hall": ["hall-front", "hall-angle"],
+    "lid": ["lid-closed", "lid-half", "lid-open-side"],
+    "door": ["doorway", "doorway-story"]
+  }
+}

@@ -10,6 +10,8 @@
 const { chromium } = require('playwright'); const fs = require('fs');
 const out = process.argv[2] || '.'; fs.mkdirSync(out, { recursive: true });
 const BASE = process.env.URL || 'http://localhost:8765/national/index.html';
+// ONLY=A (or A,C …) runs just those sections while iterating; the full run (no ONLY) is the milestone check
+const ONLY = (process.env.ONLY || '').toUpperCase().split(',').filter(Boolean), run = (sec) => !ONLY.length || ONLY.includes(sec);
 let failed = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) failed++; };
 const LONG = 600000;
 const dist2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z), dist3 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
@@ -32,7 +34,7 @@ const until = (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: LONG, pollin
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 
   // ------------------------------------------------------------ A. the scene, sampled
-  {
+  if (run('A')) {
     const { ctx, p, errors } = await open(b, 'capture=1&q=medium');
     const info = await p.evaluate(() => { const s = window.__nat.scene(); return s; });
     ok(info && info.chimneys >= 3, `A: chimneys found for the smoke (${info && info.chimneys})`);
@@ -94,7 +96,7 @@ const until = (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: LONG, pollin
   }
 
   // ------------------------------------------------------------ B. the story in the page (full motion)
-  {
+  if (run('B')) {
     const { ctx, p, errors } = await open(b, 'capture=1&q=medium');
     await p.evaluate(() => { window.__natRate = 4; });                      // the story clock at 4× (test hook)
     await p.click('#exploreBtn'); await p.waitForSelector('#skipFlight:not([hidden])'); await p.click('#skipFlight');
@@ -145,7 +147,7 @@ const until = (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: LONG, pollin
     await ctx.close();
   }
   // Skip story from the middle of an animation
-  {
+  if (run('B')) {
     const { ctx, p, errors } = await open(b, 'capture=1&q=medium', { reducedMotion: 'reduce' });
     await p.evaluate(() => { window.__natRate = 4; });
     await p.click('#exploreBtn'); await until(p, () => window.__nat.state().mode === 'shot');
@@ -160,7 +162,7 @@ const until = (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: LONG, pollin
     await ctx.close();
   }
   // reduced motion: steady compositions (the camera only changes at shot boundaries)
-  {
+  if (run('C')) {
     const { ctx, p } = await open(b, 'capture=1&q=medium', { reducedMotion: 'reduce' });
     const steady = await p.evaluate(() => { const tr = window.__nat.sceneTraceReduced(0, 28.4, 0.1); let moves = 0; for (let i = 1; i < tr.length; i++) if (tr[i].seg === tr[i - 1].seg && Math.hypot(...tr[i].cam.map((v, k) => v - tr[i - 1].cam[k])) > 1e-6) moves++; return moves; });
     ok(steady === 0, `C: reduced motion: the camera holds still within each shot (${steady} moving samples)`);
@@ -168,7 +170,7 @@ const until = (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: LONG, pollin
   }
 
   // ------------------------------------------------------------ D. no 3D
-  {
+  if (run('D')) {
     const { ctx, p, errors } = await open(b, 'map=off', { waitMap: false });
     await p.click('#exploreBtn'); await p.waitForSelector('#story:not([hidden])');
     await p.click('.story-step[data-chapter="1"]');
@@ -179,5 +181,5 @@ const until = (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: LONG, pollin
   }
 
   await b.close();
-  console.log(failed ? `${failed} FAILED` : 'all passed'); process.exit(failed ? 1 : 0);
+  console.log((ONLY.length ? `(sections ${ONLY.join(',')} only) ` : '') + (failed ? `${failed} FAILED` : 'all passed')); process.exit(failed ? 1 : 0);
 })();

@@ -100,5 +100,8 @@ world.then((ok) => {
   });
 });
 
+// development review (?dev=1 only): a separate chunk with scrub/pause controls over the live scene. Visitors never load it.
+if (Q.get('dev') === '1') world.then((ok) => { if (ok) import('./dev_review.js').then((m) => m.start({ story })); });
+
 // test hooks (no effect for visitors)
 window.__natShell = { world, finder, directory, selection, story };

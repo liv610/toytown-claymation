@@ -180,5 +180,12 @@ export function createStory(root, { finder, assets = './assets/story/', onEnter 
     isOpen: () => !root.hidden,
     position: () => (pos ? { ...pos, chapterId: CH[pos.chapter].id, beatId: CH[pos.chapter].beats[pos.beat].id } : null),
     chapters: () => CH.map((c) => ({ id: c.id, title: c.title, beats: c.beats.map((b) => b.id) })),
+    // straight to a beat by its ids (development review links; visitors move with Next/Back and the chapter bar)
+    goTo(chapterId, beatId) {
+      const c = CH.findIndex((x) => x.id === chapterId); if (c < 0) return false;
+      pos = { chapter: c, beat: Math.max(0, CH[c].beats.findIndex((x) => x.id === beatId)) };
+      if (root.hidden) enter(); else render({ announce: true });
+      return true;
+    },
   };
 }

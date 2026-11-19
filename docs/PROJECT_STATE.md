@@ -34,6 +34,14 @@ visitor-paced beats.
   - a wider collection shot;
   - softer cobbles and lightly hand-sculpted puppets.
   Details are under "Refinement pass" in `docs/MILESTONE2A.md`.
+- **Second review (19 November):** the Community Hall sign is narrowed to sit between the upper windows. The drop-off sign is moved back so the open lid stops short of it.
+  - The committed videos (`docs/milestone2a/*.mp4`) predate this fix.
+  - Under the new workflow they will be re-rendered at the next FULL review, not after each small change.
+- **Review workflow (19 November):** QUICK / INTERACTIVE / FULL modes, in `docs/REVIEW_WORKFLOW.md`.
+  - `tools/quick_review.sh <views>`: targeted frames in about a minute.
+  - `?dev=1`: a development-only panel to scrub, pause, replay beats and switch to the phone composition, with direct links to any moment.
+  - `tools/run_regression.sh`: the full suite, for FULL reviews.
+  - `scene_video.js` needs `FULL=1` for full-length videos.
 - **Still to do:** the cinematic interface (story card and chapter bar), faces and sound.
 - **Stopped here for review.** The sorting room, distribution, the railroad and the interface redesign are not started.
 

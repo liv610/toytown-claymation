@@ -42,6 +42,18 @@ Read `docs/PROJECT_STATE.md` first. It has:
 - **Verify, then commit and push.** Check visual changes with the scripts in `tools/tests/` (headless Chromium screenshots +
   the prototypes' event logs) before reporting, then commit and **push** (`origin` = github.com/liv610/toytown-claymation).
   Commit messages explain the why.
+- **Review in proportion to the change** (`docs/REVIEW_WORKFLOW.md`, agreed with the owner).
+  - **QUICK is the default** for positions, signage, materials, lighting, small geometry and framing.
+    - Run `tools/quick_review.sh <views>` to render 2–4 targeted frames.
+    - Run a targeted check where the change can affect movement (`ONLY=A node tools/tests/scene_m2a.js`).
+    - Show the frames.
+  - **INTERACTIVE** is for animation and camera work.
+    - Give `?dev=1` links to the moment, and a short clip only if the motion needs one.
+  - **FULL** is for a finished sequence, a milestone or an explicit request.
+    - Run `tools/run_regression.sh`, then the stills, the review shots and the videos.
+  - **Never render full-length videos unless asked** or at a milestone review. `scene_video.js` needs `FULL=1`.
+  - Don't regenerate fallback stills or the screenshot library for small changes.
+  - Don't hold back publishing a working preview for a render.
 - **Running and packaging:**
   - Web prototypes: `cd web && npm install && npm run dev` → http://localhost:8765/journey/, /storybook/ or /national/ (build bundles first: `npm run build:national`).
   - `npm run build` builds the storybook bundle (not committed).

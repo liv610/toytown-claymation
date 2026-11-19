@@ -359,6 +359,10 @@ const shotPose = (t) => rigFrom(ch1.shotWorld(t, REDUCED));
 // a dip through the night colour; Back: a dip, then the beat again from its start. The finder (or any open dialog)
 // freezes the story clock at that exact moment; the town keeps moving; closing resumes from the same frame.
 const seq = { t: 0, from: 0, to: 0, playing: false, ff: 0, then: null, blend: null, seg: -1, idleT: 0 };
+// development review only (?dev=1, see dev_review.js): an inspection camera, a forced composition and a framed stage.
+// Visitors never set any of these; they stay null.
+const DEV = Q.get('dev') === '1';
+const dev = { cam: null, tall: null, size: null };
 const sceneCam = (t) => rigFrom(scene2.camera(t, { reduced: REDUCED }));
 function startPlay(from, to) { mode = 'scene'; held = null; Object.assign(seq, { t: from, from, to, playing: true, ff: 0, then: null }); }
 function lerpRig(a, b, k) { const dAz = ((b.az - a.az + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
@@ -371,10 +375,11 @@ function sceneTick(dt) {
       if (seq.t >= seq.to) { seq.playing = false; seq.ff = 0; const f = seq.then; seq.then = null; if (f) f(); }
     }
     scene2.evaluate(seq.t, timeU.value);
-    const cam = scene2.camera(seq.t, { reduced: REDUCED });
+    const cam = scene2.camera(seq.t, { reduced: REDUCED, tall: dev.tall ?? undefined });
     if (REDUCED && seq.seg !== -1 && cam.seg !== seq.seg) dipNow();        // a stable composition per shot, a gentle dip between them
     seq.seg = cam.seg;
     let r = rigFrom(cam);
+    if (dev.cam) { const R = scene2.town.root; R.updateMatrixWorld(true); r = rigFrom({ pos: R.localToWorld(new THREE.Vector3(...dev.cam.pos)), look: R.localToWorld(new THREE.Vector3(...dev.cam.look)) }); }
     if (seq.blend) { seq.blend.k = Math.min(1, seq.blend.k + dt / 0.9); r = lerpRig(seq.blend.from, r, smoother(seq.blend.k)); if (seq.blend.k >= 1) seq.blend = null; }
     Object.assign(rig, r);
   } else if (mode !== 'national' || !seq.posed) {
@@ -443,7 +448,8 @@ function frame(dt) {
   applyRig(); atmosphere(timeU.value); relief.update(dt, timeU.value); placePins(); campaigns.update(); wholeCountryButton();
   composer.render(dt);
 }
-addEventListener('resize', () => { if (story) story.promptAt = null; camera.aspect = innerWidth / innerHeight; renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); if (mode === 'national') Object.assign(rig, nationalPose()); });
+function fitView() { const [w, h] = dev.size || [innerWidth, innerHeight]; camera.aspect = w / h; renderer.setSize(w, h); composer.setSize(w, h); }
+addEventListener('resize', () => { if (story) story.promptAt = null; fitView(); if (mode === 'national') Object.assign(rig, nationalPose()); });
 document.addEventListener('visibilitychange', () => { paused = document.hidden; });
 $('status').remove();
 ui('national');
@@ -452,6 +458,26 @@ if (Q.get('chapter') === '1' || location.hash === '#chapter1') { Object.assign(r
 // (the spike's shot stage keeps it drawing: body.story-live = the story is shown in the live 3D street)
 const drawing = () => !document.body.classList.contains('story-open') || document.body.classList.contains('story-live');
 renderer.setAnimationLoop((now) => { const dt = Math.min(0.1, (now - last) / 1000); last = now; if (!paused && drawing()) frame(dt); });
+
+// development review (?dev=1 only): the same story clock and scene the visitor's beats play, driven directly. No
+// separate animation system: seek/play/pause move seq.t, and sceneTick renders it as it does for a playing beat.
+if (DEV && scene2) window.__natDev = {
+  times: () => JSON.parse(JSON.stringify(scene2.times)), beats: () => JSON.parse(JSON.stringify(scene2.beats)), duration: () => scene2.duration,
+  open(t = 0) { flight = null; held = null; mode = 'scene'; Object.assign(seq, { t, from: t, to: t, playing: false, ff: 0, then: null, blend: null }); ui('story'); },
+  seek(t) { if (mode !== 'scene') this.open(t); const c = Math.max(0, Math.min(scene2.duration, t)); Object.assign(seq, { t: c, from: c, playing: false, then: null, ff: 0, blend: null }); },
+  play(to = scene2.duration) { if (mode !== 'scene') this.open(seq.t); if (seq.t >= to - 1e-3) seq.t = seq.from; Object.assign(seq, { to, playing: true, ff: 0, then: null }); },
+  pause() { seq.playing = false; },
+  state: () => ({ mode, t: seq.t, playing: seq.playing, to: seq.to }),
+  rate(r) { window.__natRate = r; },
+  view(v) { dev.cam = v; },                                            // { pos, look } in town units; null: the story camera
+  composition(c) {                                                      // 'auto' | 'desktop' (16:9) | 'phone' (390×844)
+    const st = $('stage').style, ar = c === 'phone' ? 390 / 844 : 16 / 9, H = innerHeight;
+    if (c === 'auto') { dev.size = null; dev.tall = null; st.cssText = ''; }
+    else { const h = c === 'phone' ? H : Math.min(H, Math.round(innerWidth / ar)), w = Math.round(h * ar);
+      dev.size = [w, h]; dev.tall = c === 'phone'; st.cssText = `width:${w}px;height:${h}px;left:${Math.round((innerWidth - w) / 2)}px;top:${Math.round((H - h) / 2)}px;right:auto;bottom:auto`; }
+    fitView();
+  },
+};
 
 // test hooks (no effect for visitors): pose the camera along the descent at u ∈ [0,1] and grab a frame
 window.__nat = {
