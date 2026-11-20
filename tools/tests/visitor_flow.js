@@ -79,7 +79,7 @@ async function nextTimes(p, n) { for (let i = 0; i < n; i++) await p.click('.sto
     const { ctx, p, errors } = await open(b, 'map=off');
     const chapters = await p.evaluate(() => window.__natShell.story.chapters());
     await p.click('#exploreBtn');
-    ok(await p.isVisible('#story') && JSON.stringify(await pos(p)) === JSON.stringify({ chapter: 0, beat: 0, chapterId: 'what', beatId: 'welcome' }) && await focused(p) === 'story-text', 'B: Explore Toy Town opens Chapter 1, first beat, focus on its text');
+    ok(await p.isVisible('#story') && JSON.stringify(await pos(p)) === JSON.stringify({ chapter: 0, beat: 0, chapterId: 'what', beatId: 'welcome' }) && /\bstory-text\b/.test(await focused(p)), 'B: Explore Toy Town opens Chapter 1, first beat, focus on its text');
     const seen = [];
     for (let guard = 0; guard < 40; guard++) {
       const q = await pos(p); seen.push(`${q.chapterId}/${q.beatId}`);
@@ -192,7 +192,7 @@ async function nextTimes(p, n) { for (let i = 0; i < n; i++) await p.click('.sto
     let n = 0; while (await focused(p) !== 'exploreBtn' && n++ < 30) await p.keyboard.press('Tab');
     ok(await focused(p) === 'exploreBtn', `F: Tab reaches Explore Toy Town (${n} presses)`);
     await p.keyboard.press('Enter');
-    ok(await focused(p) === 'story-text', 'F: Enter opens the story; focus on the beat text');
+    ok(/\bstory-text\b/.test(await focused(p)), 'F: Enter opens the story; focus on the beat text');
     const order = []; for (let i = 0; i < 14; i++) { await p.keyboard.press('Tab'); order.push(await p.evaluate(() => document.activeElement.className.split(' ').filter((c) => c.startsWith('story-')).join('') || document.activeElement.className)); }
     const iNext = order.indexOf('story-next'), iFind = order.indexOf('story-find');
     ok(iNext >= 0 && iFind >= 0 && order.includes('story-skip') && order.includes('story-read') && order.includes('story-exit'), `F: Tab reaches Find, Exit, Back/Next, Skip and Read as text (${order.filter(Boolean).slice(0, 9).join(', ')})`);

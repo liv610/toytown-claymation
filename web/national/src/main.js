@@ -364,15 +364,17 @@ const seq = { t: 0, from: 0, to: 0, playing: false, ff: 0, then: null, blend: nu
 const DEV = Q.get('dev') === '1';
 const dev = { cam: null, tall: null, size: null };
 const sceneCam = (t) => rigFrom(scene2.camera(t, { reduced: REDUCED }));
-function startPlay(from, to) { mode = 'scene'; held = null; Object.assign(seq, { t: from, from, to, playing: true, ff: 0, then: null }); }
+// the story interface follows the clock: playing, paused, or the action resolved (ready for Next)
+const playState = (state) => document.dispatchEvent(new CustomEvent('toytown:play', { detail: { state } }));
+function startPlay(from, to) { mode = 'scene'; held = null; Object.assign(seq, { t: from, from, to, playing: true, ff: 0, then: null, paused: false }); playState('playing'); }
 function lerpRig(a, b, k) { const dAz = ((b.az - a.az + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
   return { target: a.target.clone().lerp(b.target, k), dist: Math.exp(lerp(Math.log(a.dist), Math.log(b.dist), k)), az: a.az + dAz * k, el: lerp(a.el, b.el, k) }; }
 function sceneTick(dt) {
-  const frozen = document.body.classList.contains('story-finder') || !!document.querySelector('dialog[open]');
+  const frozen = seq.paused || document.body.classList.contains('story-finder') || !!document.querySelector('dialog[open]');   // (Pause, the finder, a dialog)
   if (mode === 'scene') {
     if (seq.playing && !frozen) {
       seq.t = Math.min(seq.to, seq.t + dt * (seq.ff || 1) * (window.__natRate || 1));   // (__natRate: a test hook; visitors never set it)
-      if (seq.t >= seq.to) { seq.playing = false; seq.ff = 0; const f = seq.then; seq.then = null; if (f) f(); }
+      if (seq.t >= seq.to) { seq.playing = false; seq.ff = 0; const f = seq.then; seq.then = null; if (f) f(); else playState('ended'); }
     }
     scene2.evaluate(seq.t, timeU.value);
     const cam = scene2.camera(seq.t, { reduced: REDUCED, tall: dev.tall ?? undefined });
@@ -431,6 +433,8 @@ window.__natWorld = {
     ui('flying-up'); travel('country', 5.5, () => { mode = 'national'; ui('national'); onDone(); campaigns.refollow(); }, 'Back over the whole country.');
   },
   inTown: () => mode === 'shot' || mode === 'scene' || mode === 'finale' || (mode === 'flying' && !!flight && !!flight.travel),
+  // the visitor's Pause: the story clock holds that frame (the town keeps living); Resume carries on from it
+  pause(on) { if (mode !== 'scene' || !seq.playing) return false; seq.paused = !!on; playState(on ? 'paused' : 'playing'); return true; },
 };
 
 // ------------------------------------------------------------------ loop
@@ -446,9 +450,18 @@ function frame(dt) {
   if (scene2) sceneTick(dt);
   else if (held !== null && (mode === 'shot' || (mode === 'flying' && flight && flight.travel))) ch1.evaluate(held, timeU.value);   // the townspeople hold the shot's moment
   applyRig(); atmosphere(timeU.value); relief.update(dt, timeU.value); placePins(); campaigns.update(); wholeCountryButton();
-  composer.render(dt);
+  lensShift(); composer.render(dt);
 }
-function fitView() { const [w, h] = dev.size || [innerWidth, innerHeight]; camera.aspect = w / h; renderer.setSize(w, h); composer.setSize(w, h); }
+function fitView() { const [w, h] = dev.size || [innerWidth, innerHeight]; camera.aspect = w / h; renderer.setSize(w, h); composer.setSize(w, h); lens.k = null; }
+// While the story's captions sit over the foot of the frame, the picture is lifted a little (a lens shift: the camera does
+// not move, the image does), so the action sits clear of the captions. Phones lift more: their captions take more room.
+const lens = { k: null };
+function lensShift() {
+  const on = document.body.classList.contains('story-open') && (mode === 'scene' || mode === 'shot' || (mode === 'flying' && !!flight && !!flight.travel));
+  const [w, h] = dev.size || [innerWidth, innerHeight], k = on ? (h > w ? 0.1 : 0.05) : 0;
+  if (k === lens.k) return; lens.k = k;
+  if (k) camera.setViewOffset(w, h, 0, Math.round(h * k), w, h); else camera.clearViewOffset();
+}
 addEventListener('resize', () => { if (story) story.promptAt = null; fitView(); if (mode === 'national') Object.assign(rig, nationalPose()); });
 document.addEventListener('visibilitychange', () => { paused = document.hidden; });
 $('status').remove();

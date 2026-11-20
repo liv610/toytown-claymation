@@ -104,6 +104,16 @@ const until = (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: LONG, pollin
     await p.click('.story-step[data-chapter="1"]');
     await until(p, () => { const s = window.__nat.scene(); return s && s.playing && s.t > 0.5; });
     ok(await pos(p) === 'how/collect' && await p.evaluate(() => document.body.classList.contains('story-live')), 'B: Chapter 2 opens on the donation, played live in the street');
+    // the cinematic interface follows the clock: while the action plays the controls step back and Pause is offered
+    ok(await p.evaluate(() => document.getElementById('story').classList.contains('is-playing')) && await p.isVisible('.story-pause'), 'B: while the donation plays, the controls step back and Pause is offered');
+    // Pause holds the story at that frame (the town keeps living); Resume carries on from it
+    await until(p, () => window.__nat.scene().t > 2);
+    await p.click('.story-pause');
+    const q1 = (await sc(p)).t; await p.waitForTimeout(2000); const q2 = (await sc(p)).t;
+    ok(Math.abs(q2 - q1) < 1e-6 && await p.getAttribute('.story-pause', 'aria-pressed') === 'true' && (await p.textContent('.story-pause')).includes('Resume'), `B: Pause holds the story at ${q1.toFixed(2)} s; the button now says Resume`);
+    await p.click('.story-pause');
+    await until(p, (t) => window.__nat.scene().t > t + 0.2, q2);
+    ok(await p.getAttribute('.story-pause', 'aria-pressed') === 'false', 'B: Resume carries on from the same moment');
     // the finder freezes the story at that moment; closing resumes from it
     await until(p, () => window.__nat.scene().t > 4);
     await p.click('.story-find'); await p.waitForSelector('body.story-finder');
@@ -126,6 +136,8 @@ const until = (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: LONG, pollin
     ok(Math.abs(end2.t - end2.to) < 1e-6, `B: the collection plays to its end (${end2.t.toFixed(2)} s) and waits for the visitor`);
     await p.waitForTimeout(1500);
     ok(Math.abs((await sc(p)).t - end2.to) < 1e-6 && await pos(p) === 'how/pickup', 'B: while waiting, the story does not move on by itself');
+    ok(await p.evaluate(() => { const r = document.getElementById('story'); return r.classList.contains('is-ready') && !r.classList.contains('is-playing'); }) && await p.isHidden('.story-pause'),
+      'B: when the action resolves, Next comes forward and Pause goes away');
     await p.click('.story-next');
     await until(p, () => window.__natShell.story.position().beatId === 'sort');
     ok(await pos(p) === 'how/sort', 'B: Next then moves on to the next beat');

@@ -19,10 +19,12 @@ export function createStory(root, { finder, assets = './assets/story/', onEnter 
   const stageEl = $('.story-stage'), progress = $('.story-progress'), eyebrow = $('.story-eyebrow'), textEl = $('.story-text');
   const actionsEl = $('.story-actions'), backBtn = $('.story-back'), nextBtn = $('.story-next'), live = $('.story-live');
   const findBtn = $('.story-find'), exitBtn = $('.story-exit'), skipBtn = $('.story-skip'), readBtn = $('.story-read'), count = $('.story-count');
+  const pauseBtn = $('.story-pause'), chapterName = $('.story-chapter-name'), titleCard = $('.story-title-card');
   const textDialog = document.getElementById('storyText');
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const CH = [...STORY.chapters, STORY.finale], LAST = CH.length - 1;     // the finale is the last "chapter"
   let pos = null, returnTo = null, stageNow = null;                         // pos: { chapter, beat } while a story exists
+  let shownChapter = -1;                                                   // the chapter whose title card last played
 
   const h = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
@@ -54,7 +56,8 @@ export function createStory(root, { finder, assets = './assets/story/', onEnter 
   STORY.chapters.forEach((c, i) => {
     const li = h('li'), b = h('button', 'story-step');
     b.type = 'button'; b.dataset.chapter = String(i);
-    b.append(h('span', 'story-step-n', String(i + 1)), h('span', 'story-step-name', c.title));
+    b.append(h('span', 'story-step-n', String(i + 1)), h('span', 'story-step-name', c.title), h('span', 'story-step-fill'));
+    li.style.setProperty('--beats', String(c.beats.length));                // a chapter's share of the rail: its number of beats
     b.setAttribute('aria-label', `Chapter ${i + 1}: ${c.title}`);
     b.addEventListener('click', () => go(i, 0, { announce: true }));
     li.append(b); progress.append(li);
@@ -71,9 +74,22 @@ export function createStory(root, { finder, assets = './assets/story/', onEnter 
     progress.querySelectorAll('.story-step').forEach((b, i) => {
       const cur = i === pos.chapter; b.classList.toggle('done', i < pos.chapter || fin); b.classList.toggle('current', cur);
       if (cur) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
+      const n = STORY.chapters[i].beats.length;
+      b.style.setProperty('--fill', `${i < pos.chapter || fin ? 100 : cur ? Math.round(((pos.beat + 1) / n) * 100) : 0}%`);
     });
-    eyebrow.textContent = fin ? 'Toy Town · the end of the story' : `Chapter ${pos.chapter + 1} of ${STORY.chapters.length} · ${ch.title}${beat.eyebrow ? ' · ' + beat.eyebrow : ''}`;
+    // the eyebrow still says it all (it is what a screen reader hears); the chapter part shows at the top instead
+    const chLabel = fin ? 'Toy Town · ' : `Chapter ${pos.chapter + 1} of ${STORY.chapters.length} · ${ch.title}${beat.eyebrow ? ' · ' : ''}`;
+    eyebrow.replaceChildren(h('span', 'sr', chLabel), document.createTextNode(fin ? 'the end of the story' : beat.eyebrow || ''));
+    chapterName.textContent = fin ? 'The end of the story' : `Chapter ${pos.chapter + 1} · ${ch.title}`;
+    if (pos.chapter !== shownChapter) {                                       // a new chapter: its title, briefly, mid-frame
+      shownChapter = pos.chapter;
+      titleCard.querySelector('.k').textContent = fin ? 'Toy Town' : `Chapter ${pos.chapter + 1}`;
+      titleCard.querySelector('.t').textContent = fin ? 'Your community' : ch.title;
+      titleCard.classList.remove('show'); void titleCard.offsetWidth; titleCard.classList.add('show');
+    }
     textEl.replaceChildren(...beat.lines.map((l, i) => h('p', i === 0 ? 'story-line lead' : 'story-line', l)));
+    textEl.classList.remove('enter'); void textEl.offsetWidth; textEl.classList.add('enter');   // the lines fade up (not with reduced motion)
+    textEl.scrollTop = 0;
     if (beat.list) {
       const ol = h('ol', 'story-list');
       for (const it of beat.list) { const li = h('li'); li.append(h('b', null, it.title), h('span', null, it.text)); ol.append(li); }
@@ -92,16 +108,35 @@ export function createStory(root, { finder, assets = './assets/story/', onEnter 
       actionsEl.append(r, m);
     }
     actionsEl.hidden = !actionsEl.children.length;
+    requestAnimationFrame(() => textEl.classList.toggle('scrolls', textEl.scrollHeight > textEl.clientHeight + 2));   // a long beat: the text scrolls, softly faded
     const lastBeat = pos.beat === ch.beats.length - 1;
     backBtn.disabled = pos.chapter === 0 && pos.beat === 0;
     nextBtn.hidden = fin;
     nextBtn.textContent = lastBeat ? ch.next : 'Next';
     count.textContent = ch.beats.length > 1 ? `${pos.beat + 1} of ${ch.beats.length}` : '';
     skipBtn.hidden = fin;
+    // a beat that plays: the controls step back until the action resolves (the world says when); others are ready at once
+    const plays = !!beat.scene.play && stageFor(beat.scene) === stages.get('shot');
+    setPlay(plays ? 'playing' : 'ready', false);
     if (announce) { live.textContent = ''; setTimeout(() => { live.textContent = `${eyebrow.textContent}. ${textEl.textContent}`; }, 40); }
     if (focusText) textEl.focus();
   }
   function go(chapter, beat, opts = {}) { pos = { chapter, beat }; render(opts); }
+  // ------------------------------------------------------------ the story playing, paused, or ready for Next
+  function setPlay(state, glow = true) {
+    root.classList.toggle('is-playing', state === 'playing' || state === 'paused');
+    root.classList.toggle('is-ready', state === 'ready' && glow);
+    root.classList.toggle('is-paused', state === 'paused');
+    pauseBtn.hidden = !(state === 'playing' || state === 'paused');
+    pauseBtn.setAttribute('aria-pressed', String(state === 'paused'));
+    pauseBtn.querySelector('.story-pause-l').textContent = state === 'paused' ? 'Resume' : 'Pause';
+  }
+  document.addEventListener('toytown:play', (e) => { if (!root.hidden) setPlay(e.detail.state === 'ended' ? 'ready' : e.detail.state); });
+  pauseBtn.addEventListener('click', () => {
+    const w = window.__natWorld; if (!w || !w.pause) return;
+    const on = pauseBtn.getAttribute('aria-pressed') !== 'true'; w.pause(on);
+    live.textContent = on ? 'Paused.' : 'Playing.';
+  });
   function next() {
     const ch = CH[pos.chapter];
     if (pos.beat < ch.beats.length - 1) go(pos.chapter, pos.beat + 1, { announce: true });
@@ -133,6 +168,7 @@ export function createStory(root, { finder, assets = './assets/story/', onEnter 
   }
   function enter({ restart = false } = {}) {
     if (!pos || restart) pos = { chapter: 0, beat: 0 };
+    shownChapter = -1;
     root.hidden = false; document.body.classList.add('story-open'); setBehind(true);
     finder.collapse();
     onEnter();

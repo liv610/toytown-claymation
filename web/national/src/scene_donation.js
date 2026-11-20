@@ -120,8 +120,20 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
   }
 
   // ---------------------------------------------------------------- the cast (Chapter 1's sculpts, rig and clips)
+  // eyelids: the eye shapes squash toward their own middle (before skinning), a blink on twos. No new geometry.
+  function eyelid(mat, geo, u) {
+    geo.computeBoundingBox(); const cy = (geo.boundingBox.min.y + geo.boundingBox.max.y) / 2;
+    const prev = mat.onBeforeCompile, key = mat.customProgramCacheKey ? mat.customProgramCacheKey() : '';
+    mat.onBeforeCompile = (sh, r) => {
+      if (prev) prev(sh, r);
+      sh.uniforms.uBlink = u;
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uBlink;')
+        .replace('#include <begin_vertex>', `#include <begin_vertex>\ntransformed.y = mix(transformed.y, ${cy.toFixed(5)}, uBlink);`);
+    };
+    mat.customProgramCacheKey = () => key + '-lid' + cy.toFixed(4);
+  }
   function makeChar(g, { scale = 1, colors = [], clip = false } = {}) {
-    const obj = skClone(g.scene);
+    const obj = skClone(g.scene), blink = { value: 0 };
     obj.scale.setScalar(scale);
     obj.traverse((o) => {
       if (!o.isMesh) return;
@@ -132,6 +144,7 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
         const felt = (m.userData && m.userData.kind === 'felt') || /Coat|Trouser/.test(m.name);
         claySurface(c, felt ? 'fabric' : 'clay', true, S * scale);
         if (!/Eye|Cheek/.test(m.name)) sculpted(c, /Skin/.test(m.name));
+        if (/Eye/.test(m.name)) eyelid(c, o.geometry, blink);
         if (clip) c.clippingPlanes = [clipPlane];
         return c;
       });
@@ -141,7 +154,7 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     const mixer = new THREE.AnimationMixer(obj), acts = {};
     for (const c of g.animations) { const a = mixer.clipAction(c); a.play(); a.setEffectiveWeight(0); acts[c.name] = a; }
     const bones = {}, rest = []; obj.traverse((o) => { if (o.isBone) { bones[o.name.replace(/\./g, '')] = o; rest.push([o, o.quaternion.clone(), o.position.clone()]); } });
-    return { obj, mixer, acts, bones, rest, scale, stride: 1.3 * scale };
+    return { obj, mixer, acts, bones, rest, scale, stride: 1.3 * scale, blink };
   }
   const marine = makeChar(gm, { clip: true });
   const parent = makeChar(gp);
@@ -183,6 +196,31 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
   const place = (o, x, z, yaw, s = 1) => { o.position.set(x, footing(x, z), z); o.rotation.set(0, yaw, 0); o.scale.setScalar(s); };
   place(wagon, WAGON[0], WAGON[1], 0.0, 1.05);
   carton.scale.setScalar(1.0);
+  // the carton: cardboard has grain and a little wear, and someone has written TOYS on its sides in marker
+  carton.traverse((o) => {
+    if (!o.isMesh || !/Cardboard|CardTape/.test(o.material.name)) return;
+    const mat = o.material, prev = mat.onBeforeCompile, key = mat.customProgramCacheKey ? mat.customProgramCacheKey() : '';
+    mat.onBeforeCompile = (sh, r) => { if (prev) prev(sh, r); if (!sh.fragmentShader.includes('varying vec3 vFP')) return;
+      sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        { vec3 q = vFP * 260.0; float a = 1.0 - smoothstep(0.35, 1.2, length(fwidth(q)));
+          diffuseColor.rgb *= mix(1.0, 0.9 + 0.14 * ffbm(q * 0.25) + 0.06 * fvn(q * vec3(0.4, 6.0, 0.4)), a); }`); };
+    mat.customProgramCacheKey = () => key + '-card';
+  });
+  { carton.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(carton), c = carton.worldToLocal(bb.getCenter(V()));
+    const lo = carton.worldToLocal(bb.min.clone()), hi = carton.worldToLocal(bb.max.clone()), size = hi.clone().sub(lo);   // (carton units)
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128; const x = cv.getContext('2d');
+    x.translate(128, 66); x.rotate(-0.06); x.fillStyle = 'rgba(62,36,24,0.86)'; x.font = '700 70px "Fraunces", Georgia, serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText('TOYS', -10, 0); x.strokeStyle = 'rgba(62,36,24,0.7)'; x.lineWidth = 4; x.beginPath(); x.moveTo(-82, 34); x.quadraticCurveTo(-10, 46, 66, 30); x.stroke();
+    x.fillStyle = 'rgba(176,42,36,0.9)'; x.beginPath(); x.moveTo(98, -6); x.bezierCurveTo(98, -20, 80, -20, 80, -8); x.bezierCurveTo(80, 2, 98, 12, 98, 18); x.bezierCurveTo(98, 12, 116, 2, 116, -8); x.bezierCurveTo(116, -20, 98, -20, 98, -6); x.fill();
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+    const dm = new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.95, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, clippingPlanes: [clipPlane] });
+    const w = Math.min(size.x, size.z) > 0 ? (size.x >= size.z ? size.x : size.z) * 0.62 : 0.2;
+    for (const sgn of [1, -1]) {
+      const d = new THREE.Mesh(new THREE.PlaneGeometry(w, w / 2), dm);
+      if (size.x >= size.z) { d.position.set(c.x, lo.y + (hi.y - lo.y) * 0.45, sgn > 0 ? hi.z + 0.003 : lo.z - 0.003); d.rotation.y = sgn > 0 ? 0 : Math.PI; }
+      else { d.position.set(sgn > 0 ? hi.x + 0.003 : lo.x - 0.003, lo.y + (hi.y - lo.y) * 0.45, c.z); d.rotation.y = sgn > 0 ? Math.PI / 2 : -Math.PI / 2; }
+      carton.add(d);
+    } }
 
   // ---------------------------------------------------------------- cutting pieces out of the street model
   // The street model merges everything of one material into one mesh (all the town's holly, all its cream wood…), so
@@ -257,6 +295,35 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
       }
       g.setAttribute('color', new THREE.BufferAttribute(col, 3));
       cob.geometry = g; cob.material.vertexColors = true; cob.material.color.set(0xffffff); cob.material.needsUpdate = true;
+      // Even pressed flat, those stones were too big: in the opening shots a dozen of them filled the foreground. The street
+      // is shown instead as a laid surface of small rounded setts (about a third of the size) with snow in the joints:
+      // one painted plane with a bump. The stone mesh stays, unseen, as the ground the puppets' feet find.
+      cob.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(cob), lo = root.worldToLocal(bb.min.clone()), hi = root.worldToLocal(bb.max.clone());
+      const SZ = 1024, cv = document.createElement('canvas'), bm = document.createElement('canvas'); cv.width = cv.height = bm.width = bm.height = SZ;
+      const x = cv.getContext('2d'), b = bm.getContext('2d'); let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      x.fillStyle = '#b8bac3'; x.fillRect(0, 0, SZ, SZ); b.fillStyle = '#000'; b.fillRect(0, 0, SZ, SZ);   // joints: snow, low
+      const R = 9, cell = SZ / R, rowOff = Array.from({ length: R }, () => rnd() * cell);
+      for (let j = 0; j < R; j++) for (let i = 0; i < R; i++) {
+        const off = rowOff[j], cx = i * cell + off + (rnd() - 0.5) * cell * 0.22, cy = j * cell + cell / 2 + (rnd() - 0.5) * cell * 0.18;
+        const w = cell * (0.34 + 0.13 * rnd()), hgt = cell * (0.32 + 0.12 * rnd()), rot = (rnd() - 0.5) * 0.8, l = 0.72 + 0.4 * rnd(), tint = rnd();
+        for (const dx of [-SZ, 0, SZ]) for (const dy of [-SZ, 0, SZ]) {                                    // (wrap at the tile's edges)
+          const px = cx + dx, py = cy + dy; if (px < -cell || px > SZ + cell || py < -cell || py > SZ + cell) continue;
+          x.save(); x.translate(px, py); x.rotate(rot);
+          const gx = x.createRadialGradient(-w * 0.25, -hgt * 0.3, 2, 0, 0, w * 1.1);
+          const r0 = Math.round((tint < 0.5 ? 150 : 132) * l), g0 = Math.round((tint < 0.5 ? 132 : 124) * l), b0 = Math.round((tint < 0.5 ? 120 : 126) * l);
+          gx.addColorStop(0, `rgb(${r0 + 22},${g0 + 20},${b0 + 18})`); gx.addColorStop(1, `rgb(${r0 - 18},${g0 - 18},${b0 - 14})`);
+          x.fillStyle = gx; x.beginPath(); x.ellipse(0, 0, w, hgt, 0, 0, Math.PI * 2); x.fill();
+          x.fillStyle = 'rgba(238,240,246,0.55)'; x.beginPath(); x.ellipse(-w * 0.15, -hgt * 0.55, w * 0.55, hgt * 0.22, 0, 0, Math.PI * 2); x.fill();   // a dusting on the top edge
+          x.restore();
+          b.save(); b.translate(px, py); b.rotate(rot); const gb = b.createRadialGradient(0, 0, 1, 0, 0, w); gb.addColorStop(0, '#fff'); gb.addColorStop(0.7, '#aaa'); gb.addColorStop(1, '#000');
+          b.fillStyle = gb; b.beginPath(); b.ellipse(0, 0, w, hgt, 0, 0, Math.PI * 2); b.fill(); b.restore();
+        }
+      }
+      const TILE = 2.3, mk = (c) => { const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set((hi.x - lo.x) / TILE, (hi.z - lo.z) / TILE); t.anisotropy = 8; return t; };
+      const map = mk(cv); map.colorSpace = THREE.SRGBColorSpace;
+      const street = new THREE.Mesh(new THREE.PlaneGeometry(hi.x - lo.x, hi.z - lo.z), new THREE.MeshStandardMaterial({ map, bumpMap: mk(bm), bumpScale: 2.5, roughness: 0.93 }));
+      street.rotation.x = -Math.PI / 2; street.position.set((lo.x + hi.x) / 2, 0.022, (lo.z + hi.z) / 2); street.receiveShadow = true; street.name = 'Setts';
+      root.add(street); cob.visible = false;
     } }
 
   // ---------------------------------------------------------------- softer snow
@@ -823,6 +890,14 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
       smoke.instanceMatrix.needsUpdate = true; }
 
     CAST.forEach(setContact);
+    // ---- facial life: everyone blinks now and then (on twos, never in step); the child screws up their eyes in a happy
+    // squint as the truck goes in, then blinks up at the parent
+    { const bl = (x, off, per) => { const u = (((x + off) % per) + per) % per; return u < 0.16 ? Math.sin(Math.PI * u / 0.16) : 0; };
+      marine.blink.value = bl(tc, 0.3, 3.9); parent.blink.value = bl(tc, 1.7, 4.3); volunteer.blink.value = bl(tc, 2.6, 4.7);
+      const squint = 0.6 * ramp(tc, T.drop1 + 0.25, T.drop1 + 0.45) * (1 - ramp(tc, T.up0 + 0.2, T.up0 + 0.45));
+      const upBlink = tc > T.up1 && tc < T.up1 + 0.16 ? Math.sin(Math.PI * (tc - T.up1) / 0.16) : 0;
+      child.blink.value = Math.max(bl(tc, 0.9, 3.4) * (tc < T.lift0 || tc > T.up1 + 0.8 ? 1 : 0), squint, upBlink);
+      for (const [p, o] of [[passer, 0.5], [passer2, 1.9], [passerKid, 3.1], [shoveller, 2.2]]) p.blink.value = bl(wc, o, 4.1); }
     Object.assign(state, { t, truck: L(truck.getWorldPosition(V())), carton: L(carton.getWorldPosition(V())), lid, door: th,
       child: L(child.obj.getWorldPosition(V())), parent: L(parent.obj.getWorldPosition(V())), marine: L(marine.obj.getWorldPosition(V())), volunteer: L(volunteer.obj.getWorldPosition(V())),
       visible: { marine: marine.obj.visible, volunteer: volunteer.obj.visible, carton: carton.visible, truck: truck.visible } });
@@ -854,9 +929,12 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     ],
   };
   // tall screens: wider, a little higher; the subject centred and the action kept in the middle third
-  SEG.tall = SEG.wide.map((s, i) => ({ t0: s.t0, t1: s.t1, cut: s.cut,
-    pos: (t) => { const p = s.pos(t), l = s.look(t), k = [1.1, 1.18, 1.35, 1.45, 1.4, 1.35, 1.35, 1.3][i]; return l.clone().add(p.clone().sub(l).multiplyScalar(k)).add(V(0, [0.75, 0.6, 0.6, 0.3, 0.3, 0.32, 0.28, 0.2][i], 0)); },   // (the donation on phones looks down from higher: lower, the volunteer's wave crossed the lens)
-    look: (t) => { const l = s.look(t).add(V(0, [0.0, 0.12, 0.02, 0.05, 0.05, 0.05, 0.08, 0.0][i], 0)); if (i === 4) { const m = marineAt(t); return l.lerp(V(m.x, 0.95, m.z), 0.4 * ease(t, 13.6, 15.2)); } if (i === 2) return l.lerp(V(2.4, 0.9, 1.75), 0.3); return l; } }));   // (the donation: the slot and the truck stay in the narrow frame)
+  // the donation on phones has its own shot: from above the volunteer's head on the hall side, looking down past the slot,
+  // so the truck, the child's face and the parent stack in the narrow frame (pulled back, the volunteer's wave crossed it)
+  const TALL_DONATION = { pos: (t) => mix3(V(1.72, 1.84, 1.16), V(1.8, 1.76, 1.26), ease(t, 7.2, 10.7)), look: (t) => mix3(V(2.72, 1.1, 2.02), V(2.78, 1.05, 2.08), ease(t, 7.2, 10.7)) };
+  SEG.tall = SEG.wide.map((s, i) => i === 2 ? { t0: s.t0, t1: s.t1, cut: s.cut, ...TALL_DONATION } : ({ t0: s.t0, t1: s.t1, cut: s.cut,
+    pos: (t) => { const p = s.pos(t), l = s.look(t), k = [1.1, 1.18, 1.35, 1.45, 1.4, 1.35, 1.35, 1.3][i]; return l.clone().add(p.clone().sub(l).multiplyScalar(k)).add(V(0, [0.75, 0.6, 0.6, 0.3, 0.3, 0.32, 0.28, 0.2][i], 0)); },
+    look: (t) => { const l = s.look(t).add(V(0, [0.0, 0.12, 0.02, 0.05, 0.05, 0.05, 0.08, 0.0][i], 0)); if (i === 4) { const m = marineAt(t); return l.lerp(V(m.x, 0.95, m.z), 0.4 * ease(t, 13.6, 15.2)); } return l; } }));
   const BLEND = 0.8;
   function segIndex(t, segs) { let i = 0; while (i < segs.length - 1 && t >= segs[i].t1) i++; return i; }
   function camera(t, { tall = innerWidth < innerHeight, reduced = false } = {}) {

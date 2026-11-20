@@ -44,7 +44,9 @@ visitor-paced beats.
   - `scene_video.js` needs `FULL=1` for full-length videos.
 - **Visual polish pass 1 (19 November):** soft, smooth-shaded snow; a painted plank drop-off box; the truck's glow from inside the box; pressed-wool puppets; a new donation close-up (the child's face, the truck over the slot, the parent watching) with its own phone framing; gold sparks.
   - The audit, the trade-offs and what's left are in `docs/MILESTONE2A.md` ("Visual polish pass 1"); before-and-after frames and clips are in `docs/milestone2a/polish/`.
-- **Still to do:** the cinematic interface (story card and chapter bar), faces and sound.
+- **2A wrap-up (20 November):** small setts, a hand-lettered carton, blinks and the child's squint, and a phone-specific donation shot. 2A is now the visual and animation benchmark.
+- **Cinematic story interface, first version (20 November):** full-bleed scene, a slim chapter rail, captions over soft veils, a red Next that comes forward when the action resolves, Pause/Resume, and its own phone layout. See `docs/CINEMATIC_INTERFACE.md`. Waiting for the owner's visual review before the sorting room.
+- **Still to do:** sound; the sorting room (next, after the interface review).
 - **Stopped here for review.** The sorting room, distribution, the railroad and the interface redesign are not started.
 
 **Previous: `experiment/phase1-build` (from `experiment/visitor-flow` at `625a80b`). Phase 1 implementation, Milestone 1:

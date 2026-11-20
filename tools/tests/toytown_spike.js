@@ -44,7 +44,7 @@ const still = async (p, path) => { await p.evaluate(() => window.__nat.pose({ ..
     const s = await st(p);
     ok(s.mode === 'shot' && s.held === 0 && await pos(p) === 'what/welcome', `A: Explore Toy Town arrives at the first story shot (${((Date.now() - t0) / 1000).toFixed(1)} s here, with a crossfade)`);
     ok(await p.evaluate(() => document.body.classList.contains('story-live') && document.getElementById('story').classList.contains('live') && !document.querySelector('.story-scene')), 'A: the beat is shown in the live 3D street, not a still');
-    ok(await focused(p) === 'story-text', 'A: focus is on the story text on arrival');
+    ok(/\bstory-text\b/.test(await focused(p)), 'A: focus is on the story text on arrival');
     ok(await p.evaluate(() => getComputedStyle(document.querySelector('.world-fade')).transitionProperty.includes('opacity')), 'A: the reduced-motion transition is a fade (opacity only)');
     await p.click('.story-next');
     await p.waitForFunction(() => window.__nat.state().held === 4.2 && window.__nat.state().mode === 'shot', null, { timeout: LONG });
@@ -84,7 +84,7 @@ const still = async (p, path) => { await p.evaluate(() => window.__nat.pose({ ..
     await p.click('#skipFlight');
     await waitMode(p, 'shot');
     await p.waitForSelector('#story:not([hidden])');
-    ok(await pos(p) === 'what/welcome' && await p.isHidden('#skipFlight') && await focused(p) === 'story-text', 'B: Skip the flight lands at the first shot; the story opens with focus on its text');
+    ok(await pos(p) === 'what/welcome' && await p.isHidden('#skipFlight') && /\bstory-text\b/.test(await focused(p)), 'B: Skip the flight lands at the first shot; the story opens with focus on its text');
     // the finder over the live street
     await p.click('.story-find');
     await p.waitForSelector('body.story-finder');

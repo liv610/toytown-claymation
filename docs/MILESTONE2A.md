@@ -135,6 +135,19 @@ and short clips are in `docs/milestone2a/polish/`.
 - sound;
 - the story card and the chapter bar still sit over the scene.
 
+## Wrap-up (20 November): Milestone 2A is the benchmark
+
+The owner approved the visual language. These last refinements close 2A, which is now the visual and animation benchmark
+for the rest of the story.
+
+- **Cobbles:** shown as a laid surface of small setts with snow in the joints (a painted plane with a bump). The large pressed stones dominated the opening shots. The stone mesh stays, unseen, as the ground the puppets' feet find, so walking heights are unchanged.
+- **Carton:** cardboard grain and a hand-lettered "TOYS ♥" on both long sides.
+- **Facial life:** everyone blinks now and then, on twos and never in step. The child screws up their eyes in a happy squint as the truck goes in, then blinks up at the parent. The eye shapes squash in the vertex shader, with no new geometry.
+- **Phone donation shot:** its own camera, from above the volunteer's head on the hall side, looking down past the slot.
+  - The truck is large and red over the slot, with the child's face and the parent above it.
+  - The volunteer's hat and wave no longer cross the frame.
+- **Checks:** `scene_m2a` sections A and C, 15 ok.
+
 **Not yet done:** the cinematic interface (the story card and the chapter bar still sit over the scene), faces and blinks, sound. The interface is the planned next step.
 
 ## Tests
