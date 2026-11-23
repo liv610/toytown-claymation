@@ -20,6 +20,7 @@ import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { loadGLB, S } from './community.js';
 import { clay as claySurface, LOOK, timeU } from './clay.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { createSorting, HALL } from './scene_sorting.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
@@ -44,7 +45,7 @@ function travel(t, t0, L, v, e = 0.6) {
 const walkTime = (L, v, e = 0.6) => L / v + e;
 
 // ------------------------------------------------------------------ the script (story time, seconds)
-export const BEATS = { donation: [0, 13.5], collection: [13.5, 28] };   // collection's end is set from the walks below
+export const BEATS = { donation: [0, 13.5], collection: [13.5, 28], sorting: [28, 48] };   // collection's end is set from the walks below; sorting's by scene_sorting.js
 const T = {
   // beat 1
   walk0: 1.0,                 // the family sets off
@@ -429,38 +430,12 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
   // the street model backs the doorway with a cream panel (the door was never meant to open): cut it away, keeping the frame
   punch('Hall_wall', -0.06, [-0.68, 0.68, 2.4]);
   punch('CreamWood', -0.08, [-0.68, 0.68, 2.4], 0.14);   // (the door's surround is a solid cream slab: the hole goes through it too)
-  // the hall's entrance room, seen through the open door (it was a flat glowing card: a white rectangle on screen).
-  // A small warm room: plaster walls over a wooden wainscot, a plank floor, a table along the back with cartons of toys
-  // waiting to be sorted, paper bunting, and a lamp hanging over it all. The lamp is the only light: it fills the room
-  // with gold and spills out through the door onto the snow, so the Marine walks in silhouetted against it.
-  const ROOM = { x: 1.1, z0: -1.95, y0: 0.27, y1: 2.8 };
+  // behind the door: the hall's sorting room (Milestone 2B, scene_sorting.js), the whole ground floor of this building,
+  // built to its measurements. (It replaces a small entrance room that was only ever seen through the door.)
+  const ROOM = { z0: HALL.z0 };
   const roomMat = (color, kind = 'clay', extra = {}) => { const m = new THREE.MeshStandardMaterial({ color, roughness: 0.9, ...extra });
     if (LOOK.felt) LOOK.townScale = S; claySurface(m, kind, false); if (LOOK.felt) LOOK.townScale = null; return m; };
-  const room = new THREE.Group(); room.name = 'HallEntrance'; root.add(room);
-  { const plaster = roomMat(0xe2bf92), wains = roomMat(0x7b4c2e, 'wood'), floorM = roomMat(0x94603a, 'wood'), ceil = roomMat(0xcfa77c);
-    const W2 = ROOM.x * 2, D = -ROOM.z0, H = ROOM.y1 - ROOM.y0, cz = ROOM.z0 / 2;
-    const quad = (w, h, m, pos, ry = 0, rx = 0) => { const q = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m); q.position.set(...pos); q.rotation.set(rx, ry, 0); q.receiveShadow = true; room.add(q); return q; };
-    const fl = quad(W2, D, floorM, [0, ROOM.y0, cz], 0, -Math.PI / 2); groundMeshes.push(fl);
-    quad(W2, D, ceil, [0, ROOM.y1, cz], 0, Math.PI / 2);
-    quad(W2, H, plaster, [0, ROOM.y0 + H / 2, ROOM.z0]);
-    quad(D, H, plaster, [-ROOM.x, ROOM.y0 + H / 2, cz], Math.PI / 2);
-    quad(D, H, plaster, [ROOM.x, ROOM.y0 + H / 2, cz], -Math.PI / 2);
-    for (const [w, x, z, ry] of [[W2, 0, ROOM.z0 + 0.02, 0], [D, -ROOM.x + 0.02, cz, Math.PI / 2], [D, ROOM.x - 0.02, cz, -Math.PI / 2]]) quad(w, 0.62, wains, [x, ROOM.y0 + 0.31, z], ry);
-    // the table along the back, cartons on it and beside it
-    const tableTop = slab(1.5, 0.06, 0.42, wains); tableTop.position.set(0, ROOM.y0 + 0.62, ROOM.z0 + 0.3); room.add(tableTop);
-    for (const [lx, lz] of [[-0.68, -0.17], [0.68, -0.17], [-0.68, 0.17], [0.68, 0.17]]) { const leg = slab(0.05, 0.6, 0.05, wains); leg.position.set(lx, ROOM.y0 + 0.3, ROOM.z0 + 0.3 + lz); room.add(leg); }
-    for (const [x, y, z, ry, sc] of [[-0.42, ROOM.y0 + 0.65, ROOM.z0 + 0.3, 0.15, 0.9], [0.38, ROOM.y0 + 0.65, ROOM.z0 + 0.28, -0.2, 0.85], [0.82, ROOM.y0, ROOM.z0 + 0.75, 0.5, 1.0], [-0.85, ROOM.y0, ROOM.z0 + 0.8, -0.3, 0.95], [-0.85, ROOM.y0 + 0.4, ROOM.z0 + 0.8, -0.15, 0.85]]) {
-      const c = prop('Carton'); room.attach(c); c.position.set(x, y, z); c.rotation.set(0, ry, 0); c.scale.setScalar(sc); }
-    // paper bunting along the back wall and down the sides
-    const flags = [0xc8302a, 0x2f6b4a, 0xf0dcae, 0xd9a93f].map((c) => roomMat(c, 'clay', { side: THREE.DoubleSide }));
-    const tri = new THREE.BufferGeometry().setFromPoints([V(-0.07, 0, 0), V(0.07, 0, 0), V(0, -0.15, 0)]); tri.computeVertexNormals();
-    for (let i = 0; i < 13; i++) { const x = -0.96 + i * 0.16, y = ROOM.y0 + 1.98 - 0.16 * Math.sin(Math.PI * i / 12); const f = new THREE.Mesh(tri, flags[i % 4]); f.position.set(x, y, ROOM.z0 + 0.04); room.add(f); }
-    // the hanging lamp: a cord, a cream shade, a warm bulb
-    const cord = slab(0.012, 0.42, 0.012, wains); cord.position.set(0, ROOM.y1 - 0.21, -0.95); room.add(cord);
-    const shade = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.14, 16, 1, true), roomMat(0xf2e3c4, 'clay', { side: THREE.DoubleSide })); shade.position.set(0, ROOM.y1 - 0.47, -0.95); room.add(shade);
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 8), new THREE.MeshStandardMaterial({ color: 0xffe0a8, emissive: 0xffc070, emissiveIntensity: 3 })); bulb.position.set(0, ROOM.y1 - 0.55, -0.95); room.add(bulb);
-  }
-  const roomLight = new THREE.PointLight(0xffb469, 0, 4.2 * S, 2); roomLight.position.set(0, ROOM.y1 - 0.62, -0.95); root.add(roomLight);
+  const roomLight = new THREE.PointLight(0xffb469, 0, 4.6 * S, 2); roomLight.position.set(0, HALL.y1 - 1.2, -1.05); root.add(roomLight);   // (the lamp just inside the door)
 
   // ---------------------------------------------------------------- lit windows: a warm room behind curtains, not a white card
   // The town's lit windows are one glowing material with no texture coordinates, and at dusk they burned out to flat
@@ -689,6 +664,8 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     T.inside = T.go0 + sIn / vMI + 0.6; T.shut0 = T.inside + 0.15; T.shut1 = T.shut0 + 1.15; T.end = T.shut1 + 1.1;
     BEATS.collection[1] = +T.end.toFixed(2); }
   const YAW_BOX = Math.PI;                                         // facing the box (towards the hall)
+  const sorting = createSorting({ V, clamp, smooth, ramp, lerp, angLerp, yawOf, curve, travel, root, group, S, makeChar, gp, gv, roomMat, slab, contact, setContact,
+    pose, walker, walkW, bend, lookAt, reach, turnBone, axes, elbowPole, W, L, marine, carton, truck, T, BEATS, groundMeshes, punch });
 
   // ---------------------------------------------------------------- one moment of the scene
   const state = {};
@@ -889,6 +866,8 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
       });
       smoke.instanceMatrix.needsUpdate = true; }
 
+    sorting.evaluate(tc, wc, { door: th });
+    if (tc >= sorting.s0) roomLight.intensity = 7 * S * S;
     CAST.forEach(setContact);
     // ---- facial life: everyone blinks now and then (on twos, never in step); the child screws up their eyes in a happy
     // squint as the truck goes in, then blinks up at the parent
@@ -900,7 +879,7 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
       for (const [p, o] of [[passer, 0.5], [passer2, 1.9], [passerKid, 3.1], [shoveller, 2.2]]) p.blink.value = bl(wc, o, 4.1); }
     Object.assign(state, { t, truck: L(truck.getWorldPosition(V())), carton: L(carton.getWorldPosition(V())), lid, door: th,
       child: L(child.obj.getWorldPosition(V())), parent: L(parent.obj.getWorldPosition(V())), marine: L(marine.obj.getWorldPosition(V())), volunteer: L(volunteer.obj.getWorldPosition(V())),
-      visible: { marine: marine.obj.visible, volunteer: volunteer.obj.visible, carton: carton.visible, truck: truck.visible } });
+      visible: { marine: marine.obj.visible, volunteer: volunteer.obj.visible, carton: carton.visible, truck: truck.visible }, ...sorting.state });
   }
 
   // ---------------------------------------------------------------- the camera: one directed path per screen shape
@@ -935,24 +914,26 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
   SEG.tall = SEG.wide.map((s, i) => i === 2 ? { t0: s.t0, t1: s.t1, cut: s.cut, ...TALL_DONATION } : ({ t0: s.t0, t1: s.t1, cut: s.cut,
     pos: (t) => { const p = s.pos(t), l = s.look(t), k = [1.1, 1.18, 1.35, 1.45, 1.4, 1.35, 1.35, 1.3][i]; return l.clone().add(p.clone().sub(l).multiplyScalar(k)).add(V(0, [0.75, 0.6, 0.6, 0.3, 0.3, 0.32, 0.28, 0.2][i], 0)); },
     look: (t) => { const l = s.look(t).add(V(0, [0.0, 0.12, 0.02, 0.05, 0.05, 0.05, 0.08, 0.0][i], 0)); if (i === 4) { const m = marineAt(t); return l.lerp(V(m.x, 0.95, m.z), 0.4 * ease(t, 13.6, 15.2)); } return l; } }));
+  // the sorting room's shots follow on (the collection's last shot ends where they begin)
+  for (const k of ['wide', 'tall']) { SEG[k][SEG[k].length - 1].t1 = sorting.s0; SEG[k].push(...sorting.shots[k]); }
   const BLEND = 0.8;
   function segIndex(t, segs) { let i = 0; while (i < segs.length - 1 && t >= segs[i].t1) i++; return i; }
   function camera(t, { tall = innerWidth < innerHeight, reduced = false } = {}) {
     const segs = tall ? SEG.tall : SEG.wide, i = segIndex(t, segs), s = segs[i];
     if (reduced) {                          // a stable composition for each segment; the story crossfades between them
-      const tm = s.t0 + (s.t1 - s.t0) * 0.62; return { pos: W(s.pos(tm)), look: W(s.look(tm)), seg: i, cut: !!s.cut };
+      const tm = s.still ?? s.t0 + (s.t1 - s.t0) * 0.62, p = s.pos(tm); return { pos: W(p), look: W(s.look(tm)), seg: i, cut: !!s.cut, flash: 0, inside: sorting.insideK(p) };
     }
     let pos = s.pos(t), look = s.look(t);
     const prev = segs[i - 1];
     if (prev && !s.cut && t < s.t0 + BLEND) { const k = smooth((t - s.t0) / BLEND); pos = prev.pos(t).lerp(pos, k); look = prev.look(t).lerp(look, k); }
-    return { pos: W(pos), look: W(look), seg: i, cut: !!s.cut };
+    return { pos: W(pos), look: W(look), seg: i, cut: !!s.cut, flash: sorting.crossing(pos), inside: sorting.insideK(pos) };
   }
 
   return {
-    group, beats: BEATS, times: T, duration: BEATS.collection[1], evaluate, camera, state, town, ground, footing,
+    group, beats: BEATS, times: T, duration: BEATS.sorting[1], evaluate, camera, state, town, ground, footing, sorting,
     probeH: (x, y, z) => { let sc = root; while (sc.parent) sc = sc.parent; const rc = new THREE.Raycaster(root.localToWorld(V(x, y, z)), V(0, 0, -1)); return rc.intersectObjects(sc.children, true).filter((h) => !h.object.isSkinnedMesh && !h.object.isPoints).slice(0, 8).map((h) => [h.object.name || h.object.type, h.object.parent && h.object.parent.name, +L(h.point).z.toFixed(3), h.object.visible]); },
     probeAll: (x, z) => { let sc = root; while (sc.parent) sc = sc.parent; const rc = new THREE.Raycaster(root.localToWorld(V(x, 1.2, z)), V(0, -1, 0)); return rc.intersectObjects(sc.children, true).slice(0, 6).map((h) => [h.object.name || h.object.type, +L(h.point).y.toFixed(3)]); },
-    cast: { marine, parent, child, volunteer },
+    cast: { marine, parent, child, volunteer, ...sorting.cast },
     clipPlane, chimneys: chimneys.length, chimneyAt: chimneys.map((c) => c.toArray().map((x) => +x.toFixed(2))),
     truckWorld: () => truck.getWorldPosition(V()),
     debugBones: () => Object.fromEntries(Object.entries(marine.bones).map(([k, b]) => [k, b.quaternion.toArray().map((x) => +x.toFixed(3))])),

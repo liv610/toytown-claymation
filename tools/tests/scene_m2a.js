@@ -95,6 +95,50 @@ const until = (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: LONG, pollin
     await ctx.close();
   }
 
+  // ------------------------------------------------------------ S. the sorting room (Milestone 2B), sampled
+  if (run('S')) {
+    const { ctx, p, errors } = await open(b, 'capture=1&q=medium');
+    const TT = await p.evaluate(() => window.__nat.sceneTimes()), t0 = TT.sort0, t1 = TT.sortEnd;
+    const tr = await p.evaluate(([a, c]) => window.__nat.sceneTrace(a, c, 1 / 30), [t0 - 1.5, t1]);
+    const trTall = await p.evaluate(([a, c]) => window.__nat.sceneTrace(a, c, 1 / 30, true), [t0 - 1.5, t1]);
+    const In = tr.filter((s) => s.t >= t0);
+    ok(Math.abs(TT.sort0 - (await p.evaluate(() => window.__nat.s2().beats.collection[1]))) < 1e-6, `S: the sorting room picks up exactly where the collection ends (${t0.toFixed(2)} s; ${(t1 - t0).toFixed(1)} s long)`);
+    // the truck: carried by the carton, then the host's hands, then the cart; never apart from its carrier
+    const sub = (a, c) => ({ x: a.x - c.x, y: (a.y || 0) - (c.y || 0), z: a.z - c.z });
+    let maxRel = 0, relAt = 0;
+    for (let i = 1; i < In.length; i++) { const t = In[i].t, k = t < TT.s_lift0 ? 'carton' : t < TT.s_place1 ? 'host' : 'crate';
+      const r = dist3(sub(In[i].truck, In[i][k]), sub(In[i - 1].truck, In[i - 1][k])); if (r > maxRel) { maxRel = r; relAt = t; } }
+    ok(maxRel < 0.1, `S: the red truck never jumps (largest move against its carrier in 1/30 s: ${maxRel.toFixed(3)} at ${relAt.toFixed(2)} s)`);
+    ok(In.every((s) => s.visible.truck && s.visible.marine && s.visible.carton), 'S: the truck, the carton and the Marine stay in the scene throughout');
+    const end = In[In.length - 1];
+    ok(dist3(end.truck, end.crate) < 0.06, `S: the truck ends in the crate of prepared toys (${dist3(end.truck, end.crate).toFixed(3)} from its place)`);
+    ok(end.cart.z < -5.5 && Math.abs(end.cart.x) < 0.3 && end.backDoor > 1.0, `S: the cart ends at the open back door (cart at ${end.cart.x.toFixed(2)}, ${end.cart.z.toFixed(2)}; door ${end.backDoor.toFixed(2)} rad)`);
+    const lifted = In.filter((s) => s.t > TT.s_lift1 && s.t < TT.s_turn0);
+    ok(lifted.length && lifted.every((s) => s.truck.y > 1.25 && dist2(s.truck, s.host) < 0.75), 'S: the host holds the truck up, clear of the carton, in front of her');
+    // people: clear of each other, of the table and the cart, and inside the room
+    const people = ['marine', 'host', 'booky', 'letterer', 'filler'];
+    let minPair = 9, pairAt = '';
+    for (const s of In) for (let i = 0; i < people.length; i++) for (let j = i + 1; j < people.length; j++) { const d = dist2(s[people[i]], s[people[j]]); if (d < minPair) { minPair = d; pairAt = `${people[i]}/${people[j]} at ${s.t.toFixed(2)} s`; } }
+    ok(minPair > 0.4, `S: nobody walks into anybody (closest: ${minPair.toFixed(2)}, ${pairAt})`);
+    const tableHit = In.find((s) => people.some((k) => Math.abs(s[k].x) < 1.35 + 0.14 && s[k].z < -2.17 + 0.14 && s[k].z > -3.07 - 0.14));
+    ok(!tableHit, 'S: nobody stands in the sorting table' + (tableHit ? ` (at ${tableHit.t.toFixed(2)} s)` : ''));
+    const inCart = (s, k) => { const dx = s[k].x - s.cart.x, dz = s[k].z - s.cart.z, c = Math.cos(-s.cart.yaw), n = Math.sin(-s.cart.yaw); const lx = dx * c + dz * n, lz = -dx * n + dz * c; return Math.abs(lx) < 0.31 + 0.15 && Math.abs(lz) < 0.43 + 0.15; };
+    const cartHit = In.find((s) => people.some((k) => inCart(s, k)));
+    ok(!cartHit, 'S: nobody walks into the cart (the Marine pushes from behind its handle)' + (cartHit ? ` (at ${cartHit.t.toFixed(2)} s)` : ''));
+    const out2 = In.find((s) => people.some((k) => s[k].x < -3.62 || s[k].x > 3.62 || s[k].z < -6.08 || s[k].z > -0.3));
+    ok(!out2, 'S: everyone stays inside the room' + (out2 ? ` (at ${out2.t.toFixed(2)} s)` : ''));
+    // the camera: smooth within shots (from the collection's last frame on); inside the room once through the window
+    for (const [name, t] of [['desktop', tr], ['phone', trTall]]) {
+      let worst = 0, wAt = 0; for (let i = 1; i < t.length; i++) { if (t[i].seg !== t[i - 1].seg && t[i].cut) continue; const d = Math.hypot(...t[i].cam.map((v, k) => v - t[i - 1].cam[k])); if (d > worst) { worst = d; wAt = t[i].t; } }
+      ok(worst < 0.02, `S ${name}: the camera glides, from the street through the window and round the room (largest move within a shot in 1/30 s: ${(worst / 0.2).toFixed(3)} town units at ${wAt.toFixed(2)} s)`);
+      ok(t.filter((s) => s.t > t0 + 5.2).every((s) => s.inside > 0.99), `S ${name}: once through the window the camera stays inside the hall`);
+    }
+    const glow = tr.map((s) => s.flash || 0), peak = Math.max(...glow), peakAt = tr[glow.indexOf(peak)].t - t0;
+    ok(peak > 0.8 && peakAt > 2.8 && peakAt < 4.8 && tr.filter((s) => s.t - t0 < 1.5 || s.t - t0 > 5.6).every((s) => !(s.flash > 0.01)), `S: a warm glow as the lens passes through the glass (peak ${peak.toFixed(2)} at +${peakAt.toFixed(2)} s), and only then`);
+    ok(errors.length === 0, 'S: no page errors ' + errors.join(' | '));
+    await ctx.close();
+  }
+
   // ------------------------------------------------------------ B. the story in the page (full motion)
   if (run('B')) {
     const { ctx, p, errors } = await open(b, 'capture=1&q=medium');
@@ -141,6 +185,9 @@ const until = (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: LONG, pollin
     await p.click('.story-next');
     await until(p, () => window.__natShell.story.position().beatId === 'sort');
     ok(await pos(p) === 'how/sort', 'B: Next then moves on to the next beat');
+    { const TTs = await p.evaluate(() => window.__nat.sceneTimes());
+      await until(p, (s0) => { const s = window.__nat.scene(); return s.playing && Math.abs(s.from - s0) < 1e-3; }, TTs.sort0);
+      const s = await sc(p); ok(Math.abs(s.to - TTs.sortEnd) < 1e-3, `B: …the sorting room plays, carrying on from the collection's last frame (${s.from.toFixed(2)} → ${s.to.toFixed(2)} s)`); }
     // Back: the collection again, from its start (after a short dip)
     await p.click('.story-back');
     await until(p, () => { const s = window.__nat.scene(); return s.playing && s.from === 13.5 && s.t < 15; });

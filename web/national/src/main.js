@@ -232,6 +232,8 @@ function zoom(f) {
 renderer.domElement.addEventListener('wheel', (e) => { e.preventDefault(); if (mode !== 'flying' && mode !== 'story') zoom(Math.exp(e.deltaY * 0.0012)); }, { passive: false });
 
 // ------------------------------------------------------------------ scale-aware look: lighting, haze, focus, occlusion, shadows
+const _warm = new THREE.Color();
+const insideOf = (p) => (p[2] < -0.2 && Math.abs(p[0]) < 3.9 ? 1 : 0);   // (a dev inspection camera, town units)
 function atmosphere(t) {
   const k = smooth((Math.log(rig.dist) - Math.log(4)) / (Math.log(260) - Math.log(4)));   // 0 = street, 1 = national
   const dusk = 1 - k;
@@ -240,6 +242,7 @@ function atmosphere(t) {
   key.intensity = lerp(0.55, 2.4 + 0.3 * W_, k); key.color.setRGB(lerp(0.75, 1.0, k), lerp(0.8, 0.88 + 0.04 * W_, k), lerp(1.0, 0.72 + 0.06 * W_, k));
   hemi.intensity = lerp(0.42, 0.72 + 0.28 * W_, k); hemi.color.setRGB(lerp(0.55, 0.88 + 0.12 * W_, k), lerp(0.62, 0.9 + 0.02 * W_, k), lerp(0.95, 1.0 - 0.18 * W_, k));
   renderer.toneMappingExposure = lerp(1.25, 1.1 + 0.1 * W_, k);
+  const ins = seq.inside || 0; key.intensity *= 1 - 0.75 * ins; hemi.intensity *= 1 - 0.62 * ins; hemi.color.lerp(_warm.setRGB(0.95, 0.78, 0.6), 0.5 * ins);
   scene.fog.color.setRGB(lerp(0.32, 0.42, k), lerp(0.33, 0.38, k), lerp(0.45, 0.42, k));
   scene.fog.density = 0.32 / (rig.dist * 7);
   const size = clamp(rig.dist * 0.85, 2.5, 640), sc = key.shadow.camera;
@@ -318,6 +321,8 @@ function wholeCountryButton() {
 const SHOTS = { arrival: 0, street: 4.2, box: ch1.beats.hold };   // story times of the Chapter 1 timeline
 let held = null;                                                    // the story time the townspeople hold, in Toy Town
 const fadeEl = document.createElement('div'); fadeEl.className = 'world-fade'; $('stage').appendChild(fadeEl);
+// the warm glow as the camera passes through a lit window into the hall (Milestone 2B)
+const glowEl = document.createElement('div'); glowEl.className = 'world-glow'; $('stage').appendChild(glowEl);
 const skipBtn = $('skipFlight'), flightLive = $('flightLive');
 function crossfade(apply) {
   fadeEl.style.transition = 'opacity 0.18s linear'; fadeEl.style.opacity = '1';
@@ -378,6 +383,7 @@ function sceneTick(dt) {
     }
     scene2.evaluate(seq.t, timeU.value);
     const cam = scene2.camera(seq.t, { reduced: REDUCED, tall: dev.tall ?? undefined });
+    glowEl.style.opacity = dev.cam ? 0 : (cam.flash || 0).toFixed(3); seq.inside = dev.cam ? insideOf(dev.cam.pos) : cam.inside || 0;
     if (REDUCED && seq.seg !== -1 && cam.seg !== seq.seg) dipNow();        // a stable composition per shot, a gentle dip between them
     seq.seg = cam.seg;
     let r = rigFrom(cam);
@@ -385,6 +391,7 @@ function sceneTick(dt) {
     if (seq.blend) { seq.blend.k = Math.min(1, seq.blend.k + dt / 0.9); r = lerpRig(seq.blend.from, r, smoother(seq.blend.k)); if (seq.blend.k >= 1) seq.blend = null; }
     Object.assign(rig, r);
   } else if (mode !== 'national' || !seq.posed) {
+    glowEl.style.opacity = 0; seq.inside = 0;
     scene2.evaluate(seq.idleT, timeU.value); seq.posed = true;           // held shots and flights: the town at the moment they show
   }                                                                       // (on the country map the town is a speck: pose it once, then skip the work)
 }
@@ -520,7 +527,7 @@ window.__nat = {
   // the scene's state sampled from t0 to t1 every dt (no rendering): positions for continuity checks, and the camera
   sceneTrace(t0, t1, dt = 1 / 30, tall = false) {
     const out = [];
-    for (let t = t0; t <= t1 + 1e-6; t += dt) { scene2.evaluate(t, 20 + t); const c = scene2.camera(t, { tall }); out.push({ ...JSON.parse(JSON.stringify(scene2.state)), cam: c.pos.toArray(), look: c.look.toArray(), seg: c.seg, cut: c.cut }); }
+    for (let t = t0; t <= t1 + 1e-6; t += dt) { scene2.evaluate(t, 20 + t); const c = scene2.camera(t, { tall }); out.push({ ...JSON.parse(JSON.stringify(scene2.state)), cam: c.pos.toArray(), look: c.look.toArray(), seg: c.seg, cut: c.cut, flash: c.flash, inside: c.inside }); }
     return out;
   },
   sceneTraceReduced(t0, t1, dt = 0.1) { const out = []; for (let t = t0; t <= t1 + 1e-6; t += dt) { const c = scene2.camera(t, { reduced: true }); out.push({ t, cam: c.pos.toArray(), seg: c.seg }); } return out; },
@@ -534,7 +541,7 @@ window.__nat = {
     applyRig(); atmosphere(20 + t); relief.update(0, 12); placePins(); composer.render(0.016);
     return renderer.domElement.toDataURL('image/jpeg', 0.9);
   },
-  sceneEnd: () => scene2.beats.collection[1],
+  sceneEnd: () => scene2.beats.sorting[1],
   sceneTimes: () => JSON.parse(JSON.stringify(scene2.times)),
   sceneDebug: (t) => { scene2.evaluate(t, 20 + t); return scene2.debugBones(); },
   scene: () => scene2 && { t: seq.t, playing: seq.playing, ff: seq.ff, from: seq.from, to: seq.to, chimneys: scene2.chimneys, chimneyAt: scene2.chimneyAt },

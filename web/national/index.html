@@ -28,6 +28,7 @@
   #stage canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; }
   /* Milestone 1 spike: flights into and out of Toy Town */
   .world-fade { position: absolute; inset: 0; background: #120f22; opacity: 0; pointer-events: none; }
+  .world-glow { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 55%, #ffe2b0, #ffb866 55%, #e08a40); opacity: 0; pointer-events: none; mix-blend-mode: screen; }
   .skip-flight { position: fixed; z-index: 12; left: 50%; translate: -50% 0; bottom: calc(28px + env(safe-area-inset-bottom, 0px)); }
   body.traveling .landing, body.traveling .controls, body.traveling .note, body.traveling .pin, body.traveling .actions { display: none !important; }
   body.story-open.flying .story-card, body.story-open.flying .story-bar { opacity: 0; pointer-events: none; transition: opacity 0.3s; }
@@ -194,7 +195,7 @@
   /* ---------------------------------------------------------------- Toy Town story: the cinematic interface
      The scene is full-bleed at every size. Type sits on two soft veils (no panels); the chapter, the progress and the
      two standing actions live at the top, the captions and the story controls at the foot, centred under the action. */
-  .story { position: fixed; inset: 0; z-index: 6; background: #120f22; --cap: #fbf3e4; --cap2: rgba(251, 243, 228, 0.84); --ghost: rgba(18, 14, 34, 0.42);
+  .story { position: fixed; inset: 0; z-index: 6; background: #120f22; --cap: #fbf3e4; --cap2: rgba(251, 243, 228, 0.84); --ghost: rgba(18, 14, 34, 0.6);
            --ghost-line: rgba(246, 236, 218, 0.34); --shadow: 0 1px 2px rgba(10, 8, 20, 0.75), 0 0 20px rgba(10, 8, 20, 0.55); }
   .story-stage { position: absolute; inset: 0; overflow: hidden; }
   .story-scene { position: absolute; inset: 0; opacity: 0; transition: opacity 0.4s ease; }
@@ -208,8 +209,8 @@
   .story-placeholder { position: absolute; right: max(22px, env(safe-area-inset-right, 0px)); top: calc(78px + env(safe-area-inset-top, 0px)); font: 700 0.62rem var(--body);
                        letter-spacing: 0.12em; text-transform: uppercase; color: rgba(246, 236, 218, 0.7); }
   .story-veil { position: absolute; left: 0; right: 0; z-index: 1; pointer-events: none; }
-  .story-veil.top { top: 0; height: calc(118px + env(safe-area-inset-top, 0px)); background: linear-gradient(rgba(14, 11, 28, 0.66), rgba(14, 11, 28, 0)); }
-  .story-veil.bottom { bottom: 0; height: 44%; background: linear-gradient(to top, rgba(14, 11, 28, 0.88), rgba(14, 11, 28, 0.62) 34%, rgba(14, 11, 28, 0)); }
+  .story-veil.top { top: 0; height: calc(118px + env(safe-area-inset-top, 0px)); background: linear-gradient(rgba(14, 11, 28, 0.78), rgba(14, 11, 28, 0.5) 55%, rgba(14, 11, 28, 0)); }
+  .story-veil.bottom { bottom: 0; height: 46%; background: linear-gradient(to top, rgba(14, 11, 28, 0.9), rgba(14, 11, 28, 0.74) 42%, rgba(14, 11, 28, 0)); }
 
   /* top: where we are in the story, and the two standing actions */
   .story-bar { position: absolute; z-index: 3; top: 0; left: 0; right: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
@@ -232,10 +233,10 @@
   .story-progress li:last-child .story-step-name { left: auto; right: 0; }
   .story-bar-actions { display: flex; align-items: center; gap: 10px; flex: none; }
   .story-find, .story-exit { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; border-radius: 999px; font: 700 0.86rem var(--body); color: var(--cap); cursor: pointer; }
-  .story-find { padding: 0 16px 0 12px; background: var(--ghost); border: 1.5px solid rgba(242, 184, 92, 0.85); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .story-find { padding: 0 16px 0 12px; background: rgba(20, 16, 38, 0.8); border: 1.5px solid rgba(242, 184, 92, 0.85); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
   .story-find svg { color: var(--gold); }
   .story-find:hover { background: rgba(242, 184, 92, 0.18); }
-  .story-exit { padding: 0 14px 0 12px; background: none; border: 1px solid transparent; color: rgba(251, 243, 228, 0.82); text-shadow: var(--shadow); }
+  .story-exit { padding: 0 14px 0 12px; background: none; border: 1px solid transparent; color: var(--cap); text-shadow: var(--shadow); }
   .story-exit:hover { border-color: var(--ghost-line); color: var(--cap); }
   .story-exit-x { font-size: 1.25rem; line-height: 1; font-weight: 400; }
 
@@ -256,7 +257,7 @@
   .story-line.lead { max-width: 30em; margin-bottom: 8px; font: 500 clamp(1.2rem, 0.92rem + 0.9vw, 1.62rem)/1.32 var(--display); color: var(--cap); text-wrap: balance; }
   .story-list { display: inline-grid; gap: 6px; margin: 6px auto 4px; padding-left: 1.4em; max-width: 36em; text-align: left; color: var(--cap2); text-shadow: var(--shadow); }
   .story-list b { color: var(--cap); } .story-list span { margin-left: 6px; font-size: 0.92rem; }
-  .story-note { margin: 6px auto 0; max-width: 40em; color: rgba(246, 236, 218, 0.7); font-size: 0.84rem; text-shadow: var(--shadow); }
+  .story-note { margin: 6px auto 0; max-width: 40em; color: rgba(246, 236, 218, 0.86); font-size: 0.84rem; text-shadow: var(--shadow); }
   .story-text.enter > * { animation: storyLine 0.7s ease; } .story-text.enter > *:nth-child(2) { animation: storyLine 0.7s 0.12s ease backwards; } .story-text.enter > *:nth-child(n+3) { animation: storyLine 0.7s 0.22s ease backwards; }
   @keyframes storyLine { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .story-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 12px; }
@@ -270,17 +271,17 @@
   .story-back[disabled] { opacity: 0.35; cursor: default; }
   .story-pause-i { width: 10px; height: 11px; border-left: 3px solid currentColor; border-right: 3px solid currentColor; }
   .story-pause[aria-pressed="true"] .story-pause-i { width: 0; height: 0; border: 0; border-left: 10px solid currentColor; border-top: 6px solid transparent; border-bottom: 6px solid transparent; }
-  .story-count { min-width: 3.4em; font: 600 0.8rem var(--body); color: rgba(246, 236, 218, 0.72); letter-spacing: 0.06em; text-shadow: var(--shadow); font-variant-numeric: tabular-nums; }
+  .story-count { min-width: 3.4em; font: 600 0.8rem var(--body); color: rgba(246, 236, 218, 0.86); letter-spacing: 0.06em; text-shadow: var(--shadow); font-variant-numeric: tabular-nums; }
   .story-next { padding: 0 24px; background: var(--holly); border: 1px solid var(--holly); color: var(--on-holly); box-shadow: 0 6px 18px rgba(150, 30, 24, 0.4); }
   .story-next:hover { background: var(--holly-hi); }
   .story-next::after { content: "→"; font-weight: 400; }
   .story-links { margin: 10px 0 0; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px 18px; font-size: 0.8rem; }
-  .story-links button { border: 0; background: none; color: rgba(246, 236, 218, 0.74); text-decoration: underline; text-underline-offset: 3px; padding: 6px 2px; min-height: 36px; text-shadow: var(--shadow); cursor: pointer; }
+  .story-links button { border: 0; background: none; color: rgba(246, 236, 218, 0.92); text-decoration: underline; text-underline-offset: 3px; padding: 6px 2px; min-height: 36px; text-shadow: var(--shadow); cursor: pointer; }
   .story-links button:hover { color: var(--cap); }
-  .story-tags { font: 700 0.62rem var(--body); letter-spacing: 0.14em; text-transform: uppercase; color: rgba(242, 184, 92, 0.85); text-shadow: var(--shadow); }
+  .story-tags { font: 700 0.62rem var(--body); letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); text-shadow: var(--shadow); }
   /* while a beat plays, the controls step back (still there, still usable); when the action resolves, Next comes forward */
   .story.is-playing .story-next { background: var(--ghost); border-color: var(--ghost-line); color: var(--cap); box-shadow: none; }
-  .story.is-playing .story-back, .story.is-playing .story-links, .story.is-playing .story-count { opacity: 0.62; }
+  .story.is-playing .story-back, .story.is-playing .story-links, .story.is-playing .story-count { opacity: 0.8; }
   .story.is-playing .story-nav:hover > *, .story.is-playing .story-nav:focus-within > *, .story.is-playing .story-links:hover, .story.is-playing .story-links:focus-within { opacity: 1; }
   .story.is-ready .story-next { animation: storyReady 1.8s ease 2; }
   @keyframes storyReady { 0%, 100% { box-shadow: 0 6px 18px rgba(150, 30, 24, 0.4), 0 0 0 0 rgba(242, 184, 92, 0); } 45% { box-shadow: 0 6px 18px rgba(150, 30, 24, 0.4), 0 0 0 8px rgba(242, 184, 92, 0.28); } }
@@ -308,15 +309,18 @@
     .story-chapter { display: contents; }
     .story-place { display: none; }
     .story-progress { grid-column: 1 / -1; grid-row: 1; }
-    .story-chapter-name { grid-row: 2; margin: 0; font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* the chapter's name is never cut off: a small gold "Chapter 2" over the full title, which may take two lines */
+    .story-chapter-name { grid-row: 2; margin: 0; display: grid; font-size: 0.86rem; line-height: 1.2; text-wrap: balance; }
+    .story-chapter-n { font: 700 0.6rem/1.3 var(--body); letter-spacing: 0.14em; text-transform: uppercase; color: #f8d38e; }
+    .story-chapter-sep { display: none; }
     .story-bar-actions { grid-row: 2; }
     .story-step { padding: 12px 0; } .story-step-fill { top: 12px; } .story-step-name { display: none; }
     .story-bar-actions { gap: 4px; }
     .story-find { min-height: 38px; padding: 0 12px 0 10px; font-size: 0.8rem; }
-    .story-exit { width: 40px; min-height: 40px; padding: 0; justify-content: center; }
+    .story-exit { width: 40px; min-height: 40px; padding: 0; justify-content: center; background: var(--ghost); }
     .story-exit-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-    .story-veil.top { height: calc(96px + env(safe-area-inset-top, 0px)); }
-    .story-veil.bottom { height: 52%; }
+    .story-veil.top { height: calc(128px + env(safe-area-inset-top, 0px)); background: linear-gradient(rgba(14, 11, 28, 0.84), rgba(14, 11, 28, 0.72) 58%, rgba(14, 11, 28, 0)); }
+    .story-veil.bottom { height: 56%; background: linear-gradient(to top, rgba(14, 11, 28, 0.92), rgba(14, 11, 28, 0.76) 45%, rgba(14, 11, 28, 0)); }
     .story-card { width: calc(100% - 24px); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
     .story-text { max-height: 27dvh; }
     .story-eyebrow { margin-bottom: 6px; font-size: 0.64rem; }
@@ -327,6 +331,7 @@
     .story-links { gap: 0 14px; margin-top: 4px; }
     .story-placeholder { top: calc(84px + env(safe-area-inset-top, 0px)); right: 18px; }
     .story-title-card { padding-bottom: 22dvh; }
+    .story-slate { place-content: start center; padding: calc(132px + env(safe-area-inset-top, 0px)) 24px 24px; }   /* (a still in development stays above the captions) */
     body.story-finder .landing { top: 0; bottom: 0; left: 0; right: 0; max-height: none; }
     body.story-finder .finder { flex: 1 1 auto; border-radius: 0; padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
   }
@@ -334,10 +339,22 @@
     .story-line.lead { font-size: 1.02rem; } .story-line { font-size: 0.86rem; } .story-text { max-height: 24dvh; }
     .story-links button { min-height: 32px; }
   }
+  @media (max-width: 360px) {
+    .story-chapter-name { display: none; }
+    .story-bar-actions { grid-column: 1 / -1; justify-content: space-between; }
+    .story-eyebrow-ch { position: static; display: block; width: auto; height: auto; margin: 0 0 3px; overflow: visible; clip-path: none; white-space: normal; color: var(--cap); letter-spacing: 0.1em; }
+  }
   /* phones held sideways: little height, so the captions sit to one side of the action */
   @media (max-height: 500px) and (orientation: landscape) {
-    .story-card { left: auto; right: max(16px, env(safe-area-inset-right, 0px)); transform: none; width: min(26rem, 46vw); text-align: left; }
-    .story-text { max-height: calc(100dvh - 190px); }
+    .story-card { left: auto; right: max(16px, env(safe-area-inset-right, 0px)); transform: none; width: min(26rem, 46vw); text-align: left;
+                  top: calc(64px + env(safe-area-inset-top, 0px)); bottom: calc(6px + env(safe-area-inset-bottom, 0px)); max-height: none; overflow: hidden;
+                  display: flex; flex-direction: column; justify-content: flex-end; }
+    .story-card > * { flex: none; }
+    .story-text { flex: 0 1 auto; min-height: 0; max-height: none; }
+    .story-actions { justify-content: flex-start; margin-top: 8px; } .story-nav { margin-top: 8px; } .story-links { margin-top: 2px; }
+    .story-place { display: none; }
+    /* a scene still in development sits in the left half, clear of the captions */
+    .story-slate { padding: 70px 50vw 24px 24px; }
     .story-card .story-nav, .story-card .story-links { justify-content: flex-start; } .story-line.lead { font-size: 1.05rem; } .story-line { font-size: 0.86rem; }
     .story-veil.bottom { height: 100%; background: linear-gradient(to left, rgba(14, 11, 28, 0.86), rgba(14, 11, 28, 0) 62%); }
   }

@@ -54,7 +54,9 @@ export async function createCommunity(scene, siteWorld, { assets = './assets/', 
   const snowU = { uT: { value: 0 }, uA: { value: 0 }, uPx: { value: 800 } };
   const flakes = new THREE.Points(sgeo, new THREE.ShaderMaterial({ transparent: true, depthWrite: false, uniforms: snowU,
     vertexShader: `attribute vec4 seed; uniform float uT, uPx; varying float vA; void main(){ vec3 p = seed.xyz; p.y = mod(p.y - (0.6 + seed.w) * 0.9 * uT, 16.0);
-      p.x += 0.35 * sin(uT * (0.5 + seed.w) + seed.w * 30.0); vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv;
+      p.x += 0.35 * sin(uT * (0.5 + seed.w) + seed.w * 30.0);
+      if (p.x > -4.1 && p.x < 4.1 && p.z > -6.6 && p.z < 0.02 && p.y < 7.4) p.y = -50.0;   // (never inside the community hall: its room is lit and dry)
+      vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv;
       gl_PointSize = clamp((0.03 + 0.04 * seed.w) * ${S.toFixed(3)} * uPx / -mv.z, 0.8, 30.0); vA = 1.0; }`,
     fragmentShader: 'uniform float uA; void main(){ float d = length(gl_PointCoord - 0.5) * 2.0; gl_FragColor = vec4(1.0, 0.97, 0.92, smoothstep(1.0, 0.55, d) * 0.85 * uA); }' }));
   flakes.frustumCulled = false; root.add(flakes);

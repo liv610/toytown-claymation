@@ -1,26 +1,290 @@
 {
-  "_about": "Named review views of the Chapter 2 scene, shared by the dev review panel (?dev=1&view=NAME) and tools/tests/review_shots.js. 'at' is story time: seconds, or a timeline mark from the scene (lid0, lidGo, door1 …) with an optional offset like 'lidGo+0.8'. 'pos'/'look' are town units; camera 'story' uses the visitor's own shot (desktop or phone composition) instead.",
-  "views": {
-    "hall-front": {"at": 10, "pos": [0, 2.7, 7.5], "look": [0, 3.3, 0], "note": "the Community Hall sign and both upper windows, straight on"},
-    "hall-angle": {"at": 10, "pos": [-3.2, 2.5, 5.6], "look": [0.6, 3.4, 0], "note": "the sign at an angle, both upper windows and their shutters"},
-    "lid-closed": {"at": "lid0", "pos": [3.3, 1.6, 2.6], "look": [2.3, 1.0, 0.9], "note": "the drop-off box, lid shut, the Marine's hand at the lip"},
-    "lid-half": {"at": "lid0+0.45", "pos": [3.25, 1.2, 0.9], "look": [2.3, 1.15, 0.9], "note": "the lid half open, from the side"},
-    "lid-open-side": {"at": "lidGo+0.8", "pos": [3.25, 1.2, 0.9], "look": [2.3, 1.15, 0.9], "note": "the lid fully open, edge-on: it must stop short of the sign"},
-    "lid-open": {"at": "lidGo+0.8", "pos": [1.5, 1.9, 2.7], "look": [2.3, 1.15, 1.0], "note": "the open lid and the sign behind it, from the street"},
-    "lid-story": {"at": "lidGo+0.8", "camera": "story", "note": "the visitor's own shot at that moment (desktop or phone)"},
-    "doorway": {"at": "door1+0.3", "pos": [0.9, 1.4, 3.4], "look": [0, 1.3, -0.8], "note": "the hall door open, the lit entrance room behind it"},
-    "doorway-story": {"at": "door1+0.3", "camera": "story", "note": "the visitor's own shot of the open door"},
-    "donation-story": {"at": "show1-0.35", "camera": "story", "note": "the child holds the truck up over the box (the visitor's shot)"},
-    "drop-story": {"at": "drop1+0.15", "camera": "story", "note": "the truck goes through the slot (the visitor's shot)"},
-    "glow-story": {"at": "up0+0.8", "camera": "story", "note": "the box glows, the child looks up (the visitor's wide shot)"},
-    "box-front": {"at": "drop1+0.6", "pos": [2.9, 1.15, 3.3], "look": [2.3, 0.6, 1.25], "note": "the drop-off box from the street: paint, trims, the slot glow"},
-    "snow-low": {"at": 9, "pos": [3.9, 0.55, 3.5], "look": [2.9, 0.35, 2.3], "note": "low over the drifts by the box: snow surface and feet"}
+ "_about": "Named review views of the Chapter 2 scene, shared by the dev review panel (?dev=1&view=NAME) and tools/tests/review_shots.js. 'at' is story time: seconds, or a timeline mark from the scene (lid0, lidGo, door1 …) with an optional offset like 'lidGo+0.8'. 'pos'/'look' are town units; camera 'story' uses the visitor's own shot (desktop or phone composition) instead.",
+ "views": {
+  "hall-front": {
+   "at": 10,
+   "pos": [
+    0,
+    2.7,
+    7.5
+   ],
+   "look": [
+    0,
+    3.3,
+    0
+   ],
+   "note": "the Community Hall sign and both upper windows, straight on"
   },
-  "groups": {
-    "hall": ["hall-front", "hall-angle"],
-    "lid": ["lid-closed", "lid-half", "lid-open-side"],
-    "door": ["doorway", "doorway-story"],
-    "donation": ["donation-story", "drop-story", "glow-story", "box-front"],
-    "snow": ["snow-low", "glow-story"]
+  "hall-angle": {
+   "at": 10,
+   "pos": [
+    -3.2,
+    2.5,
+    5.6
+   ],
+   "look": [
+    0.6,
+    3.4,
+    0
+   ],
+   "note": "the sign at an angle, both upper windows and their shutters"
+  },
+  "lid-closed": {
+   "at": "lid0",
+   "pos": [
+    3.3,
+    1.6,
+    2.6
+   ],
+   "look": [
+    2.3,
+    1.0,
+    0.9
+   ],
+   "note": "the drop-off box, lid shut, the Marine's hand at the lip"
+  },
+  "lid-half": {
+   "at": "lid0+0.45",
+   "pos": [
+    3.25,
+    1.2,
+    0.9
+   ],
+   "look": [
+    2.3,
+    1.15,
+    0.9
+   ],
+   "note": "the lid half open, from the side"
+  },
+  "lid-open-side": {
+   "at": "lidGo+0.8",
+   "pos": [
+    3.25,
+    1.2,
+    0.9
+   ],
+   "look": [
+    2.3,
+    1.15,
+    0.9
+   ],
+   "note": "the lid fully open, edge-on: it must stop short of the sign"
+  },
+  "lid-open": {
+   "at": "lidGo+0.8",
+   "pos": [
+    1.5,
+    1.9,
+    2.7
+   ],
+   "look": [
+    2.3,
+    1.15,
+    1.0
+   ],
+   "note": "the open lid and the sign behind it, from the street"
+  },
+  "lid-story": {
+   "at": "lidGo+0.8",
+   "camera": "story",
+   "note": "the visitor's own shot at that moment (desktop or phone)"
+  },
+  "doorway": {
+   "at": "door1+0.3",
+   "pos": [
+    0.9,
+    1.4,
+    3.4
+   ],
+   "look": [
+    0,
+    1.3,
+    -0.8
+   ],
+   "note": "the hall door open, the lit entrance room behind it"
+  },
+  "doorway-story": {
+   "at": "door1+0.3",
+   "camera": "story",
+   "note": "the visitor's own shot of the open door"
+  },
+  "donation-story": {
+   "at": "show1-0.35",
+   "camera": "story",
+   "note": "the child holds the truck up over the box (the visitor's shot)"
+  },
+  "drop-story": {
+   "at": "drop1+0.15",
+   "camera": "story",
+   "note": "the truck goes through the slot (the visitor's shot)"
+  },
+  "glow-story": {
+   "at": "up0+0.8",
+   "camera": "story",
+   "note": "the box glows, the child looks up (the visitor's wide shot)"
+  },
+  "box-front": {
+   "at": "drop1+0.6",
+   "pos": [
+    2.9,
+    1.15,
+    3.3
+   ],
+   "look": [
+    2.3,
+    0.6,
+    1.25
+   ],
+   "note": "the drop-off box from the street: paint, trims, the slot glow"
+  },
+  "snow-low": {
+   "at": 9,
+   "pos": [
+    3.9,
+    0.55,
+    3.5
+   ],
+   "look": [
+    2.9,
+    0.35,
+    2.3
+   ],
+   "note": "low over the drifts by the box: snow surface and feet"
+  },
+  "room-overview": {
+   "at": "s_pull0",
+   "pos": [
+    3.45,
+    3.7,
+    -0.45
+   ],
+   "look": [
+    -0.6,
+    0.7,
+    -4.2
+   ],
+   "note": "the sorting room from high in the front-right corner"
+  },
+  "room-left": {
+   "at": "s_pull0",
+   "pos": [
+    -3.45,
+    2.5,
+    -0.55
+   ],
+   "look": [
+    1.6,
+    0.9,
+    -4.6
+   ],
+   "note": "the sorting room from the front-left corner"
+  },
+  "room-back": {
+   "at": "s_pull0",
+   "pos": [
+    0.2,
+    2.6,
+    -5.6
+   ],
+   "look": [
+    -0.4,
+    1.2,
+    -0.5
+   ],
+   "note": "looking back at the front wall: windows, door, coats"
+  },
+  "sort-window-out": {
+   "at": "sort0+2.0",
+   "camera": "story",
+   "note": "nearing the hall's lit window (the visitor's shot)"
+  },
+  "sort-window-in": {
+   "at": "sort0+3.6",
+   "camera": "story",
+   "note": "just through the window, inside"
+  },
+  "sort-enter-story": {
+   "at": "s_setDown0",
+   "camera": "story",
+   "note": "the Marine brings the carton to the table"
+  },
+  "sort-reveal-story": {
+   "at": "s_lift1+0.3",
+   "camera": "story",
+   "note": "the red truck lifted into the lamplight"
+  },
+  "sort-check-story": {
+   "at": "s_turn0+0.7",
+   "camera": "story",
+   "note": "the truck looked over (tipped to see its wheels)"
+  },
+  "sort-crate-story": {
+   "at": "s_place1+0.3",
+   "camera": "story",
+   "note": "the truck laid in the crate of prepared toys"
+  },
+  "sort-room-story": {
+   "at": "s_door1",
+   "camera": "story",
+   "note": "the room at work, the back door opening"
+  },
+  "sort-handoff-story": {
+   "at": "sortEnd-0.4",
+   "camera": "story",
+   "note": "the cart at the open back door: the hand-off"
+  },
+  "sort-glass": {
+   "at": "sort0+3.0",
+   "camera": "story",
+   "note": "the lens at the window glass (the warm glow)"
+  },
+  "sort-arrive-story": {
+   "at": "sort0+4.6",
+   "camera": "story",
+   "note": "inside: the Marine walks to the table"
   }
+ },
+ "groups": {
+  "hall": [
+   "hall-front",
+   "hall-angle"
+  ],
+  "lid": [
+   "lid-closed",
+   "lid-half",
+   "lid-open-side"
+  ],
+  "door": [
+   "doorway",
+   "doorway-story"
+  ],
+  "donation": [
+   "donation-story",
+   "drop-story",
+   "glow-story",
+   "box-front"
+  ],
+  "snow": [
+   "snow-low",
+   "glow-story"
+  ],
+  "room": [
+   "room-overview",
+   "room-left",
+   "room-back"
+  ],
+  "sorting": [
+   "sort-window-out",
+   "sort-window-in",
+   "sort-glass",
+   "sort-enter-story",
+   "sort-arrive-story",
+   "sort-reveal-story",
+   "sort-check-story",
+   "sort-crate-story",
+   "sort-room-story",
+   "sort-handoff-story"
+  ]
+ }
 }

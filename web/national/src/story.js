@@ -78,9 +78,12 @@ export function createStory(root, { finder, assets = './assets/story/', onEnter 
       b.style.setProperty('--fill', `${i < pos.chapter || fin ? 100 : cur ? Math.round(((pos.beat + 1) / n) * 100) : 0}%`);
     });
     // the eyebrow still says it all (it is what a screen reader hears); the chapter part shows at the top instead
-    const chLabel = fin ? 'Toy Town · ' : `Chapter ${pos.chapter + 1} of ${STORY.chapters.length} · ${ch.title}${beat.eyebrow ? ' · ' : ''}`;
-    eyebrow.replaceChildren(h('span', 'sr', chLabel), document.createTextNode(fin ? 'the end of the story' : beat.eyebrow || ''));
-    chapterName.textContent = fin ? 'The end of the story' : `Chapter ${pos.chapter + 1} · ${ch.title}`;
+    // (on the narrowest phones the chapter part is shown here, on its own line, instead of at the top)
+    const chLabel = fin ? 'Toy Town' : `Chapter ${pos.chapter + 1} of ${STORY.chapters.length} · ${ch.title}`, rest = fin ? 'the end of the story' : beat.eyebrow || '';
+    eyebrow.replaceChildren(h('span', 'sr story-eyebrow-ch', chLabel), ...(rest ? [h('span', 'sr', ' · '), document.createTextNode(rest)] : []));
+    // (two parts, so a narrow phone can stack them: a small "Chapter 2" over the full title, never cut off)
+    chapterName.replaceChildren(...(fin ? [h('span', 'story-chapter-t', 'The end of the story')]
+      : [h('span', 'story-chapter-n', `Chapter ${pos.chapter + 1}`), h('span', 'story-chapter-sep', ' · '), h('span', 'story-chapter-t', ch.title)]));
     if (pos.chapter !== shownChapter) {                                       // a new chapter: its title, briefly, mid-frame
       shownChapter = pos.chapter;
       titleCard.querySelector('.k').textContent = fin ? 'Toy Town' : `Chapter ${pos.chapter + 1}`;
