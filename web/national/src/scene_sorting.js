@@ -359,8 +359,8 @@ export function createSorting(K) {
     const rim = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.012, 5, 24), roomMat(0xd9a93f)); rim.rotation.x = Math.PI / 2; rim.position.y = -len - 0.145; p.add(rim);
     const bulb = new THREE.Mesh(geo.sphere(0.05), bulbMat); bulb.position.y = -len - 0.12; p.add(bulb);
     return { p, len, ph: i * 1.7 }; });
-  const lampLight = (i, inten) => { const [x, z] = LAMPS[i]; const l = new THREE.PointLight(0xffb469, 0, 5.2 * S, 2); l.position.set(x, HALL.y1 - lampSwing[i].len - 0.2, z); l.userData.base = inten; root.add(l); return l; };
-  const lights = [lampLight(0, 9), lampLight(1, 9), lampLight(2, 7), lampLight(3, 6)];
+  const lampLight = (i, inten) => { const [x, z] = LAMPS[i]; const l = new THREE.PointLight(0xffb469, 0, 4.1 * S, 2); l.position.set(x, HALL.y1 - lampSwing[i].len - 0.2, z); l.userData.base = inten; root.add(l); return l; };
+  const lights = [lampLight(0, 12), lampLight(1, 12), lampLight(2, 9.5), lampLight(3, 8)];
   // garlands: felt swags across the ceiling with pennants, felt stars and string lights; they sway a little
   const garlands = [];
   const flagMats = [0xc8302a, 0x2f6b4a, 0xf0dcae, 0xd9a93f].map((c) => roomMat(c, 'fabric', { side: THREE.DoubleSide }));
@@ -390,6 +390,14 @@ export function createSorting(K) {
     const th = new THREE.Mesh(geo.cyl(0.003, 0.003, len, 4), roomMat(0xf2e3c4)); th.position.y = -len / 2; p.add(th);
     const st = new THREE.Mesh(i % 2 ? new THREE.OctahedronGeometry(0.07) : new THREE.TorusGeometry(0.06, 0.016, 5, 6), felt(i % 2 ? 0xd9a93f : 0xf4efe6)); st.position.y = -len - 0.06; st.scale.z = 0.4; p.add(st);
     hangers.push({ p, ph: rnd() * 6, f: 0.6 + 0.4 * rnd() }); }
+
+  const NSP = 12, sparks = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.014), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffc458).multiplyScalar(1.6), transparent: true, depthWrite: false }), NSP);
+  sparks.frustumCulled = false; add(sparks); const spSeed = Array.from({ length: NSP }, (_, i) => [Math.abs(Math.sin(i * 12.9898) * 43758.5453 % 1), Math.abs(Math.sin(i * 78.233) * 12543.123 % 1)]);
+  function sparkle(k, at) {       // k: 0..1 through a 1.6 s burst (outside it: none); at: town-space centre
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(); sparks.visible = k > 0 && k < 1;
+    for (let i = 0; i < NSP; i++) { const [a, b] = spSeed[i], sz = sparks.visible ? (1 - k) * (0.6 + 0.7 * b) : 0, ang = i * 2.4 + k * 2.2, r = 0.1 + 0.18 * k * a;
+      m.compose(V(at.x + Math.cos(ang) * r, at.y + 0.05 + k * (0.3 + 0.35 * b), at.z + Math.sin(ang) * r * 0.7), q, V(sz, sz, sz)); sparks.setMatrixAt(i, m); }
+    sparks.instanceMatrix.needsUpdate = true; }
 
   // ---------------------------------------------------------------- the volunteers (Chapter 1's sculpts, their own clothes)
   const host = makeChar(gv, { colors: [[/PCoat|PVest/, 0x7d3552], [/PHat/, 0xf0e2c4], [/PSkin/, 0x8d5a3b], [/PHair/, 0x2a1a12], [/PScarf/, 0xe8c55a]] });   // receives the truck
@@ -446,6 +454,7 @@ export function createSorting(K) {
     hangers.forEach((Hg) => { Hg.p.rotation.set(0.05 * Math.sin(wc * Hg.f + Hg.ph), wc * 0.3 * Hg.f + Hg.ph, 0.05 * Math.cos(wc * Hg.f * 0.8 + Hg.ph)); });
     { const m = new THREE.Matrix4(); bulbBase.forEach((p, i) => { const tw = 0.75 + 0.25 * Math.sin(wc * 1.7 + i * 2.3); m.makeScale(tw, tw, tw).setPosition(p.x, p.y, p.z); bulbs.setMatrixAt(i, m); }); bulbs.instanceMatrix.needsUpdate = true; }
     if (!on) return;
+    if (!live) sparkle(-1, V());
     const marineHead = () => marine.bones.head.getWorldPosition(V());
     const bl = (x, off, per) => { const q = (((x + off) % per) + per) % per; return q < 0.16 ? Math.sin(Math.PI * q / 0.16) : 0; };
 
@@ -508,6 +517,7 @@ export function createSorting(K) {
           tq.slerp(cart.getWorldQuaternion(new THREE.Quaternion()).multiply(new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI / 2 + 0.15)), kp); }
       } else { tp = crate; tq.copy(cart.getWorldQuaternion(new THREE.Quaternion())).multiply(new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI / 2 + 0.15)); }
       truck.position.copy(L(tp)); truck.quaternion.copy(tq); truck.updateMatrixWorld(true);
+      { const k1 = (u - U.lift1 + 0.3) / 1.6, k2 = (u - U.place1 + 0.1) / 1.6; sparkle(k1 > 0 && k1 < 1 ? k1 : k2 > 0 && k2 < 1 ? k2 : -1, L(truck.getWorldPosition(V()))); }
       // eye lines: the host; the truck; the host again (a nod); the cart
       const tw = truck.getWorldPosition(V());
       if (u < U.mWalk + 0.6) lookAt(marine, W(V(0, 1.4, -3)), 0.5);
@@ -639,7 +649,7 @@ export function createSorting(K) {
       // the room: from beside the door, the Marine bringing the carton to the table, the host coming to meet it
       sh(WT, U.pull0, V(-1.25, 1.95, -0.58), V(-1.02, 1.86, -0.78), V(0.1, 1.15, -2.85), V(0.05, 1.2, -2.8)),
       // the reveal, from the table's front-right: the host's face, the truck coming up into the lamplight, the Marine
-      sh(U.pull0, U.turn1, V(0.95, 1.48, -1.62), V(0.74, 1.44, -1.86), V(0.2, 1.3, -3.05), V(0.25, 1.32, -3.1), true),
+      sh(U.pull0, U.turn1, V(1.08, 1.56, -1.42), V(0.88, 1.52, -1.6), V(0.22, 1.4, -3.05), V(0.26, 1.42, -3.1), true),
       // to the cart: round to its front; the truck goes into the crate; a quiet moment
       sh(U.turn1, U.pat1 + 0.3, V(0.88, 1.46, -1.68), V(3.15, 1.75, -1.95), V(0.5, 1.28, -3.2), V(2.0, 1.12, -3.62), false, U.turn1, U.place0 + 0.1),
       // the room at work: wide and a little high from the front-right; the Marine comes round, the back door opens

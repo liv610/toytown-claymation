@@ -520,9 +520,15 @@ window.__nat = {
   // Milestone 2A: one frame of the animated scene at story time t (the town's own life at wall clock w)
   sceneFrame(t, w = 20 + t) {
     renderer.setAnimationLoop(null); mode = 'scene'; held = null; Object.assign(seq, { t, playing: false, blend: null });
-    scene2.evaluate(t, w); Object.assign(rig, rigFrom(scene2.camera(t, { reduced: REDUCED }))); ui('story');
+    scene2.evaluate(t, w); const cam = scene2.camera(t, { reduced: REDUCED }); Object.assign(rig, rigFrom(cam)); seq.inside = cam.inside || 0; ui('story');
     applyRig(); atmosphere(w); relief.update(0, 12); placePins(); composer.render(0.016);
-    return renderer.domElement.toDataURL('image/jpeg', 0.9);
+    if (!(cam.flash > 0.001)) return renderer.domElement.toDataURL('image/jpeg', 0.9);
+    // the warm glow at the window glass is a page overlay for visitors: drawn into the frame here, the same way
+    const c = document.createElement('canvas'), src = renderer.domElement; c.width = src.width; c.height = src.height;
+    const x = c.getContext('2d'); x.drawImage(src, 0, 0); x.globalCompositeOperation = 'screen'; x.globalAlpha = cam.flash;
+    const g = x.createRadialGradient(c.width / 2, c.height * 0.55, 0, c.width / 2, c.height * 0.55, Math.hypot(c.width, c.height) / 2);
+    g.addColorStop(0, '#ffe2b0'); g.addColorStop(0.55, '#ffb866'); g.addColorStop(1, '#e08a40'); x.fillStyle = g; x.fillRect(0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', 0.9);
   },
   // the scene's state sampled from t0 to t1 every dt (no rendering): positions for continuity checks, and the camera
   sceneTrace(t0, t1, dt = 1 / 30, tall = false) {
@@ -536,7 +542,7 @@ window.__nat = {
   sceneLook(t, pos, look, noContact = false) {
     window.__noContact = noContact;
     renderer.setAnimationLoop(null); mode = 'scene'; held = null; Object.assign(seq, { t, playing: false, blend: null });
-    scene2.evaluate(t, 20 + t); const r = scene2.town.root; r.updateMatrixWorld(true);
+    scene2.evaluate(t, 20 + t); const r = scene2.town.root; r.updateMatrixWorld(true); seq.inside = insideOf(pos);
     Object.assign(rig, rigFrom({ pos: r.localToWorld(new THREE.Vector3(...pos)), look: r.localToWorld(new THREE.Vector3(...look)) })); ui('story');
     applyRig(); atmosphere(20 + t); relief.update(0, 12); placePins(); composer.render(0.016);
     return renderer.domElement.toDataURL('image/jpeg', 0.9);

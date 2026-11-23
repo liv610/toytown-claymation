@@ -23,8 +23,12 @@ const SHOTS = (process.env.SHOTS || 'what/welcome@0,how/collect@8.5,how/collect@
     for (const s of SHOTS) {
       await p.evaluate(({ c, beat, t }) => { window.__natDev.seek(t); window.__natShell.story.goTo(c, beat); }, s);
       await p.waitForTimeout(2500);                                   // the beat starts after a short dip: let it, then hold the moment
-      await p.evaluate(({ t }) => window.__natDev.seek(t), s);
-      await p.waitForTimeout(1200);                                   // captions and transitions settle (SwiftShader can hold the page
+      for (let k = 0; k < 6; k++) {                                   // the beat's entry dip can outlast the wait under SwiftShader and
+        await p.evaluate(({ t }) => window.__natDev.seek(t), s);       // rewind the clock to the beat's start: seek until the time holds
+        await p.waitForTimeout(1200);
+        if (await p.evaluate(({ t }) => Math.abs(window.__natDev.state().t - t) < 0.05, s)) break;
+      }
+      await p.waitForTimeout(400);                                   // captions and transitions settle (SwiftShader can hold the page
       await p.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'), null, { timeout: 120000, polling: 250 }).catch(() => {});   // up: wait for them)
       const f = path.join(out, `${s.name}_${size}.jpg`);
       await p.screenshot({ path: f, type: 'jpeg', quality: 86, timeout: 600000 });

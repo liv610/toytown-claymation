@@ -7,6 +7,7 @@
 //    resumes it; Next mid-animation resolves it (fast-forward) or dips; Back replays from the start; Skip; Exit
 // C. reduced motion: the animation still plays; the camera holds steady compositions
 // D. no 3D: the beats show their stills
+// S. the sorting room (Milestone 2B), sampled: the truck's continuity, people and furniture, the camera through the window
 const { chromium } = require('playwright'); const fs = require('fs');
 const out = process.argv[2] || '.'; fs.mkdirSync(out, { recursive: true });
 const BASE = process.env.URL || 'http://localhost:8765/national/index.html';
@@ -235,6 +236,11 @@ const until = (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: LONG, pollin
     await p.click('.story-step[data-chapter="1"]');
     ok(await p.isVisible('.story-scene img') && await pos(p) === 'how/collect', 'D: map off: the donation shows its still and its description');
     ok(/red toy truck/.test(await p.textContent('.story-scene-alt')), 'D: the scene description says what happens (for screen readers and without 3D)');
+    await p.click('.story-next'); await p.click('.story-next');
+    await p.waitForFunction(() => { const i = document.querySelector('.story-scene.in img'); return i && /sorting\.jpg/.test(i.src) && i.complete && i.naturalWidth > 0; }, null, { timeout: 30000 }).catch(() => {});
+    ok(await pos(p) === 'how/sort' && await p.evaluate(() => { const i = document.querySelector('.story-scene.in img'); return !!i && /sorting\.jpg/.test(i.src) && i.naturalWidth > 0; }),
+      'D: map off: the sorting room shows its still (rendered from the same scene)');
+    ok(/red truck/.test(await p.textContent('.story-scene-alt')) && /crate/.test(await p.textContent('.story-scene-alt')), 'D: …and its description: the truck lifted out, looked over and laid in the crate');
     ok(errors.length === 0, 'D: no page errors ' + errors.join(' | '));
     await ctx.close();
   }

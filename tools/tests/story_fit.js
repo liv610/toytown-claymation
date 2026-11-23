@@ -48,13 +48,17 @@ const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
       // ---- geometry
       const geo = await p.evaluate((ins) => {
         const vis = (e) => { const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && !e.closest('[hidden]'); };
-        const els = [...document.querySelectorAll('#story button, #story .story-line, #story .story-eyebrow, #story .story-chapter-name, #story .story-tags, #story .story-list li, #story .story-note')].filter(vis);
+        const tx = document.querySelector('.story-text').getBoundingClientRect();
+        const shown = (e) => { if (!e.closest('.story-text')) return true; const r = e.getBoundingClientRect(); return r.bottom > tx.top + 2 && r.top < tx.bottom - 2; };
+        const hasText = (e) => e.tagName === 'BUTTON' || [...e.childNodes].some((n) => n.nodeType === 3 ? n.textContent.trim() : n.nodeType === 1 && getComputedStyle(n).clipPath !== 'inset(50%)' && n.textContent.trim());
+        const els = [...document.querySelectorAll('#story button, #story .story-line, #story .story-eyebrow, #story .story-chapter-name, #story .story-tags, #story .story-list li, #story .story-note')].filter(vis).filter(shown).filter(hasText);
+        const clip = (r) => { if (!r) return r; return r; };
         const W = innerWidth, H = innerHeight, out = [];
-        for (const e of els) { const r = e.getBoundingClientRect();
+        for (const e of els) { const r0 = e.getBoundingClientRect(), inT = !!e.closest('.story-text'); const r = inT ? { left: r0.left, right: r0.right, top: Math.max(r0.top, tx.top), bottom: Math.min(r0.bottom, tx.bottom) } : r0;
           if (r.left < ins.left - 0.5 || r.right > W - ins.right + 0.5 || r.top < ins.top - 0.5 || r.bottom > H - ins.bottom + 0.5) out.push(`${e.className || e.tagName} [${r.left|0},${r.top|0},${r.right|0},${r.bottom|0}]`); }
         const bar = document.querySelector('.story-bar').getBoundingClientRect(), card = document.querySelector('.story-card').getBoundingClientRect();
         const barBottom = Math.max(...[...document.querySelectorAll('.story-bar *')].filter(vis).map((e) => e.getBoundingClientRect().bottom));
-        const cardTop = Math.min(...[...document.querySelectorAll('.story-card > *')].filter(vis).map((e) => e.getBoundingClientRect().top));
+        const cardTop = Math.min(...[...document.querySelectorAll('.story-card > *')].filter(vis).filter(hasText).map((e) => e.tagName === 'DIV' && e.classList.contains('story-text') ? Math.max(e.getBoundingClientRect().top, 0) : e.getBoundingClientRect().top));
         const nm = document.querySelector('.story-chapter-name'), cut = [...nm.children, nm].some((e) => vis(e) && e.scrollWidth > e.clientWidth + 1);
         const nmR = nm.getBoundingClientRect(), act = document.querySelector('.story-bar-actions').getBoundingClientRect();
         const clash = nmR.right > act.left + 1 && nmR.bottom > act.top && nmR.top < act.bottom;
@@ -81,7 +85,8 @@ const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
               const rg = document.createRange(); rg.selectNodeContents(n); rects.push(...rg.getClientRects()); }
             const r = rects.filter((q) => q.width > 2 && q.height > 2).reduce((u, q) => u ? { left: Math.min(u.left, q.left), top: Math.min(u.top, q.top), right: Math.max(u.right, q.right), bottom: Math.max(u.bottom, q.bottom) } : { left: q.left, top: q.top, right: q.right, bottom: q.bottom }, null);
             if (!r) continue; r.width = r.right - r.left; r.height = r.bottom - r.top;   // (the text's own box, not the block's)
-            if (!(r.width > 0 && r.height > 0) || cs.visibility === 'hidden' || e.closest('[hidden]') || cs.display === 'none' || !e.textContent.trim()) continue;
+            if (e.closest('.story-text')) { const te = document.querySelector('.story-text'), t = te.getBoundingClientRect(); r.top = Math.max(r.top, t.top); r.bottom = Math.min(r.bottom, t.bottom - (te.classList.contains('scrolls') ? 22 : 0)); r.height = r.bottom - r.top; }   // (the caption's scroll fade: below it, text is hinted, not shown)
+            if (!(r.width > 0 && r.height > 2) || cs.visibility === 'hidden' || e.closest('[hidden]') || cs.display === 'none' || !e.textContent.trim() || e.closest('button[disabled]')) continue;   // (disabled controls are exempt)
             let op = 1; for (let n = e; n && n !== document.body; n = n.parentElement) op *= +getComputedStyle(n).opacity;
             const m = cs.color.match(/[\d.]+/g).map(Number), size = parseFloat(cs.fontSize), bold = +cs.fontWeight >= 700;
             // the button's own fill (if any) is part of the background: it stays in the screenshot

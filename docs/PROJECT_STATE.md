@@ -45,9 +45,27 @@ visitor-paced beats.
 - **Visual polish pass 1 (19 November):** soft, smooth-shaded snow; a painted plank drop-off box; the truck's glow from inside the box; pressed-wool puppets; a new donation close-up (the child's face, the truck over the slot, the parent watching) with its own phone framing; gold sparks.
   - The audit, the trade-offs and what's left are in `docs/MILESTONE2A.md` ("Visual polish pass 1"); before-and-after frames and clips are in `docs/milestone2a/polish/`.
 - **2A wrap-up (20 November):** small setts, a hand-lettered carton, blinks and the child's squint, and a phone-specific donation shot. 2A is now the visual and animation benchmark.
-- **Cinematic story interface, first version (20 November):** full-bleed scene, a slim chapter rail, captions over soft veils, a red Next that comes forward when the action resolves, Pause/Resume, and its own phone layout. See `docs/CINEMATIC_INTERFACE.md`. Waiting for the owner's visual review before the sorting room.
-- **Still to do:** sound; the sorting room (next, after the interface review).
-- **Stopped here for review.** The sorting room, distribution, the railroad and the interface redesign are not started.
+- **Cinematic story interface, first version (20 November):** full-bleed scene, a slim chapter rail, captions over soft veils, a red Next that comes forward when the action resolves, Pause/Resume, and its own phone layout. See `docs/CINEMATIC_INTERFACE.md`. Approved by the owner (23 November) as the working direction, together with 2A.
+
+**Current: `experiment/milestone2b` (from `experiment/milestone2a`). Milestone 2B: inside the sorting room.**
+- **Interface fixes (23 November):**
+  - chapter names stack instead of being cut off on phones (on the narrowest, the name moves into the caption's eyebrow);
+  - phone landscape gets a right-hand caption column;
+  - contrast is raised where measured short;
+  - safe areas are verified with emulated notch insets (`tools/tests/story_fit.js`).
+  - Details in `docs/CINEMATIC_INTERFACE.md`.
+- **The sorting room (23 November):** Chapter 2's third beat plays live, inside the hall's own ground floor.
+  - The camera passes through the hall's lit window.
+  - The host volunteer lifts out the red truck, looks it over and lays it in the READY crate.
+  - The Marine wheels the cart to the back door, onto the snowy yard.
+  - The room keeps working around them.
+  - See `docs/MILESTONE2B.md`.
+- **Checkpoint tests (23 November):**
+  - the full regression passed;
+  - `story_fit` (six sizes, layout + WCAG AA contrast): 520 checks ok.
+  - Preview: [Railroad of Hope](https://claude.ai/artifact/BnoagS2GRKUSGLYmYvgEkf).
+- **Stopped here for review.** Distribution (the next sequence) is not started.
+- **Still to do:** sound.
 
 **Previous: `experiment/phase1-build` (from `experiment/visitor-flow` at `625a80b`). Phase 1 implementation, Milestone 1:
 the continuous-world spike.** The owner approved the implementation plan's foundation and Milestone 1 only (plan:

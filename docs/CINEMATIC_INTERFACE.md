@@ -96,10 +96,46 @@ Phones held sideways (height 500 or less) put the captions to the right of the a
   - `finder_unit` passed;
   - `scene_m2a` sections A, C and D all ok.
 
+## Interface fixes for Milestone 2B (23 November)
+
+No redesign: the same veils, card and controls, with these corrections.
+
+- **Chapter names on narrow phones.**
+  - Phones show the chapter as two lines: a small gold kicker ("Chapter 2") above the title, which wraps instead of being cut.
+  - At 360 px wide and below, the top line hides the name and the eyebrow over the captions carries it ("Chapter 2 of 4 · How does it work?"), visible rather than screen-reader only.
+- **Contrast.**
+  - Dimmed links and tags are brighter, the dimming is lighter (opacity 0.8), and the veils behind the text are deeper.
+  - The finder pill has its own dark backing.
+- **Phone landscape** (height 500 or less):
+  - The captions and controls sit in a right-hand column under a side veil, with the text scrolling if a beat is long.
+  - The scene, or a development slate, keeps the left half.
+- **Safe areas.** Every fixed element uses `env(safe-area-inset-*)`. The test emulates notch insets in portrait and landscape.
+
+**Test: `tools/tests/story_fit.js`.**
+
+- Six sizes, each with emulated safe-area insets:
+  - desktop 1280×720;
+  - phone with notch 390×844;
+  - short phone 375×667;
+  - narrow phone 320×640;
+  - landscape with notch 844×390;
+  - short landscape 667×375.
+- At four story moments, in both the playing state (dimmed) and the ready state.
+- It checks:
+  - every control and line is inside the safe area;
+  - the captions don't touch the top bar;
+  - the chapter name is whole;
+  - the caption area needs no scrolling as a whole;
+  - the WCAG AA contrast (4.5:1) of every visible text run against the actual rendered scene behind it (the 95th-percentile background pixel, with the text hidden).
+- **Result (23 November): 520 checks, all ok.** The desktop and portrait sizes ran before the final landscape veil change, which only applies at a height of 500 or less.
+  - Lowest margins:
+    - the Next button's fixed colours, 5.07:1;
+    - "Skip story" and the eyebrow over the brightest collection frames, about 4.6:1.
+  - The first run failed in landscape: Next was off-screen and the links were too dim. The second run had two "Prototype · Draft copy" failures in short landscape. The side veil was extended past the card's edge to fix them.
+- These are SwiftShader screenshots with emulated insets. Real notched devices, Dynamic Type or large-text settings, and real browser chrome remain a validation item.
+
 ## Remaining issues
 
-- **Phones held sideways** (height 500 or less): the side-veil layout is written but not reviewed in screenshots.
-- **Chapter name on narrow phones:** at 375–390 px wide it is cut off with an ellipsis ("Chapter 2 · How do…"). The full name is in the rail's labels and in the eyebrow for screen readers.
 - **Back during a playing beat** is a ghost pill. It reads correctly but is quieter than Next. Worth confirming that this is the hierarchy wanted.
-- **Dimmed secondary controls while a beat plays:** they are still focusable and clickable. The contrast of the dimmed links has not been measured against WCAG.
-- **Not reviewed on real devices** (no GPU here). That includes the lens shift and the safe areas on notched phones.
+- **Dimmed secondary controls while a beat plays:** they are still focusable and clickable (on purpose). Their contrast now passes AA (see above).
+- **Not reviewed on real devices** (no GPU here). That includes the lens shift, and real notched phones (the safe areas are only emulated).

@@ -210,7 +210,7 @@
                        letter-spacing: 0.12em; text-transform: uppercase; color: rgba(246, 236, 218, 0.7); }
   .story-veil { position: absolute; left: 0; right: 0; z-index: 1; pointer-events: none; }
   .story-veil.top { top: 0; height: calc(118px + env(safe-area-inset-top, 0px)); background: linear-gradient(rgba(14, 11, 28, 0.78), rgba(14, 11, 28, 0.5) 55%, rgba(14, 11, 28, 0)); }
-  .story-veil.bottom { bottom: 0; height: 46%; background: linear-gradient(to top, rgba(14, 11, 28, 0.9), rgba(14, 11, 28, 0.74) 42%, rgba(14, 11, 28, 0)); }
+  .story-veil.bottom { bottom: 0; height: 48%; background: linear-gradient(to top, rgba(14, 11, 28, 0.9), rgba(14, 11, 28, 0.78) 45%, rgba(14, 11, 28, 0)); }
 
   /* top: where we are in the story, and the two standing actions */
   .story-bar { position: absolute; z-index: 3; top: 0; left: 0; right: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
@@ -346,7 +346,7 @@
   }
   /* phones held sideways: little height, so the captions sit to one side of the action */
   @media (max-height: 500px) and (orientation: landscape) {
-    .story-card { left: auto; right: max(16px, env(safe-area-inset-right, 0px)); transform: none; width: min(26rem, 46vw); text-align: left;
+    .story-card { left: auto; right: max(16px, env(safe-area-inset-right, 0px)); transform: none; width: min(26rem, 50vw); text-align: left;
                   top: calc(64px + env(safe-area-inset-top, 0px)); bottom: calc(6px + env(safe-area-inset-bottom, 0px)); max-height: none; overflow: hidden;
                   display: flex; flex-direction: column; justify-content: flex-end; }
     .story-card > * { flex: none; }
@@ -356,7 +356,8 @@
     /* a scene still in development sits in the left half, clear of the captions */
     .story-slate { padding: 70px 50vw 24px 24px; }
     .story-card .story-nav, .story-card .story-links { justify-content: flex-start; } .story-line.lead { font-size: 1.05rem; } .story-line { font-size: 0.86rem; }
-    .story-veil.bottom { height: 100%; background: linear-gradient(to left, rgba(14, 11, 28, 0.86), rgba(14, 11, 28, 0) 62%); }
+    .story-veil.bottom { height: 100%; background: linear-gradient(to left, rgba(14, 11, 28, 0.92), rgba(14, 11, 28, 0.84) 54%, rgba(14, 11, 28, 0) 76%); }
+    .story-count { display: none; } .story-nav { gap: 8px; } .story-back, .story-pause { padding: 0 13px; } .story-next { padding: 0 18px; }
   }
   .storybar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
   .chip { position: fixed; z-index: 3; left: max(16px, env(safe-area-inset-left, 0px)); top: calc(76px + env(safe-area-inset-top, 0px)); margin: 0; padding: 5px 12px; border-radius: 999px;
