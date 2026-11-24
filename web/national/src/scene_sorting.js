@@ -154,18 +154,44 @@ export function createSorting(K) {
     // (one-sided, facing out: from inside, the open doorway looks through them to the yard)
     const outFrame = new THREE.Mesh(new THREE.PlaneGeometry(bw + 0.2, bh + 0.12), trim); outFrame.position.set(0, HALL.y0 + bh / 2 + 0.03, -6.52); outFrame.rotation.y = Math.PI; add(outFrame);
     const outDoor = new THREE.Mesh(new THREE.PlaneGeometry(bw, bh), roomMat(0x2f5d46, 'wood')); outDoor.position.set(0, HALL.y0 + bh / 2, -6.535); outDoor.rotation.y = Math.PI; add(outDoor); }
-  // the yard beyond the door: a painted snowy night with a lantern, falling snow, and a cool light that spills in
-  const yardTex = canvasTex(256, 384, (x, w, h) => {
-    const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#141a38'); g.addColorStop(0.6, '#2c3766'); g.addColorStop(1, '#6f7aa8'); x.fillStyle = g; x.fillRect(0, 0, w, h);
-    for (let i = 0; i < 40; i++) { x.fillStyle = `rgba(255,255,255,${0.3 + 0.5 * rnd()})`; x.fillRect(rnd() * w, rnd() * h * 0.5, 1.5, 1.5); }
-    for (const fx of [30, 200]) { x.fillStyle = '#1d3b33'; x.beginPath(); x.moveTo(fx, 160); x.lineTo(fx - 38, 300); x.lineTo(fx + 38, 300); x.fill(); x.fillStyle = '#e9edf5'; x.beginPath(); x.moveTo(fx, 162); x.lineTo(fx - 16, 210); x.lineTo(fx + 16, 210); x.fill(); }
-    const lg = x.createRadialGradient(150, 210, 2, 150, 210, 60); lg.addColorStop(0, 'rgba(255,214,150,0.95)'); lg.addColorStop(1, 'rgba(255,190,110,0)'); x.fillStyle = lg; x.fillRect(80, 140, 140, 140);
-    x.fillStyle = '#f1f3f9'; x.beginPath(); x.moveTo(0, h - 90); x.bezierCurveTo(80, h - 120, 170, h - 80, w, h - 110); x.lineTo(w, h); x.lineTo(0, h); x.fill();
-  });
-  const yard = mesh(new THREE.PlaneGeometry(3.4, 3.1), new THREE.MeshBasicMaterial({ map: yardTex, color: new THREE.Color(0.9, 0.92, 1) })); yard.position.set(0, HALL.y0 + 1.3, -7.75); yard.castShadow = false;   // (beyond the door's outward swing)
-  const yardSnowTex = flakesTex.clone(); yardSnowTex.needsUpdate = true; yardSnowTex.repeat.set(2.5, 1.6);
-  const yardSnow = new THREE.MeshBasicMaterial({ map: yardSnowTex, transparent: true, depthWrite: false, opacity: 0 }); flakeMats.push(yardSnow);
-  { const ys = mesh(new THREE.PlaneGeometry(2.6, 2.8), yardSnow); ys.position.set(0, HALL.y0 + 1.25, -7.6); ys.castShadow = false; }
+  // the yard behind the hall, modelled (it was a painted backdrop): the town's snow carries on, with a stone step, a
+  // trodden path, a lantern on a post, a picket fence, snow-tipped felt firs and soft drifts; the town's own snow falls
+  // on it. Seen through the back door when it opens (and only then: the room group is the sorting beat's).
+  const yardG = add(new THREE.Group());
+  const snowM = roomMat(0xeef1f7, 'snow'), stoneM = roomMat(0x8d8a86), postM = roomMat(0x3b2a20, 'wood'), fenceM = roomMat(0xe9e2d3, 'wood');
+  { const g = mesh(new THREE.PlaneGeometry(9, 5.2), snowM, yardG); g.rotation.x = -Math.PI / 2; g.position.set(0, 0.012, -9.0); g.castShadow = false; }
+  { const st = mesh(new THREE.BoxGeometry(1.35, 0.13, 0.42), stoneM, yardG); st.position.set(0, 0.2, -6.8);
+    const st2 = mesh(new THREE.BoxGeometry(1.5, 0.08, 0.38), stoneM, yardG); st2.position.set(0, 0.06, -7.12);
+    const cap = mesh(new THREE.BoxGeometry(1.3, 0.025, 0.36), snowM, yardG); cap.position.set(0.04, 0.28, -6.82); cap.scale.x = 0.55; cap.position.x = 0.36; }
+  { const path = canvasTex(128, 256, (x, w, h) => {                  // a trodden path: flattened, greyer snow with footprints
+      x.clearRect(0, 0, w, h); const g = x.createLinearGradient(0, 0, w, 0); g.addColorStop(0, 'rgba(150,158,180,0)'); g.addColorStop(0.25, 'rgba(150,158,180,0.55)');
+      g.addColorStop(0.75, 'rgba(150,158,180,0.55)'); g.addColorStop(1, 'rgba(150,158,180,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+      x.fillStyle = 'rgba(110,118,140,0.5)'; for (let y = 8; y < h; y += 22) for (const fx of [46, 80]) { x.beginPath(); x.ellipse(fx + (y % 44 ? 4 : -4), y, 7, 10, 0, 0, Math.PI * 2); x.fill(); } });
+    const pm = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 3.6), new THREE.MeshStandardMaterial({ map: path, transparent: true, depthWrite: false, roughness: 1 }));
+    pm.rotation.x = -Math.PI / 2; pm.position.set(0.1, 0.02, -9.05); pm.receiveShadow = true; yardG.add(pm); }
+  // a lantern on a post beside the path, lit while the door is open
+  const lantern = new THREE.PointLight(0xffc27a, 0, 3.2 * S, 2); lantern.position.set(1.05, 1.62, -7.7); yardG.add(lantern);
+  { const post = mesh(new THREE.CylinderGeometry(0.045, 0.055, 1.5, 8), postM, yardG); post.position.set(1.05, 0.75, -7.7);
+    const box = mesh(new THREE.BoxGeometry(0.2, 0.26, 0.2), postM, yardG); box.position.set(1.05, 1.62, -7.7);
+    const glass = mesh(new THREE.BoxGeometry(0.16, 0.2, 0.21), new THREE.MeshStandardMaterial({ color: 0xffd9a0, emissive: 0xffb45a, emissiveIntensity: 1.4 }), yardG); glass.position.copy(box.position); glass.castShadow = false;
+    const glass2 = glass.clone(); glass2.scale.set(1.3, 1, 0.75); yardG.add(glass2);
+    const roof = mesh(new THREE.ConeGeometry(0.17, 0.12, 4), postM, yardG); roof.position.set(1.05, 1.81, -7.7); roof.rotation.y = Math.PI / 4;
+    const cap = mesh(new THREE.ConeGeometry(0.15, 0.06, 4), snowM, yardG); cap.position.set(1.05, 1.86, -7.7); cap.rotation.y = Math.PI / 4; }
+  // a low picket fence across the yard, snow on its rails
+  { const n = 34, x0 = -3.3, x1 = 3.3, z = -10.3, pk = new THREE.InstancedMesh(new THREE.BoxGeometry(0.07, 0.62, 0.04).translate(0, 0.31, 0), fenceM, n);
+    const m4 = new THREE.Matrix4(); for (let k = 0; k < n; k++) { m4.makeRotationY((rnd() - 0.5) * 0.06); m4.setPosition(x0 + (x1 - x0) * k / (n - 1), 0, z + (rnd() - 0.5) * 0.03); pk.setMatrixAt(k, m4); }
+    pk.castShadow = true; pk.receiveShadow = true; yardG.add(pk);
+    for (const y of [0.2, 0.47]) { const r = mesh(new THREE.BoxGeometry(x1 - x0 + 0.1, 0.05, 0.03), fenceM, yardG); r.position.set(0, y, z - 0.035);
+      const sc = mesh(new THREE.BoxGeometry(x1 - x0 + 0.1, 0.03, 0.06), snowM, yardG); sc.position.set(0, y + 0.035, z - 0.035); } }
+  // felt firs, snow on their tiers, at different depths (the doorway shows them moving against each other)
+  for (const [fx, fz, h] of [[-1.55, -8.3, 1.5], [2.05, -9.2, 1.9], [-0.55, -9.9, 2.2], [-2.6, -9.6, 1.7], [0.95, -11.2, 2.4]]) {
+    const trunk = mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.25, 6), postM, yardG); trunk.position.set(fx, 0.12, fz);
+    for (let k = 0; k < 3; k++) { const r = h * (0.34 - k * 0.08), hh = h * 0.42, y = 0.2 + k * h * 0.24;
+      const c = mesh(new THREE.ConeGeometry(r, hh, 10), felt(0x2f6b4a), yardG); c.position.set(fx, y + hh / 2, fz);
+      const sn = mesh(new THREE.ConeGeometry(r * 0.62, hh * 0.38, 10), snowM, yardG); sn.position.set(fx, y + hh * 0.86, fz); } }
+  // soft drifts against the wall and the fence
+  for (const [dx, dz, sx, sz] of [[-1.6, -6.72, 1.1, 0.35], [1.7, -6.72, 1.3, 0.4], [-2.4, -10.05, 1.4, 0.4], [2.2, -10.05, 1.6, 0.42], [1.5, -8.6, 0.6, 0.5]]) {
+    const d = mesh(new THREE.SphereGeometry(1, 14, 8), snowM, yardG); d.scale.set(sx, 0.16, sz); d.position.set(dx, 0, dz); d.castShadow = false; }
   const coldLight = new THREE.PointLight(0x9fb4ff, 0, 4.5 * S, 2); coldLight.position.set(0, HALL.y0 + 1.6, -6.7); root.add(coldLight);
 
   // ---------------------------------------------------------------- felt toys, many of them (a few instanced templates)
@@ -408,9 +434,10 @@ export function createSorting(K) {
   VOLS.forEach((M) => contact(M, false));
 
   // ---------------------------------------------------------------- the script (u = seconds into the sorting beat)
-  // (the Marine stands a moment inside the door while the camera comes in through the window, then walks to the table)
-  const U = { mWalk: 3.2, setDown0: 5.5, setDown1: 6.5, nod: 7.1, pull0: 6.9, pull1: 7.7, lift0: 8.1, lift1: 9.1, turn0: 10.1, turn1: 11.5,
-    hWalk: 12.5, place0: 13.8, place1: 14.7, pat0: 14.8, pat1: 15.9, mGo: 15.3, door0: 16.4, door1: 17.8, push0: 18.8 };
+  // (the collection leaves the Marine just inside the open door; the camera follows him in and he walks on to the table)
+  const U = Object.fromEntries(Object.entries({ mWalk: 3.2, setDown0: 5.5, setDown1: 6.5, nod: 7.1, pull0: 6.9, pull1: 7.7, lift0: 8.1, lift1: 9.1, turn0: 10.1, turn1: 11.5,
+    hWalk: 12.5, place0: 13.8, place1: 14.7, pat0: 14.8, pat1: 15.9, mGo: 15.3, door0: 16.4, door1: 17.8, push0: 18.8 }).map(([k, v]) => [k, +(v - 1.4).toFixed(2)]));
+  U.mWalk = 0.3;                                            // he walks on at once: the camera follows, never closing on his back
   const HOST = V(0.35, 0, -3.28), HOST_CART = V(1.6, 0, -3.62), HOST_ASIDE = V(2.62, 0, -4.9);
   const M_ENTRY = V(0, 0, -0.9), M_TABLE = V(-0.18, 0, -1.92);
   const M1 = curve([[M_ENTRY.x, M_ENTRY.z], [-0.08, -1.35], [M_TABLE.x, M_TABLE.z]]), LM1 = M1.getLength();
@@ -461,7 +488,7 @@ export function createSorting(K) {
     // ---- the cart and the back door
     const ca = cartAt(u); cart.position.set(ca.p.x, HALL.y0, ca.p.z); cart.rotation.y = ca.yaw - Math.PI; cart.updateMatrixWorld(true);
     const bth = live ? backAngle(u) : 0; backPivot.rotation.y = bth;
-    const opened = clamp(bth / 1.2); coldLight.intensity = 4 * S * S * opened; yardSnow.opacity = 0.85 * opened;
+    const opened = clamp(bth / 1.2); coldLight.intensity = 4 * S * S * opened; lantern.intensity = 5 * S * S * opened;
 
     // ---- the host's body first: the truck she holds is placed from her pose (her arms follow it below)
     { let p = HOST.clone(), y = 0, wv = 0, ph = 0;
@@ -629,45 +656,59 @@ export function createSorting(K) {
   const state = {};
 
   // ---------------------------------------------------------------- the camera's shots in the room (absolute story time)
-  // Through the window: from the collection's last frame the camera drifts left along the hall's front to its lit window,
-  // eases in, and passes through the glass into the room (a warm glow at the moment of crossing); then the room.
+  // One continuous camera. The collection ends at the open front door, looking past the Marine into the warm room; the
+  // sorting beat follows him in over the threshold and round to the table. Between the room's compositions the camera
+  // glides (no cuts): each shot's `glide` is how long it takes to come round from the one before.
   const ease = (t, a, b) => smooth((t - a) / (b - a));
   const mix3 = (a, b, k) => a.clone().lerp(b, k);
   const A = (u) => s0 + u;
-  const WIN_PATH = new THREE.CatmullRomCurve3([V(1.3, 1.48, 2.7), V(-0.55, 1.58, 3.25), V(-1.85, 1.5, 2.5), V(-2.3, 1.4, 1.25), V(-2.33, 1.38, 0.3), V(-2.3, 1.42, -0.35),
-    V(-1.95, 1.7, -0.75), V(-1.25, 1.95, -0.58)], false, 'centripetal');
-  const WIN_LOOK = [[0, V(0, 1.3, 0.05)], [0.32, V(-2.15, 1.45, 0.1)], [0.6, V(-2.34, 1.38, -0.9)], [0.74, V(-1.6, 1.35, -2.6)], [1, V(0.1, 1.15, -2.85)]];
-  const lookAlong = (k) => { let i = 0; while (i < WIN_LOOK.length - 2 && k > WIN_LOOK[i + 1][0]) i++; const [k0, a] = WIN_LOOK[i], [k1, b] = WIN_LOOK[i + 1]; return mix3(a, b, smooth((k - k0) / (k1 - k0))); };
-  // a slow drift along the hall's front that eases in towards the glowing window (the window stays a window, not a
-  // wall of light, until the last moment), a held breath, then through and round to the table
-  const WT = 5.4, winK = (t) => { const u = t - A(0); return u < 2.6 ? 0.5 * smooth(u / 2.6) : 0.5 + 0.5 * smooth((u - 2.6) / (WT - 2.6)); };
-  const sh = (a, b, p0, p1, l0, l1, cut = false, e0 = a, e1 = b) => ({ t0: A(a), t1: b === null ? END + 0.3 : A(b), cut,
+  // where the collection's last shot rests (wide), and the tall (phone) version of it: kept equal to scene_donation's
+  // last collection segment and its tall rule (distance × 1.3, up 0.22, look up 0.04)
+  const P_E = V(0.2, 1.5, 1.55), L_E = V(0, 1.25, -1.5);
+  const P_Et = L_E.clone().add(P_E.clone().sub(L_E).multiplyScalar(1.3)).add(V(0, 0.22, 0)), L_Et = L_E.clone().add(V(0, 0.04, 0));
+  const C1 = [V(1.3, 2.35, -0.82), V(1.18, 2.22, -1.0), V(0.1, 1.15, -2.85), V(0.05, 1.2, -2.8)];
+  const ET = 3.8;                                           // the walk in: the camera crosses the threshold about 1.5 s in
+  // timed key positions, cubic Hermite in time (at rest only at the very start and end: no stop between the walk in and
+  // the drift beside the table)
+  const keyPath = (keys) => (t) => {
+    if (t <= keys[0][0]) return keys[0][1].clone(); const n = keys.length - 1; if (t >= keys[n][0]) return keys[n][1].clone();
+    let i = 0; while (t > keys[i + 1][0]) i++;
+    const [t0, p0] = keys[i], [t1, p1] = keys[i + 1], h = t1 - t0, u = (t - t0) / h;
+    const tan = (j) => (j === 0 || j === n ? V() : keys[j + 1][1].clone().sub(keys[j - 1][1]).multiplyScalar(1 / (keys[j + 1][0] - keys[j - 1][0])));
+    const m0 = tan(i).multiplyScalar(h), m1 = tan(i + 1).multiplyScalar(h), u2 = u * u, u3 = u2 * u;
+    return p0.clone().multiplyScalar(2 * u3 - 3 * u2 + 1).add(m0.multiplyScalar(u3 - 2 * u2 + u)).add(p1.clone().multiplyScalar(-2 * u3 + 3 * u2)).add(m1.multiplyScalar(u3 - u2));
+  };
+  const entry = (pts, l0, l1) => { const T1 = U.pull0 - 1.0, kp = keyPath([[A(0), pts[0]], [A(1.2), pts[1]], [A(2.3), pts[2]], [A(3.1), pts[3]], [A(ET), pts[4]], [A(T1), pts[5]]]);
+    return { t0: A(0), t1: A(T1), still: A(ET), pos: kp, look: (t) => mix3(l0, l1, smooth(clamp(((t - A(0)) - 0.4) / (ET + 0.8)))) }; };
+  const sh = (a, b, p0, p1, l0, l1, glide = 0, e0 = a, e1 = b) => ({ t0: A(a), t1: b === null ? END + 0.3 : A(b), glide,
     pos: (t) => mix3(p0, p1, ease(t, A(e0), e1 === null ? END : A(e1))), look: (t) => mix3(l0, l1, ease(t, A(e0), e1 === null ? END : A(e1))) });
   const shots = {
     wide: [
-      { t0: A(0), t1: A(WT), still: A(WT), pos: (t) => WIN_PATH.getPointAt(winK(t)), look: (t) => lookAlong(winK(t)) },
-      // the room: from beside the door, the Marine bringing the carton to the table, the host coming to meet it
-      sh(WT, U.pull0, V(-1.25, 1.95, -0.58), V(-1.02, 1.86, -0.78), V(0.1, 1.15, -2.85), V(0.05, 1.2, -2.8)),
+      // in through the door behind the Marine, and round to the table's front-right: he brings the carton to the table
+      // (seen three-quarter, beside him, not over his back), the host comes to meet it
+      entry([P_E, V(0.18, 1.72, 0.8), V(0.22, 2.08, -0.2), V(0.75, 2.28, -0.58), C1[0], C1[1]], L_E, C1[3]),
       // the reveal, from the table's front-right: the host's face, the truck coming up into the lamplight, the Marine
-      sh(U.pull0, U.turn1, V(1.08, 1.56, -1.42), V(0.88, 1.52, -1.6), V(0.22, 1.4, -3.05), V(0.26, 1.42, -3.1), true),
+      sh(U.pull0 - 1.0, U.turn1, V(1.08, 1.56, -1.42), V(0.88, 1.52, -1.6), V(0.22, 1.4, -3.05), V(0.26, 1.42, -3.1), 1.6, U.pull0 + 0.6, U.turn1),
       // to the cart: round to its front; the truck goes into the crate; a quiet moment
-      sh(U.turn1, U.pat1 + 0.3, V(0.88, 1.46, -1.68), V(3.15, 1.75, -1.95), V(0.5, 1.28, -3.2), V(2.0, 1.12, -3.62), false, U.turn1, U.place0 + 0.1),
+      sh(U.turn1, U.pat1 - 0.3, V(0.88, 1.46, -1.68), V(3.15, 1.75, -1.95), V(0.5, 1.28, -3.2), V(2.0, 1.12, -3.62), 0, U.turn1, U.place0 + 0.1),
       // the room at work: wide and a little high from the front-right; the Marine comes round, the back door opens
-      sh(U.pat1 + 0.3, U.push0 + 0.2, V(3.2, 2.45, -0.75), V(3.05, 2.38, -0.95), V(0.6, 1.05, -4.1), V(0.5, 1.05, -4.4), true),
+      sh(U.pat1 - 0.3, U.push0 - 0.6, V(3.2, 2.45, -0.75), V(3.05, 2.38, -0.95), V(0.6, 1.05, -4.1), V(0.5, 1.05, -4.4), 1.4, U.pat1 + 1.1),
       // the hand-off: the cart rolls to the open back door and the snowy night; the host watches, a hand on her heart
-      sh(U.push0 + 0.2, null, V(-1.55, 2.7, -3.55), V(-1.72, 2.62, -3.95), V(0.7, 0.95, -5.1), V(0.15, 0.95, -5.9), true),
+      sh(U.push0 - 0.6, null, V(-1.55, 2.6, -3.55), V(-1.72, 2.55, -3.95), V(0.7, 0.95, -5.1), V(0.15, 0.95, -5.9), 2.2, U.push0 + 1.6, null),
     ],
   };
   // phones: the same shots from a little further back and higher (inside the room), so the action fits a tall frame
   const inRoom = (p) => V(clamp(p.x, HALL.x0 + 0.25, HALL.x1 - 0.25), Math.min(p.y, HALL.y1 - 0.45), clamp(p.z, HALL.z0 + 0.3, -0.35));
   const tallify = (seg, k, up) => ({ ...seg, pos: (t) => { const p = seg.pos(t), l = seg.look(t); return inRoom(l.clone().add(p.clone().sub(l).multiplyScalar(k)).add(V(0, up, 0))); } });
+  const tallC1 = tallify(sh(ET, U.pull0 - 1.0, C1[0], C1[1], C1[2], C1[3]), 1.12, 0.2);
   shots.tall = [
-    { ...shots.wide[0], pos: (t) => WIN_PATH.getPointAt(winK(t)).add(V(0, 0.05, 0)) },
-    tallify(shots.wide[1], 1.12, 0.2), tallify(shots.wide[2], 1.25, 0.18), tallify(shots.wide[3], 1.25, 0.2), tallify(shots.wide[4], 1.0, 0.25), tallify(shots.wide[5], 1.2, 0.22),
+    entry([P_Et, V(0.2, 1.95, 0.85), V(0.24, 2.25, -0.2), V(0.8, 2.45, -0.58), tallC1.pos(A(ET)), tallC1.pos(A(U.pull0 - 1.0))], L_Et, C1[3]),
+    tallify(shots.wide[1], 1.25, 0.18), tallify(shots.wide[2], 1.25, 0.2), tallify(shots.wide[3], 1.0, 0.25), tallify(shots.wide[4], 1.2, 0.22),
   ];
-  // the warm glow as the lens crosses the window glass, and how far inside the hall the camera is (for the lighting)
-  const crossing = (p) => { const nearWin = Math.abs(p.x + 2.6) < 0.7 && p.y > 0.7 && p.y < 2.5; const dz = p.z + 0.05; return nearWin ? 0.92 * Math.pow(smooth(1 - (dz > 0 ? dz / 0.85 : -dz / 0.5)), 1.6) : 0; };
-  const insideK = (p) => smooth(clamp(-p.z / 0.3)) * (p.x > HALL.x0 - 0.1 && p.x < HALL.x1 + 0.1 ? 1 : 0);
+  // (no glow any more: the camera walks in through the open door); how far inside the hall it is, for the lighting:
+  // the room's warmth takes over over the last steps outside the door and the first inside
+  const crossing = () => 0;
+  const insideK = (p) => smooth(clamp((0.45 - p.z) / 1.0)) * (p.x > HALL.x0 - 0.1 && p.x < HALL.x1 + 0.1 ? 1 : 0);
 
   return { group: room, evaluate, state, shots, crossing, insideK, beats: BEATS, end: END, cast: { host, booky, letterer, filler }, cart, U, s0 };
 }

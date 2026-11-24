@@ -7,7 +7,7 @@
 //    resumes it; Next mid-animation resolves it (fast-forward) or dips; Back replays from the start; Skip; Exit
 // C. reduced motion: the animation still plays; the camera holds steady compositions
 // D. no 3D: the beats show their stills
-// S. the sorting room (Milestone 2B), sampled: the truck's continuity, people and furniture, the camera through the window
+// S. the sorting room (Milestone 2B), sampled: the truck's continuity, people and furniture, the camera in through the door
 const { chromium } = require('playwright'); const fs = require('fs');
 const out = process.argv[2] || '.'; fs.mkdirSync(out, { recursive: true });
 const BASE = process.env.URL || 'http://localhost:8765/national/index.html';
@@ -27,6 +27,12 @@ async function open(b, query, { reducedMotion = 'no-preference', viewport = { wi
   if (waitMap) await p.waitForFunction(() => window.__natWorld && window.__nat, null, { timeout: LONG, polling: 500 });
   return { ctx, p, errors };
 }
+const camSmooth = (t) => {          // the camera never cuts and never lurches: its step and its change of velocity per 1/30 s
+  let step = 0, sAt = 0, dv = 0, dAt = 0;
+  for (let i = 1; i < t.length; i++) { const d = Math.hypot(...t[i].cam.map((v, k) => v - t[i - 1].cam[k])); if (d > step) { step = d; sAt = t[i].t; }
+    if (i + 1 < t.length) { const a = Math.hypot(...t[i].cam.map((v, k) => t[i + 1].cam[k] - 2 * v + t[i - 1].cam[k])); if (a > dv) { dv = a; dAt = t[i].t; } } }
+  return { cuts: t.filter((s) => s.cut).length, step, sAt, dv, dAt };
+};
 const sc = (p) => p.evaluate(() => window.__nat.scene());
 const pos = (p) => p.evaluate(() => { const s = window.__natShell.story.position(); return s && `${s.chapterId}/${s.beatId}`; });
 const until = (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: LONG, polling: 200 });
@@ -87,10 +93,10 @@ const until = (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: LONG, pollin
     const segDist = (pt, [a, c]) => { const vx = c.x - a.x, vz = c.z - a.z, k = Math.max(0, Math.min(1, ((pt.x - a.x) * vx + (pt.z - a.z) * vz) / (vx * vx + vz * vz))); return Math.hypot(pt.x - a.x - k * vx, pt.z - a.z - k * vz); };
     let doorMin = 9; for (const s of tr) if (s.door > 0.05) { doorMin = Math.min(doorMin, segDist(s.volunteer, doorSeg(s.door)), s.visible.marine ? segDist(s.marine, doorSeg(s.door)) : 9); }
     ok(doorMin > 0.22, `A: nobody walks through the open door (closest: ${doorMin.toFixed(2)})`);
-    // the camera: smooth within shots (cuts only where the film cuts)
+    // the camera: one continuous move, no cuts, no lurches (a cut used to change its velocity by about 1 per frame)
     for (const [name, t] of [['desktop', tr], ['phone', trTall]]) {
-      let worst = 0, wAt = 0; for (let i = 1; i < t.length; i++) { if (t[i].seg !== t[i - 1].seg && t[i].cut) continue; const d = Math.hypot(...t[i].cam.map((v, k) => v - t[i - 1].cam[k])); if (d > worst) { worst = d; wAt = t[i].t; } }
-      ok(worst < 0.02, `A ${name}: the camera glides (largest move within a shot in 1/30 s: ${(worst / 0.2).toFixed(3)} town units at ${wAt.toFixed(2)} s)`);
+      const c = camSmooth(t);
+      ok(c.cuts === 0 && c.step < 0.05 && c.dv < 0.006, `A ${name}: the camera glides, no cuts (${c.cuts}); largest step ${(c.step / 0.2).toFixed(3)} town units at ${c.sAt.toFixed(2)} s; largest change of velocity ${(c.dv / 0.2).toFixed(4)} at ${c.dAt.toFixed(2)} s`);
     }
     ok(errors.length === 0, 'A: no page errors ' + errors.join(' | '));
     await ctx.close();
@@ -128,14 +134,18 @@ const until = (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: LONG, pollin
     ok(!cartHit, 'S: nobody walks into the cart (the Marine pushes from behind its handle)' + (cartHit ? ` (at ${cartHit.t.toFixed(2)} s)` : ''));
     const out2 = In.find((s) => people.some((k) => s[k].x < -3.62 || s[k].x > 3.62 || s[k].z < -6.08 || s[k].z > -0.3));
     ok(!out2, 'S: everyone stays inside the room' + (out2 ? ` (at ${out2.t.toFixed(2)} s)` : ''));
-    // the camera: smooth within shots (from the collection's last frame on); inside the room once through the window
+    // the camera: one continuous move from the collection's last frame, following the Marine in through the front door
+    // (no window, no glow), then inside the hall for the rest of the beat
     for (const [name, t] of [['desktop', tr], ['phone', trTall]]) {
-      let worst = 0, wAt = 0; for (let i = 1; i < t.length; i++) { if (t[i].seg !== t[i - 1].seg && t[i].cut) continue; const d = Math.hypot(...t[i].cam.map((v, k) => v - t[i - 1].cam[k])); if (d > worst) { worst = d; wAt = t[i].t; } }
-      ok(worst < 0.02, `S ${name}: the camera glides, from the street through the window and round the room (largest move within a shot in 1/30 s: ${(worst / 0.2).toFixed(3)} town units at ${wAt.toFixed(2)} s)`);
-      ok(t.filter((s) => s.t > t0 + 5.2).every((s) => s.inside > 0.99), `S ${name}: once through the window the camera stays inside the hall`);
+      const c = camSmooth(t);
+      ok(c.cuts === 0 && c.step < 0.05 && c.dv < 0.006, `S ${name}: the camera glides, no cuts (${c.cuts}); largest step ${(c.step / 0.2).toFixed(3)} town units at ${c.sAt.toFixed(2)} s; largest change of velocity ${(c.dv / 0.2).toFixed(4)} at ${c.dAt.toFixed(2)} s`);
+      const R = await p.evaluate(([a, c2, tall]) => { const s2 = window.__nat.s2(), Rt = s2.town.root, out = []; Rt.updateMatrixWorld(true);
+        for (let x = a; x <= c2; x += 1 / 30) { const q = Rt.worldToLocal(s2.camera(x, { tall }).pos.clone()); out.push({ t: x, x: q.x, y: q.y, z: q.z }); } return out; }, [t0, t1, name === 'phone']);
+      const cross = R.findIndex((q, k) => k > 0 && R[k - 1].z > 0 && q.z <= 0), at = cross > 0 ? R[cross] : null;
+      ok(!!at && Math.abs(at.x) < 0.55 && at.y < 2.45 && at.t - t0 < 3.2, `S ${name}: the camera follows the Marine in through the front door` + (at ? ` (crossing at x ${at.x.toFixed(2)}, height ${at.y.toFixed(2)}, +${(at.t - t0).toFixed(2)} s)` : ' (never crosses)'));
+      ok(R.filter((q) => q.t > t0 + 3.2).every((q) => q.z < -0.2 && q.x > -3.8 && q.x < 3.8 && q.z > -6.3), `S ${name}: from then on the camera stays inside the hall`);
     }
-    const glow = tr.map((s) => s.flash || 0), peak = Math.max(...glow), peakAt = tr[glow.indexOf(peak)].t - t0;
-    ok(peak > 0.8 && peakAt > 2.8 && peakAt < 4.8 && tr.filter((s) => s.t - t0 < 1.5 || s.t - t0 > 5.6).every((s) => !(s.flash > 0.01)), `S: a warm glow as the lens passes through the glass (peak ${peak.toFixed(2)} at +${peakAt.toFixed(2)} s), and only then`);
+    ok(tr.every((s) => !(s.flash > 0.001)), 'S: no window glow (the camera walks in through the door)');
     ok(errors.length === 0, 'S: no page errors ' + errors.join(' | '));
     await ctx.close();
   }

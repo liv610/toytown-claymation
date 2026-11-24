@@ -194,16 +194,6 @@
    ],
    "note": "looking back at the front wall: windows, door, coats"
   },
-  "sort-window-out": {
-   "at": "sort0+2.0",
-   "camera": "story",
-   "note": "nearing the hall's lit window (the visitor's shot)"
-  },
-  "sort-window-in": {
-   "at": "sort0+3.6",
-   "camera": "story",
-   "note": "just through the window, inside"
-  },
   "sort-enter-story": {
    "at": "s_setDown0",
    "camera": "story",
@@ -234,15 +224,25 @@
    "camera": "story",
    "note": "the cart at the open back door: the hand-off"
   },
-  "sort-glass": {
-   "at": "sort0+3.0",
-   "camera": "story",
-   "note": "the lens at the window glass (the warm glow)"
-  },
   "sort-arrive-story": {
    "at": "sort0+4.6",
    "camera": "story",
-   "note": "inside: the Marine walks to the table"
+   "note": "inside: the Marine at the table, the host coming to meet him"
+  },
+  "sort-door-out": {
+   "at": "sort0+0.8",
+   "camera": "story",
+   "note": "following the Marine to the hall's open door (the visitor's shot)"
+  },
+  "sort-threshold": {
+   "at": "sort0+2.3",
+   "camera": "story",
+   "note": "the lens crossing the threshold, behind the Marine"
+  },
+  "sort-door-in": {
+   "at": "sort0+3.4",
+   "camera": "story",
+   "note": "just inside, rising to the left of the door"
   }
  },
  "groups": {
@@ -275,9 +275,9 @@
    "room-back"
   ],
   "sorting": [
-   "sort-window-out",
-   "sort-window-in",
-   "sort-glass",
+   "sort-door-out",
+   "sort-threshold",
+   "sort-door-in",
    "sort-enter-story",
    "sort-arrive-story",
    "sort-reveal-story",

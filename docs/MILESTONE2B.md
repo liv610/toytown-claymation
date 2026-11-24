@@ -1,5 +1,7 @@
 # Milestone 2B: inside the sorting room (first version, 23 November 2026)
 
+> On `experiment/smooth-flow` (24 November) the camera enters through the front door behind the Marine instead of the window, the yard is modelled, and there are no cuts. See `SMOOTH_FLOW.md`. This page describes the checkpoint as reviewed.
+
 Branch `experiment/milestone2b`, which grows from `experiment/milestone2a`. It is a prototype, and every action and figure in it is a placeholder.
 
 ## What the visitor sees

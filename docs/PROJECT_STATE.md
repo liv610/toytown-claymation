@@ -47,7 +47,19 @@ visitor-paced beats.
 - **2A wrap-up (20 November):** small setts, a hand-lettered carton, blinks and the child's squint, and a phone-specific donation shot. 2A is now the visual and animation benchmark.
 - **Cinematic story interface, first version (20 November):** full-bleed scene, a slim chapter rail, captions over soft veils, a red Next that comes forward when the action resolves, Pause/Resume, and its own phone layout. See `docs/CINEMATIC_INTERFACE.md`. Approved by the owner (23 November) as the working direction, together with 2A.
 
-**Current: `experiment/milestone2b` (from `experiment/milestone2a`). Milestone 2B: inside the sorting room.**
+**Current: `experiment/smooth-flow` (from `experiment/milestone2b`). Smoother flow, after the owner's 2B feedback (24 November).**
+- **The descent:**
+  - one even move, turning while high, then gliding down the middle of the street;
+  - the rail lines and trains no longer cross Toy Town.
+- **No cuts in the story:** every change of shot is a camera move that keeps clear of people.
+- **Into the hall through the door, behind the Marine:**
+  - the collection rests at the open door;
+  - Next follows him in;
+  - no window, no glow.
+- **The yard behind the back door is modelled,** not painted.
+- See `docs/SMOOTH_FLOW.md`.
+
+**Previous: `experiment/milestone2b` (from `experiment/milestone2a`). Milestone 2B: inside the sorting room.**
 - **Interface fixes (23 November):**
   - chapter names stack instead of being cut off on phones (on the narrowest, the name moves into the caption's eyebrow);
   - phone landscape gets a right-hand caption column;

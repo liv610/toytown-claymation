@@ -326,6 +326,11 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
     m.userData.y0 = m.position.y; group.add(m); clouds.push(m);
   }
 
+  // Toy Town sits where the lines meet: a train is map-sized (a car is as long as the whole town), so near the hub it
+  // slips away into the town, like a train into a tunnel, instead of driving over the houses
+  const smooth01 = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
+  let hub = null, lineK = 1; const _l = new THREE.Vector3();
+  const setHub = (world) => { hub = group.worldToLocal(world.clone()); };
   function update(dt, t) {
     for (const tr of trains) {
       const period = (tr.ln.L / tr.speed) * 2, u = ((t / period + tr.phase) % 1) * 2, fwd = u < 1, s = (fwd ? u : 2 - u) * tr.ln.L;
@@ -333,6 +338,8 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
         const si = Math.min(tr.ln.L - 0.01, Math.max(0.01, s + (fwd ? -i : i) * 2.6)), k = si / tr.ln.L;
         p.position.copy(tr.ln.curve.getPointAt(k));
         const tg = tr.ln.curve.getTangentAt(k); p.rotation.set(0, Math.atan2(-tg.z, tg.x) + (fwd ? 0 : Math.PI), 0);
+        const near = hub ? smooth01((_l.copy(p.position).setY(hub.y).distanceTo(hub) - 4) / 7) : 1, sc = Math.max(0.001, near * Math.sqrt(lineK));
+        p.scale.setScalar(sc); p.visible = sc > 0.01;
       });
     }
     clouds.forEach((c, i) => { c.position.y = c.userData.y0 + 1.2 * Math.sin(t * 0.25 + i); });   // a gentle bob, they stay at the edges
@@ -340,9 +347,9 @@ export function buildFeltRelief(scene, geo, { tier = 'high' } = {}) {
   // the symbolic lines (and the clouds) belong to the map view: they fade away as the camera comes down into a town
   function setLineFade(k) {
     for (const ln of Object.values(lines)) { ln.mesh.material.opacity = k; ln.mesh.visible = k > 0.02; ln.mesh.castShadow = k > 0.9; ln.stitch.material.opacity = k; ln.stitch.visible = k > 0.02; }
-    for (const tr of trains) tr.g.visible = k > 0.02;
+    lineK = k; for (const tr of trains) tr.g.visible = k > 0.02;
     cloudMat.opacity = Math.min(0.95, k * 0.95); for (const c of clouds) c.visible = k > 0.02;
   }
   const landmarks = buildLandmarks(group, geo, surfaceY, { tier });
-  return { group, land, surfaceY, lines, trains, update, setLineFade, houses: imH, firs: imB, landmarks };
+  return { group, land, surfaceY, lines, trains, update, setLineFade, setHub, houses: imH, firs: imB, landmarks };
 }

@@ -75,6 +75,7 @@ const scene2 = ONE_TOWN ? await createDonation(town, { assets: ASSETS, b64: wind
 if (scene2) ch1.group.visible = false;
 const ttSite = geo.sites.toytown, [tx, tz] = toWorld(...ttSite.a);
 const toyTownWorld = V(tx, geo.siteBase(ttSite) + 0.25, tz);
+if (relief.setHub) { relief.group.updateMatrixWorld(true); relief.setHub(toyTownWorld); }   // the trains slip away before they reach Toy Town
 // Toy Town's place on the map: a little glowing hub where the lines meet (the real Toy Town is its own experience)
 const hubGlow = new THREE.PointLight(0xffc070, 0, 40, 2); hubGlow.position.copy(toyTownWorld).add(V(0, 6, 0)); scene.add(hubGlow);
 const star = FELT ? (() => {   // a stuffed gold felt star, glowing, where the routes meet
@@ -139,6 +140,38 @@ function makeFlight(from, to, dur, onDone, { azBy = 1 } = {}) {   // azBy < 1: t
       el: lerp(from.el, to.el, to.el < from.el ? eTilt : e),
     };
   } };
+}
+// The long flights into and out of Toy Town: one even move. Zoom and pan follow van Wijk & Nuij's optimal path (the
+// apparent speed stays constant: no rush in the middle, no long creep at the end), on a gentle ease in and out. The turn
+// happens while the camera is still high and the tilt towards the street in the last part, both tied to altitude, so the
+// view never swings while it is low.
+let AZ_IN = 0.22;
+function makeTownFlight(from, to, dur, onDone) {
+  const rho = 1.3, w0 = from.dist, w1 = to.dist, d = to.target.clone().sub(from.target), u1 = d.length();
+  let SP, wAt, kAt;
+  if (u1 < 1e-4 * Math.min(w0, w1)) { const sg = Math.sign(Math.log(w1 / w0)); SP = Math.abs(Math.log(w1 / w0)) / rho; wAt = (s) => w0 * Math.exp(sg * rho * s); kAt = () => 1; }
+  else {
+    const b = (i) => ((w1 * w1 - w0 * w0 + (i ? -1 : 1) * rho ** 4 * u1 * u1) / (2 * (i ? w1 : w0) * rho * rho * u1));
+    const r = (i) => Math.log(-b(i) + Math.sqrt(b(i) * b(i) + 1)), r0 = r(0), r1 = r(1);
+    SP = (r1 - r0) / rho;
+    wAt = (s) => w0 * Math.cosh(r0) / Math.cosh(rho * s + r0);
+    kAt = (s) => clamp((w0 / (rho * rho)) * (Math.cosh(r0) * Math.tanh(rho * s + r0) - Math.sinh(r0)) / u1);
+  }
+  const az0 = from.az, dAz = ((to.az - from.az + Math.PI * 3) % (Math.PI * 2)) - Math.PI, LZ = Math.log(w1 / w0);
+  const far = w0 > w1 ? to : from, bx = Math.sin(far.az), bz = Math.cos(far.az);   // the street shot's axis (the low end)
+  return { t: 0, dur: REDUCED ? 0.0001 : dur, onDone, at(u) {
+    if (u >= 1) return { target: to.target.clone(), dist: w1, az: to.az, el: to.el };
+    const s = SP * smooth(u), w = wAt(s), z = clamp(Math.log(w / w0) / LZ);   // z: 0 high above the map, 1 at the street
+    // (the last stretch comes down the middle of the street, clear of its lamps, and settles onto the shot's heading)
+    const az = az0 + dAz * smooth((z - 0.1) / 0.45) + (w0 > w1 ? AZ_IN : 0) * smooth((z - 0.3) / 0.25) * (1 - smooth((z - 0.78) / 0.22));
+    let el = lerp(from.el, to.el, smooth((z - 0.7) / 0.3));
+    // over the town, the camera may only come down low inside the street's corridor (in line with the street shot, where
+    // nothing stands); anywhere else it keeps above the roofs. The turn is done while it is high, so this rarely acts.
+    const hx = w * Math.cos(el) * Math.sin(az), hz = w * Math.cos(el) * Math.cos(az), lat = Math.abs(hx * bz - hz * bx);
+    const need = ROOF * smooth((lat - 0.5 * ROOF / 2.4) / (0.5 * ROOF / 2.4));
+    if (w * Math.sin(el) < need) el = Math.asin(Math.min(1, need / w));
+    return { target: from.target.clone().addScaledVector(d, kAt(s)), dist: w, az, el };
+  }, corridor: true };
 }
 function snapshot() { return { target: rig.target.clone(), dist: rig.dist, az: rig.az, el: rig.el }; }
 const campaignFlight = () => mode === 'flying' && flight && flight.campaign;   // a short move to a selected campaign
@@ -252,7 +285,7 @@ function atmosphere(t) {
   if (gtao) gtao.updateGtaoMaterial({ radius: rig.dist * 0.02, thickness: rig.dist * 0.01 });
   const px = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
   town.root.visible = rig.dist < 220;
-  relief.setLineFade(smooth((Math.log(rig.dist) - Math.log(14)) / (Math.log(60) - Math.log(14))));
+  relief.setLineFade(smooth((Math.log(rig.dist) - Math.log(55)) / (Math.log(170) - Math.log(55))));   // gone before the town is big enough for a line to cross it
   town.setDusk(smooth((dusk - 0.35) / 0.65), t, px);
   hubGlow.intensity = lerp(0, FELT ? 160 : 900, k); star.rotation.y = t * 0.6;
   if (ONE_TOWN) { const sk = smooth((Math.log(rig.dist) - Math.log(30)) / (Math.log(110) - Math.log(30))); star.scale.setScalar(Math.max(0.001, sk)); star.visible = sk > 0.01; }
@@ -331,13 +364,14 @@ function crossfade(apply) {
 // the rise out of Toy Town = the descent played backwards (the descent's own path, which reads well both ways; a direct
 // move from the street to the country skims low over the snow and the felt)
 function makeRise(from, dur, onDone) {
-  const down = makeFlight(nationalPose(), from, dur, onDone, { azBy: 0.7 });
+  const down = makeTownFlight(nationalPose(), from, dur, onDone);
   return { t: 0, dur: down.dur, onDone, at: (u) => down.at(1 - u) };
 }
 // on the way down (and back up) the camera stays above the roofs until it is over the street itself: a tall phone
 // screen's path otherwise dips through the snow banks and houses at the town's edge (spike finding, phone frames)
 const ROOF = 2.4 * S / 0.2, STREET_R = 2.6 * S / 0.2;   // map units: roof height, the street's half-width round the shot
 function clearRoofs(f) {
+  if (f.corridor) return f;                                   // the Toy Town flights keep clear of the roofs themselves
   const at = f.at;
   // the minimum height eases from roof height (outside the street) to nothing over the shot itself
   f.at = (u) => { const r = at(u), horiz = r.dist * Math.cos(r.el), need = ROOF * smooth((horiz - STREET_R * 0.5) / (STREET_R * 0.5)); if (r.dist * Math.sin(r.el) < need) r.el = Math.asin(Math.min(1, need / r.dist)); return r; };
@@ -347,7 +381,7 @@ function travel(to, dur, done, say = '') {
   const go = () => {
     mode = 'flying';
     const end = () => { skipBtn.hidden = true; document.body.classList.remove('flying'); done(); };
-    flight = to === 'country' ? makeRise(snapshot(), dur, end) : makeFlight(snapshot(), to, dur, end, dur > 2 ? { azBy: 0.7 } : {});
+    flight = to === 'country' ? makeRise(snapshot(), dur, end) : (dur > 2 ? makeTownFlight(snapshot(), to, dur, end) : makeFlight(snapshot(), to, dur, end));
     if (dur > 2) clearRoofs(flight);                                 // the long flights only; moves within the street keep their shots
     flight.travel = true;
     const long = !REDUCED && dur > 2; skipBtn.hidden = !long; document.body.classList.toggle('flying', long);
@@ -512,10 +546,18 @@ window.__nat = {
   // along the finale's rise (rise=true: from the 'box' shot back to the national view)
   travelFrame(u, rise = false) {
     renderer.setAnimationLoop(null);
-    const f = clearRoofs(rise ? makeRise(shotPose(SHOTS.box), 1, () => {}) : makeFlight(nationalPose(), shotPose(SHOTS.arrival), 1, () => {}, { azBy: 0.7 })); held = rise ? SHOTS.box : SHOTS.arrival; ch1.evaluate(held, 20);
+    const f = clearRoofs(rise ? makeRise(shotPose(SHOTS.box), 1, () => {}) : makeTownFlight(nationalPose(), shotPose(SHOTS.arrival), 1, () => {})); held = rise ? SHOTS.box : SHOTS.arrival; ch1.evaluate(held, 20);
     Object.assign(rig, f.at(u)); mode = u >= 1 && !rise ? 'shot' : 'flying'; ui(rise ? 'flying-up' : 'flying-down');
     applyRig(); atmosphere(20); relief.update(0, 12); placePins(); composer.render(0.016);
     return renderer.domElement.toDataURL('image/jpeg', 0.9);
+  },
+  // the descent's camera sampled at n+1 even steps (no rendering): world position, look-at point and the rig, to check
+  // that the apparent speed stays even and the view never swings
+  azIn(v) { AZ_IN = v; },
+  travelPath(n = 150) {
+    const f = clearRoofs(makeTownFlight(nationalPose(), shotPose(SHOTS.arrival), 1, () => {})), out = [];
+    for (let i = 0; i <= n; i++) { Object.assign(rig, f.at(i / n)); applyRig(); out.push({ pos: camera.position.toArray(), look: rig.target.toArray(), dist: rig.dist, az: rig.az, el: rig.el, fov: camera.fov }); }
+    return out;
   },
   // Milestone 2A: one frame of the animated scene at story time t (the town's own life at wall clock w)
   sceneFrame(t, w = 20 + t) {
@@ -550,6 +592,7 @@ window.__nat = {
   sceneEnd: () => scene2.beats.sorting[1],
   sceneTimes: () => JSON.parse(JSON.stringify(scene2.times)),
   sceneDebug: (t) => { scene2.evaluate(t, 20 + t); return scene2.debugBones(); },
+  sceneHeads: (t) => { scene2.evaluate(t, 20 + t); return scene2.heads(); },
   scene: () => scene2 && { t: seq.t, playing: seq.playing, ff: seq.ff, from: seq.from, to: seq.to, chimneys: scene2.chimneys, chimneyAt: scene2.chimneyAt },
   pose(p) { renderer.setAnimationLoop(null); Object.assign(rig, p); applyRig(); atmosphere(3); relief.update(0, 12); composer.render(0.016); return renderer.domElement.toDataURL('image/jpeg', 0.9); },
   // Chapter 1 at story time t (given: whether the toy has been given yet)

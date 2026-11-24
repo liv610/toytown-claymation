@@ -25,6 +25,7 @@ import { createSorting, HALL } from './scene_sorting.js';
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 const smooth = (x) => { x = clamp(x); return x * x * (3 - 2 * x); };
+const smoother = (x) => { x = clamp(x); return x * x * x * (x * (x * 6 - 15) + 10); };
 const ramp = (t, a, b) => smooth((t - a) / (b - a));
 const lerp = (a, b, k) => a + (b - a) * k;
 const angLerp = (a, b, k) => { const d = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI; return a + d * k; };
@@ -661,11 +662,13 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     T.v0 = arr - 0.3; T.door0 = T.grip - 0.2; T.door1 = T.door0 + 1.5;
     // inside once the Marine has walked past the doorway (path length to z < -0.45)
     let sIn = LMI; for (let i = 0; i <= 200; i++) { if (M_IN.getPointAt(i / 200).z < -0.45) { sIn = LMI * i / 200; break; } }
-    T.inside = T.go0 + sIn / vMI + 0.6; T.shut0 = T.inside + 0.15; T.shut1 = T.shut0 + 1.15; T.end = T.shut1 + 1.1;
+    T.inside = T.go0 + sIn / vMI + 0.6; T.end = T.inside + 1.3; T.shut0 = 1e6; T.shut1 = 1e6;   // (the shut is set once the sorting beat is timed)
     BEATS.collection[1] = +T.end.toFixed(2); }
   const YAW_BOX = Math.PI;                                         // facing the box (towards the hall)
   const sorting = createSorting({ V, clamp, smooth, ramp, lerp, angLerp, yawOf, curve, travel, root, group, S, makeChar, gp, gv, roomMat, slab, contact, setContact,
     pose, walker, walkW, bend, lookAt, reach, turnBone, axes, elbowPole, W, L, marine, carton, truck, T, BEATS, groundMeshes, punch });
+  // the volunteer outside shuts the hall door once the camera has followed the Marine in (seen from inside, if at all)
+  T.shut0 = sorting.s0 + 4.6; T.shut1 = T.shut0 + 1.15;
 
   // ---------------------------------------------------------------- one moment of the scene
   const state = {};
@@ -802,10 +805,8 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     else if (tc < T.reach0) lookAt(marine, tc < T.mWalk0 + 0.6 ? W(V(BOX.x, 0.8, BOX.z)) : W(V(BOX.x, 0.5, BOX.z)), ramp(tc, T.m0, T.m0 + 0.5));
     else if (tc < T.go0) lookAt(marine, tc < T.in0 ? lip() : carton.localToWorld(V(0, 0.3, 0)), 0.9);
     else lookAt(marine, W(V(0, 1.3, 0)), 0.6);
-    // inside, they stay in view in the lit room until the door is shut on them
-    marine.obj.visible = !(tc > T.shut1 && L(marine.obj.getWorldPosition(V())).z < 0);
-    carton.visible = !(tc > T.shut1 && L(carton.getWorldPosition(V())).z < 0);
-    truck.visible = carton.visible || tc < T.go0;
+    // inside, they stay in view: the room is real now, and the camera follows them in
+    marine.obj.visible = true; carton.visible = true; truck.visible = true;
 
     // ---- the door, the doorway, the light
     doorPivot.rotation.y = -th;
@@ -890,30 +891,52 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
   // (the camera glides: it follows the smooth path, not the puppets' steps on twos)
   const childAt = (t) => { const tc = t; return t < T.aside0 ? C_PATH.getPointAt(clamp(travel(tc, T.walk0, LC, vC).s / LC)) : A_C.getPointAt(clamp(travel(tc, T.aside0, LAC, 0.75).s / LAC)); };
   const marineAt = (t) => { const tc = t; if (t < T.mWalk0) return M_START.clone(); if (t < T.go0) return M_PATH.getPointAt(clamp(travel(tc, T.mWalk0, LM, vM).s / LM)); return M_IN.getPointAt(clamp(travel(tc, T.go0, LMI, vMI).s / LMI)); };
+  // a camera move through timed key positions (cubic Hermite in time: it starts and ends at rest, no corners)
+  const keyPath = (keys) => (t) => {
+    if (t <= keys[0][0]) return keys[0][1].clone(); const n = keys.length - 1; if (t >= keys[n][0]) return keys[n][1].clone();
+    let i = 0; while (t > keys[i + 1][0]) i++;
+    const [t0, p0] = keys[i], [t1, p1] = keys[i + 1], h = t1 - t0, u = (t - t0) / h;
+    const tan = (j) => (j === 0 || j === n ? V() : keys[j + 1][1].clone().sub(keys[j - 1][1]).multiplyScalar(1 / (keys[j + 1][0] - keys[j - 1][0])));
+    const m0 = tan(i).multiplyScalar(h), m1 = tan(i + 1).multiplyScalar(h), u2 = u * u, u3 = u2 * u;
+    return p0.clone().multiplyScalar(2 * u3 - 3 * u2 + 1).add(m0.multiplyScalar(u3 - 2 * u2 + u)).add(p1.clone().multiplyScalar(-2 * u3 + 3 * u2)).add(m1.multiplyScalar(u3 - u2));
+  };
+  const childLook = (t) => { const c = childAt(t); return V(lerp(c.x, BOX.x, 0.25), 0.66, lerp(c.z, BOX.z, 0.25)); };
+  const D_LOOK = V(2.6, 0.99, 1.95), E_LOOK = V(0, 1.25, -1.5), E_POS = V(0.2, 1.5, 1.55);   // (E_*: kept equal to scene_sorting's P_E / L_E)
+  // following the child down the street, a few steps behind; round behind the family once they reach the box, to the
+  // hall side of it for the donation itself (no cut)
+  //   // (measured: an adult's head tops out near 2.0, a child's near 1.4. The camera keeps out in the street until the parent
+  // has passed, comes in behind the family, and down on the hall side of the box once they are at it)
+  const DONATE_IN = keyPath([[3.2, V(6.3, 1.32, 6.4)], [5.1, V(4.2, 1.8, 4.9)], [6.6, V(2.0, 2.5, 4.5)], [7.4, V(0.9, 2.4, 3.4)], [8.6, V(1.12, 1.14, 1.38)]]);
+  const DONATE_IN_T = keyPath([[3.2, V(7.09, 2.12, 6.81)], [5.1, V(4.6, 2.2, 5.1)], [6.6, V(2.2, 2.8, 4.6)], [7.4, V(1.2, 2.7, 3.4)], [8.6, V(1.72, 1.84, 1.16)]]);
   const SEG = {
     wide: [
       { t0: 0, t1: 3.2, pos: (t) => mix3(V(7.6, 1.6, 7.8), V(6.3, 1.32, 6.4), ease(t, 0, 3.2)), look: (t) => mix3(V(-1.4, 1.0, 2.0), V(-1.6, 0.85, 2.3), ease(t, 0, 3.2)) },
-      { t0: 3.2, t1: 7.2, pos: (t) => mix3(V(6.3, 1.32, 6.4), V(5.0, 1.2, 5.05), ease(t, 3.2, 7.2)), look: (t) => { const c = childAt(t); return V(lerp(c.x, BOX.x, 0.25), 0.66, lerp(c.z, BOX.z, 0.25)); } },
+      { t0: 3.2, t1: 8.6, pos: DONATE_IN, look: (t) => mix3(childLook(t), D_LOOK, ease(t, 6.4, 8.6)) },
       // the donation, from beside the box on the hall's side: the truck held up over the slot, the child's face as it goes
       // in, the parent watching in full, the warm street behind (it was low behind the box: the box filled half the frame,
       // the parent was cut in half and the sign's post stood in the corner)
-      { t0: 7.2, t1: 10.7, cut: true, pos: (t) => mix3(V(1.1, 1.14, 1.36), V(1.28, 1.05, 1.55), ease(t, 7.2, 10.7)), look: (t) => mix3(V(2.6, 0.99, 1.95), V(2.72, 0.9, 2.06), ease(t, 7.2, 10.7)) },
-      { t0: 10.7, t1: 13.6, cut: true, pos: (t) => mix3(V(0.95, 1.5, 4.7), V(0.8, 1.55, 4.95), ease(t, 10.7, 13.6)), look: (t) => mix3(V(3.0, 0.82, 1.8), V(2.85, 0.88, 1.85), ease(t, 10.7, 13.6)) },
+      { t0: 8.6, t1: 10.7, pos: (t) => mix3(V(1.12, 1.14, 1.38), V(1.28, 1.05, 1.55), ease(t, 8.6, 10.7)), look: (t) => mix3(D_LOOK, V(2.72, 0.9, 2.06), ease(t, 8.6, 10.7)) },
+      // after the drop: the camera draws back out into the street (a glide, not a cut)
+      { t0: 10.7, t1: 13.6, glide: 1.8, via: V(1.25, 2.2, 3.0), pos: (t) => mix3(V(0.95, 1.5, 4.7), V(0.8, 1.55, 4.95), ease(t, 10.7, 13.6)), look: (t) => mix3(V(3.0, 0.82, 1.8), V(2.85, 0.88, 1.85), ease(t, 10.7, 13.6)) },
       { t0: 13.6, t1: T.reach0, pos: (t) => mix3(V(0.8, 1.55, 4.95), V(0.9, 1.35, 3.55), ease(t, 13.6, T.reach0)), look: (t) => { const m = marineAt(t); return mix3(V(2.85, 0.88, 1.85), V(lerp(m.x, BOX.x, 0.35), 0.95, lerp(m.z, BOX.z, 0.35)), ease(t, 13.6, 15.6)); } },
       // the collection: from the Marine's left and a little in front, high enough to see into the box: his hands, the lid,
       // the carton coming up, and the family watching beyond him (it was close behind his back, and cramped)
       { t0: T.reach0, t1: T.go0, pos: (t) => mix3(V(0.45, 1.5, 3.0), V(0.62, 1.42, 2.8), ease(t, T.reach0, T.go0)), look: (t) => mix3(V(2.35, 0.72, 1.55), V(2.4, 0.86, 1.65), ease(t, T.in0, T.go0)) },
-      { t0: T.go0, t1: T.inside, cut: true, pos: (t) => t < T.go0 + 1.8 ? mix3(V(2.05, 1.6, 4.1), V(1.7, 1.55, 3.85), ease(t, T.go0, T.go0 + 1.8)) : mix3(V(1.7, 1.55, 3.85), V(1.5, 1.45, 3.05), ease(t, T.go0 + 1.8, T.inside)), look: (t) => { const m = marineAt(t); const k = ease(t, T.go0, T.inside); return V(lerp(m.x, 0, 0.3 + 0.5 * k), lerp(1.0, 1.15, k), lerp(m.z, 0.1, 0.3 + 0.5 * k)); } },
-      { t0: T.inside, t1: T.end + 0.2, pos: (t) => mix3(V(1.5, 1.45, 3.05), V(1.3, 1.48, 2.7), ease(t, T.inside, T.end)), look: (t) => mix3(V(0.05, 1.18, 0.15), V(0.0, 1.3, 0.05), ease(t, T.inside, T.end)) },
+      // he turns with the carton and carries it to the hall: the camera turns with him and draws in behind him, and the
+      // beat rests at the open door, looking past him into the warm room (the sorting beat follows him in)
+      { t0: T.go0, t1: T.end + 0.2, pos: (t) => mix3(V(0.62, 1.42, 2.8), E_POS, ease(t, T.go0, T.inside + 0.9)),
+        look: (t) => { const m = marineAt(t); const a = mix3(V(2.4, 0.86, 1.65), V(m.x, 1.05, m.z), ease(t, T.go0, T.go0 + 0.9)); return mix3(a, E_LOOK, ease(t, T.go0 + 1.0, T.inside + 0.9)); } },
     ],
   };
   // tall screens: wider, a little higher; the subject centred and the action kept in the middle third
   // the donation on phones has its own shot: from above the volunteer's head on the hall side, looking down past the slot,
   // so the truck, the child's face and the parent stack in the narrow frame (pulled back, the volunteer's wave crossed it)
-  const TALL_DONATION = { pos: (t) => mix3(V(1.72, 1.84, 1.16), V(1.8, 1.76, 1.26), ease(t, 7.2, 10.7)), look: (t) => mix3(V(2.72, 1.1, 2.02), V(2.78, 1.05, 2.08), ease(t, 7.2, 10.7)) };
-  SEG.tall = SEG.wide.map((s, i) => i === 2 ? { t0: s.t0, t1: s.t1, cut: s.cut, ...TALL_DONATION } : ({ t0: s.t0, t1: s.t1, cut: s.cut,
-    pos: (t) => { const p = s.pos(t), l = s.look(t), k = [1.1, 1.18, 1.35, 1.45, 1.4, 1.35, 1.35, 1.3][i]; return l.clone().add(p.clone().sub(l).multiplyScalar(k)).add(V(0, [0.75, 0.6, 0.6, 0.3, 0.3, 0.32, 0.28, 0.2][i], 0)); },
-    look: (t) => { const l = s.look(t).add(V(0, [0.0, 0.12, 0.02, 0.05, 0.05, 0.05, 0.08, 0.0][i], 0)); if (i === 4) { const m = marineAt(t); return l.lerp(V(m.x, 0.95, m.z), 0.4 * ease(t, 13.6, 15.2)); } return l; } }));
+  const TALL_DONATION = { pos: (t) => mix3(V(1.72, 1.84, 1.16), V(1.8, 1.76, 1.26), ease(t, 8.6, 10.7)), look: (t) => mix3(V(2.72, 1.1, 2.02), V(2.78, 1.05, 2.08), ease(t, 8.6, 10.7)) };
+  const tallOf = (s, i) => ({ t0: s.t0, t1: s.t1, glide: s.glide, via: s.via && s.via.clone().add(V(0, 0.4, 0)),
+    pos: (t) => { if (i === 1) return DONATE_IN_T(t); const p = s.pos(t), l = s.look(t), k = [1.1, 1.18, 1.35, 1.45, 1.4, 1.35, 1.3][i]; return l.clone().add(p.clone().sub(l).multiplyScalar(k)).add(V(0, [0.75, 0.6, 0.6, 0.3, 0.3, 0.32, 0.22][i], 0)); },
+    look: (t) => { const l = s.look(t).add(V(0, [0.0, 0.12, 0.02, 0.05, 0.05, 0.05, 0.04][i], 0)); if (i === 1) return l.lerp(TALL_DONATION.look(8.6), ease(t, 6.4, 8.6)); if (i === 4) { const m = marineAt(t); return l.lerp(V(m.x, 0.95, m.z), 0.4 * ease(t, 13.6, 15.2)); } return l; } });
+  // (after the donation, the high phone shot over the slot has further to come round: a longer glide)
+  SEG.tall = SEG.wide.map((s, i) => i === 2 ? { t0: s.t0, t1: s.t1, glide: s.glide, ...TALL_DONATION } : i === 3 ? { ...tallOf(s, i), glide: 2.4 } : tallOf(s, i));
   // the sorting room's shots follow on (the collection's last shot ends where they begin)
   for (const k of ['wide', 'tall']) { SEG[k][SEG[k].length - 1].t1 = sorting.s0; SEG[k].push(...sorting.shots[k]); }
   const BLEND = 0.8;
@@ -925,7 +948,13 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     }
     let pos = s.pos(t), look = s.look(t);
     const prev = segs[i - 1];
-    if (prev && !s.cut && t < s.t0 + BLEND) { const k = smooth((t - s.t0) / BLEND); pos = prev.pos(t).lerp(pos, k); look = prev.look(t).lerp(look, k); }
+    const g = s.glide || BLEND;                    // a glide: the camera comes round from the last shot (never a cut)
+    if (prev && !s.cut && t < s.t0 + g) {          // position along a line, the view turning at an even rate
+      const k = smoother((t - s.t0) / g), p0 = prev.pos(t), l0 = prev.look(t), d0 = l0.clone().sub(p0), d1 = look.clone().sub(pos);
+      const n0 = d0.length(), n1 = d1.length(), q = new THREE.Quaternion().setFromUnitVectors(d0.clone().normalize(), d1.clone().normalize());
+      const dir = d0.clone().normalize().applyQuaternion(new THREE.Quaternion().slerp(q, k));
+      pos = s.via ? p0.multiplyScalar((1 - k) * (1 - k)).addScaledVector(s.via, 2 * k * (1 - k)).addScaledVector(pos, k * k) : p0.lerp(pos, k); look = pos.clone().addScaledVector(dir, Math.exp(lerp(Math.log(n0), Math.log(n1), k)));
+    }
     return { pos: W(pos), look: W(look), seg: i, cut: !!s.cut, flash: sorting.crossing(pos), inside: sorting.insideK(pos) };
   }
 
@@ -937,5 +966,6 @@ export async function createDonation(town, { assets = './assets/', b64 = null, t
     clipPlane, chimneys: chimneys.length, chimneyAt: chimneys.map((c) => c.toArray().map((x) => +x.toFixed(2))),
     truckWorld: () => truck.getWorldPosition(V()),
     debugBones: () => Object.fromEntries(Object.entries(marine.bones).map(([k, b]) => [k, b.quaternion.toArray().map((x) => +x.toFixed(3))])),
+    heads: () => Object.fromEntries([['child', child], ['parent', parent], ['marine', marine], ['volunteer', volunteer], ...Object.entries(sorting.cast)].map(([k, M]) => { const b = M.bones.head || M.bones.Head || Object.values(M.bones).find((x) => /head/i.test(x.name)); const p = L(b.getWorldPosition(V())); return [k, [+p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2)]]; })),
   };
 }

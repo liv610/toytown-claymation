@@ -5,7 +5,7 @@ const out = process.argv[2] || '.'; fs.mkdirSync(out, { recursive: true });
 const BASE = process.env.URL || 'http://localhost:8765/national/index.html';
 // the truck held over the box; the carton lifted out, truck on top; the truck lifted into the lamplight in the sorting room
 // (times: seconds or timeline marks ± seconds)       ONLY=sorting.jpg renders just that one
-const SHOTS = [['donation.jpg', 8.75], ['collection.jpg', 22.6], ['sorting.jpg', 's_lift1+0.45']].filter(([f]) => !process.env.ONLY || process.env.ONLY.split(',').includes(f));
+const SHOTS = [['donation.jpg', 8.75], ['collection.jpg', 22.2], ['sorting.jpg', 's_lift1+0.45']].filter(([f]) => !process.env.ONLY || process.env.ONLY.split(',').includes(f));
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const p = await b.newPage({ viewport: { width: 1600, height: 900 } }); p.setDefaultTimeout(600000);
